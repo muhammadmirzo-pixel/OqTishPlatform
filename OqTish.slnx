@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OqTish.Api/OqTish.Api.csproj" />
+    <Project Path="src/OqTish.Application/OqTish.Application.csproj" />
+    <Project Path="src/OqTish.Domain/OqTish.Domain.csproj" />
+    <Project Path="src/OqTish.Infrastructure/OqTish.Infrastructure.csproj" />
+    <Project Path="src/OqTish.Worker/OqTish.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OqTish.ArchitectureTests/OqTish.ArchitectureTests.csproj" />
+    <Project Path="tests/OqTish.IntegrationTests/OqTish.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\OqTish.Domain\OqTish.Domain.csproj" />
+  </ItemGroup>
+</Project>

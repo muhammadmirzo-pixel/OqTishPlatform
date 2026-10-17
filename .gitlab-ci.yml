@@ -1,0 +1,105 @@
+# GitLab CI for OqTish. Quality gates: build (warnings as errors), architecture + PostgreSQL
+# integration tests, migration script, frontend lint/typecheck/test/build, dependency audits,
+# secret detection, container image build.
+#
+# Integration tests use Testcontainers, which needs Docker: the runner must allow the
+# docker:dind service (privileged). Without that the `dotnet-test` job cannot run.
+
+stages: [build, test, security, package]
+
+variables:
+  DOTNET_SDK_IMAGE: mcr.microsoft.com/dotnet/sdk:10.0
+  NODE_IMAGE: node:24-alpine
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget/packages
+
+include:
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+.dotnet:
+  image: $DOTNET_SDK_IMAGE
+  cache:
+    key:
+      files: [Directory.Packages.props]
+    paths: [.nuget/packages]
+
+dotnet-build:
+  extends: .dotnet
+  stage: build
+  script:
+    - dotnet tool restore
+    - dotnet restore --locked-mode
+    - dotnet build -c Release --no-restore
+    - mkdir -p artifacts
+    - dotnet tool run dotnet-ef migrations script --idempotent
+        --project src/OqTish.Infrastructure --startup-project src/OqTish.Infrastructure
+        --output artifacts/migrations.sql
+  artifacts:
+    paths: [artifacts/migrations.sql]
+    expire_in: 30 days
+
+dotnet-test:
+  extends: .dotnet
+  stage: test
+  services:
+    - name: docker:28-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    TESTCONTAINERS_HOST_OVERRIDE: docker
+  script:
+    - dotnet restore --locked-mode
+    - dotnet test -c Release --no-restore
+
+dotnet-audit:
+  extends: .dotnet
+  stage: security
+  script:
+    - dotnet restore --locked-mode
+    - dotnet list package --vulnerable --include-transitive | tee vulnerable.txt
+    - "! grep -q 'has the following vulnerable packages' vulnerable.txt"
+
+web:
+  image: $NODE_IMAGE
+  stage: build
+  cache:
+    key:
+      files: [web/package-lock.json]
+    paths: [web/.npm]
+  before_script:
+    - cd web
+    - npm ci --cache .npm --prefer-offline --no-fund
+  script:
+    - npm run lint
+    - npm run typecheck
+    - npm test
+    - npm run build
+
+web-audit:
+  image: $NODE_IMAGE
+  stage: security
+  script:
+    - cd web
+    - npm audit --omit=dev --audit-level=high
+
+images:
+  image: docker:28
+  stage: package
+  services:
+    - name: docker:28-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - for target in api worker migrator; do
+        docker build -f deploy/docker/dotnet.Dockerfile --target "$target" -t "oqtish/$target:$CI_COMMIT_SHORT_SHA" .;
+      done
+    - docker build -f deploy/docker/web.Dockerfile -t "oqtish/web:$CI_COMMIT_SHORT_SHA" .
+  # Pushing to a registry is added with the deployment work (Phase 8) after approval.

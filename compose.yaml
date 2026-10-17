@@ -1,0 +1,104 @@
+# Production-like baseline. Local development adds compose.dev.yaml (see README).
+# All secrets come from .env (copy .env.example). Nothing here contains a real credential.
+name: oqtish
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?set in .env}
+      OQTISH_DB_OWNER_PASSWORD: ${OQTISH_DB_OWNER_PASSWORD:?set in .env}
+      OQTISH_DB_API_PASSWORD: ${OQTISH_DB_API_PASSWORD:?set in .env}
+      OQTISH_DB_WORKER_PASSWORD: ${OQTISH_DB_WORKER_PASSWORD:?set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oqtish"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/docker/dotnet.Dockerfile
+      target: migrator
+    image: oqtish/migrator:local
+    environment:
+      OQTISH_MIGRATIONS_CONNECTION: "Host=postgres;Port=5432;Database=oqtish;Username=oqtish_owner;Password=${OQTISH_DB_OWNER_PASSWORD:?set in .env}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/dotnet.Dockerfile
+      target: api
+    image: oqtish/api:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${OQTISH_ENVIRONMENT:-Production}
+      ConnectionStrings__Main: "Host=postgres;Port=5432;Database=oqtish;Username=oqtish_api;Password=${OQTISH_DB_API_PASSWORD:?set in .env}"
+      ForwardedHeaders__KnownNetworks__0: ${OQTISH_BACKEND_SUBNET:-172.30.240.0/24}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # The aspnet image has no curl; use bash's /dev/tcp for a dependency-free probe.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    networks: [backend]
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/dotnet.Dockerfile
+      target: worker
+    image: oqtish/worker:local
+    environment:
+      DOTNET_ENVIRONMENT: ${OQTISH_ENVIRONMENT:-Production}
+      ConnectionStrings__Main: "Host=postgres;Port=5432;Database=oqtish;Username=oqtish_worker;Password=${OQTISH_DB_WORKER_PASSWORD:?set in .env}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [backend]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+      target: web
+    image: oqtish/web:local
+    environment:
+      OQTISH_PUBLIC_API_BASE_URL: ${OQTISH_PUBLIC_API_BASE_URL:-/api}
+    ports:
+      - "${OQTISH_HTTP_BIND:-127.0.0.1}:${OQTISH_HTTP_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    networks: [backend]
+    restart: unless-stopped
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: ${OQTISH_BACKEND_SUBNET:-172.30.240.0/24}
+
+volumes:
+  pgdata:

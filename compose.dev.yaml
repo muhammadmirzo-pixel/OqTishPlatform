@@ -1,0 +1,13 @@
+# Local development overlay:
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+# Enables Swagger UI (Development environment) and exposes PostgreSQL on localhost only.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${OQTISH_DB_PORT:-55432}:5432"
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+  worker:
+    environment:
+      DOTNET_ENVIRONMENT: Development
