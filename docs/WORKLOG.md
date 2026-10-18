@@ -20,8 +20,8 @@ Resume automatically after any interruption without waiting for a new command.
 | BE2 | Booking: time blocks + exclusion constraint, availability, create Pending (provisional hold, idempotency, limits), confirm/reject/cancel/reschedule/complete/no-show, walk-in, time off, calendar, expiry sweeper (Worker), patient endpoints, reviews + abuse reports, concurrency tests B1–B18 | backend agent | ✅ committed 22cd1d3 (lead run 299/300 — 1 failure to investigate in TEST stage; FE needs i18n for `schedule.link_in_use`) |
 | BE3 | Finance: completions, payments/fail/refund, allocations, double-entry ledger (append-only, idempotent), commission rules + snapshots, settlements, daily/monthly reports, reconciliation job, tests F1–F15, L1–L3 | backend agent | ✅ committed a0de96c (build OK; tests written, run in TEST) |
 | BE4 | Notifications: outbox dispatcher (retries/backoff/idempotent), Telegram client (Fake + real HTTP), bot polling/webhook, `/start <token>` linking, Mini App button, message templates uz/ru/en (no PII rules), SMS fallback, reminders 24h/2h, retention job, admin notification endpoints, tests N1–N5 | backend agent | ✅ committed 8396d76 (build OK) |
-| FE-INT-2 | Reconcile web/ with booking, finance, notifications/Telegram shapes | frontend agent (sonnet) | 🔄 running |
-| TEST | **Run all test suites once** (dotnet test + web tests), investigate/fix every failure (incl. the BE2 one) | lead + agents | ⏳ after all coding |
+| FE-INT-2 | Reconcile web/ with booking, finance, notifications/Telegram shapes | frontend agent (sonnet) | ✅ a8e1536 (93/93) |
+| TEST | **Run all test suites once** (dotnet test + web tests), investigate/fix every failure (incl. the BE2 one) | lead | ✅ backend 426/428 first run → 2 fixed (template, test race); BE2 flake did not recur |
 | INT | Merge, regenerate migrations if needed, full build/tests, FE↔API contract reconciliation, docker images, compose up (bundled + host DB modes), end-to-end smoke | lead (+ agent) | ⏳ |
 | REV | ONE combined review (authz/tenant isolation, concurrency, finance, release) | 1 review agent | ⏳ |
 | FIX | Fix all confirmed findings, re-run everything | agents + lead | ⏳ |
@@ -70,3 +70,4 @@ Resume automatically after any interruption without waiting for a new command.
 - 2026-10-18 ~22:50: BE3 finished (build 0 warnings), committed a0de96c. BE4 (notifications + Telegram bot) launched.
 - 2026-10-18 ~23:00: owner: token use too high. Heartbeat cron deleted; sonnet for mechanical agents; 1 combined review; translate only key docs. See memory token-economy.
 - 2026-10-18 ~23:40: BE4 committed 8396d76. FE-INT-2 launched (sonnet).
+- 2026-10-18 ~23:35: TEST stage: 428 backend tests, 426 passed on first run; 2 fixed by lead and re-verified. Frontend 93/93.
