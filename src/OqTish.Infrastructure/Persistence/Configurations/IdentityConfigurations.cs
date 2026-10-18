@@ -15,6 +15,9 @@ internal static class Schemas
     public const string Notify = "notify";
     public const string Audit = "audit";
     public const string Common = "common";
+    public const string Booking = "booking";
+    public const string Reviews = "reviews";
+    public const string Reports = "reports";
 }
 
 internal sealed class UserConfiguration : IEntityTypeConfiguration<User>

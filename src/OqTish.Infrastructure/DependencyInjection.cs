@@ -13,6 +13,7 @@ using OqTish.Application.Common.Security;
 using OqTish.Application.Identity;
 using OqTish.Application.Identity.Sms;
 using OqTish.Application.Identity.Telegram;
+using OqTish.Infrastructure.Booking;
 using OqTish.Infrastructure.Common;
 using OqTish.Infrastructure.Persistence;
 using OqTish.Infrastructure.Security;
@@ -56,6 +57,7 @@ public static class DependencyInjection
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<OqTish.Application.Staff.StaffOptions>(configuration.GetSection(OqTish.Application.Staff.StaffOptions.SectionName));
         services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
+        services.Configure<OqTish.Application.Booking.BookingOptions>(configuration.GetSection(OqTish.Application.Booking.BookingOptions.SectionName));
 
         // Common ports
         services.AddSingleton<IDbErrorClassifier, DbErrorClassifier>();
@@ -64,6 +66,8 @@ public static class DependencyInjection
         services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<IOutbox, Outbox>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
+        services.AddScoped<IDbClock, DbClock>();
+        services.AddScoped<OqTish.Application.Booking.IBookingStore, BookingStore>();
         services.TryAddScoped<SystemRequestContext>();
         services.TryAddScoped<IRequestContext>(sp => sp.GetRequiredService<SystemRequestContext>());
         services.TryAddScoped<ICurrentUser>(sp => sp.GetRequiredService<SystemRequestContext>());

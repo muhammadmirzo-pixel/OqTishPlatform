@@ -39,11 +39,13 @@ public class PublicCatalogTests(PostgresFixture postgres)
         Assert.Equal(3, all.TotalCount);
         Assert.DoesNotContain(all.Items, c => c.Name == DemoData.Clinics[3].Name);
         var tabassum = all.Items.Single(c => c.Name == Tabassum);
-        Assert.Equal((2, null as decimal?, 0), (tabassum.BranchCount, tabassum.Rating, tabassum.ReviewCount));
+        // BE2 demo seed: one published 5-star review for the first clinic.
+        Assert.Equal((2, 5.00m as decimal?, 1), (tabassum.BranchCount, tabassum.Rating, tabassum.ReviewCount));
         Assert.Equal(["Chilonzor"], tabassum.Districts);
         Assert.Equal("50000.00", tabassum.MinPrice!.Value.ToAmountString());
-        Assert.Null(tabassum.NextFreeSlot);
+        Assert.NotNull(tabassum.NextFreeSlot); // demo doctors work Mon–Fri, so a slot exists within 7 days
         Assert.Null(tabassum.DistanceKm);
+        Assert.Equal(3, (await client.GetOkAsync<Page<ClinicCardDto>>("/api/public/clinics?availableWithinDays=7")).TotalCount);
 
         Assert.Equal([Marvarid], await NamesAsync(client, "?q=marvarid"));
         Assert.Equal([Marvarid], await NamesAsync(client, "?q=BREKET"));

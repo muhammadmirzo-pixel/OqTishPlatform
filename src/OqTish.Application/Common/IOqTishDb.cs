@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using OqTish.Domain.Audit;
+using OqTish.Domain.Booking;
 using OqTish.Domain.Catalog;
 using OqTish.Domain.Common;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Notifications;
+using OqTish.Domain.Reviews;
 using OqTish.Domain.Scheduling;
 using OqTish.Domain.Staff;
 using OqTish.Domain.Tenancy;
@@ -64,6 +66,18 @@ public interface IOqTishDb
     DbSet<DoctorService> DoctorServices { get; }
 
     DbSet<WorkingHours> WorkingHours { get; }
+
+    DbSet<DoctorTimeBlock> DoctorTimeBlocks { get; }
+
+    // booking
+    DbSet<Appointment> Appointments { get; }
+
+    DbSet<AppointmentStatusHistory> AppointmentStatusHistory { get; }
+
+    // reviews / reports
+    DbSet<Review> Reviews { get; }
+
+    DbSet<AbuseReport> AbuseReports { get; }
 
     // notify
     DbSet<OutboxMessage> OutboxMessages { get; }

@@ -125,6 +125,236 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Booking.Appointment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<decimal?>("ChargedAmount")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("charged_amount");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("contact_name");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("contact_phone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid?>("DoctorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("doctor_id");
+
+                    b.Property<DateTimeOffset>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid?>("PatientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_user_id");
+
+                    b.Property<string>("PriceKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("price_kind");
+
+                    b.Property<decimal>("QuotedPrice")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("quoted_price");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("status_changed_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_appointments");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_appointments_clinic_id_id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_appointments_pending_expires_at")
+                        .HasFilter("status = 'Pending'");
+
+                    b.HasIndex("BranchId", "StartsAt")
+                        .HasDatabaseName("ix_appointments_branch_id_starts_at");
+
+                    b.HasIndex("DoctorId", "StartsAt")
+                        .HasDatabaseName("ix_appointments_doctor_id_starts_at");
+
+                    b.HasIndex("PatientUserId", "CreatedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_appointments_patient_user_id_created_at");
+
+                    b.HasIndex("ClinicId", "BranchId", "ServiceId")
+                        .HasDatabaseName("ix_appointments_clinic_id_branch_id_service_id");
+
+                    b.HasIndex("ClinicId", "DoctorId", "BranchId")
+                        .HasDatabaseName("ix_appointments_clinic_id_doctor_id_branch_id");
+
+                    b.HasIndex("ClinicId", "DoctorId", "ServiceId")
+                        .HasDatabaseName("ix_appointments_clinic_id_doctor_id_service_id");
+
+                    b.HasIndex("ClinicId", "Status", "StartsAt")
+                        .HasDatabaseName("ix_appointments_clinic_id_status_starts_at");
+
+                    b.ToTable("appointments", "booking", t =>
+                        {
+                            t.HasCheckConstraint("ck_appointments_charged_amount", "(charged_amount IS NULL OR charged_amount >= 0) AND ((status = 'Completed') = (charged_amount IS NOT NULL))");
+
+                            t.HasCheckConstraint("ck_appointments_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_appointments_doctor_required", "status NOT IN ('Confirmed', 'Completed', 'NoShow') OR doctor_id IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_appointments_interval", "ends_at > starts_at");
+
+                            t.HasCheckConstraint("ck_appointments_pending_deadline", "status <> 'Pending' OR expires_at IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_appointments_price_kind", "price_kind IN ('Fixed', 'From')");
+
+                            t.HasCheckConstraint("ck_appointments_quoted_price", "quoted_price >= 0");
+
+                            t.HasCheckConstraint("ck_appointments_source", "source IN ('Patient', 'WalkIn')");
+
+                            t.HasCheckConstraint("ck_appointments_source_patient", "(source = 'Patient') = (patient_user_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_appointments_status", "status IN ('Pending', 'Confirmed', 'Rejected', 'CancelledByPatient', 'CancelledByClinic', 'Expired', 'Completed', 'NoShow')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Booking.AppointmentStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActorKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_kind");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<string>("From")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("from_status");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<string>("To")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("to_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_appointment_status_history");
+
+                    b.HasIndex("AppointmentId", "OccurredAt")
+                        .HasDatabaseName("ix_appointment_status_history_appointment_id_occurred_at");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_appointment_status_history_clinic_id_appointment_id");
+
+                    b.ToTable("appointment_status_history", "booking", t =>
+                        {
+                            t.HasCheckConstraint("ck_appointment_status_history_actor_kind", "actor_kind IN ('Patient', 'Staff', 'System')");
+
+                            t.HasCheckConstraint("ck_appointment_status_history_from_status", "from_status IS NULL OR from_status IN ('Pending', 'Confirmed', 'Rejected', 'CancelledByPatient', 'CancelledByClinic', 'Expired', 'Completed', 'NoShow')");
+
+                            t.HasCheckConstraint("ck_appointment_status_history_to_status", "to_status IN ('Pending', 'Confirmed', 'Rejected', 'CancelledByPatient', 'CancelledByClinic', 'Expired', 'Completed', 'NoShow')");
+                        });
+                });
+
             modelBuilder.Entity("OqTish.Domain.Catalog.BranchService", b =>
                 {
                     b.Property<Guid>("BranchId")
@@ -792,6 +1022,172 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                     b.ToTable("telegram_link_tokens", "notify");
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Reviews.AbuseReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReporterUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reporter_user_id");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolution");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_user_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("target_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_abuse_reports");
+
+                    b.HasIndex("ClinicId")
+                        .HasDatabaseName("ix_abuse_reports_clinic_id");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_abuse_reports_status_created_at");
+
+                    b.HasIndex("ReporterUserId", "TargetType", "TargetId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_abuse_reports_open_per_reporter_target")
+                        .HasFilter("status = 'Open'");
+
+                    b.ToTable("abuse_reports", "reports", t =>
+                        {
+                            t.HasCheckConstraint("ck_abuse_reports_status", "status IN ('Open', 'Resolved')");
+
+                            t.HasCheckConstraint("ck_abuse_reports_target_type", "target_type IN ('Clinic', 'Review')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Reviews.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ModeratedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("moderated_at");
+
+                    b.Property<Guid?>("ModeratedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moderated_by_user_id");
+
+                    b.Property<string>("ModerationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("moderation_reason");
+
+                    b.Property<string>("ModerationStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("moderation_status");
+
+                    b.Property<Guid>("PatientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_user_id");
+
+                    b.Property<short>("Rating")
+                        .HasColumnType("smallint")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reviews");
+
+                    b.HasIndex("AppointmentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reviews_appointment_id");
+
+                    b.HasIndex("PatientUserId")
+                        .HasDatabaseName("ix_reviews_patient_user_id");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_reviews_clinic_id_appointment_id");
+
+                    b.HasIndex("ClinicId", "BranchId")
+                        .HasDatabaseName("ix_reviews_clinic_id_branch_id");
+
+                    b.HasIndex("ModerationStatus", "CreatedAt")
+                        .HasDatabaseName("ix_reviews_moderation_status_created_at");
+
+                    b.HasIndex("ClinicId", "ModerationStatus", "CreatedAt")
+                        .HasDatabaseName("ix_reviews_clinic_id_moderation_status_created_at");
+
+                    b.ToTable("reviews", "reviews", t =>
+                        {
+                            t.HasCheckConstraint("ck_reviews_moderation_status", "moderation_status IN ('Pending', 'Published', 'Hidden')");
+
+                            t.HasCheckConstraint("ck_reviews_rating", "rating BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("ck_reviews_text_length", "char_length(text) <= 1000");
+                        });
+                });
+
             modelBuilder.Entity("OqTish.Domain.Scheduling.Doctor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -892,6 +1288,94 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_doctor_services_clinic_id_service_id");
 
                     b.ToTable("doctor_services", "scheduling");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.DoctorTimeBlock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("doctor_id");
+
+                    b.Property<DateTimeOffset>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_doctor_time_blocks");
+
+                    b.HasIndex("AppointmentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_doctor_time_blocks_appointment_id")
+                        .HasFilter("appointment_id IS NOT NULL");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_doctor_time_blocks_clinic_id_appointment_id");
+
+                    b.HasIndex("DoctorId", "StartsAt")
+                        .HasDatabaseName("ix_doctor_time_blocks_doctor_id_starts_at")
+                        .HasFilter("is_active");
+
+                    b.HasIndex("ClinicId", "BranchId", "StartsAt")
+                        .HasDatabaseName("ix_doctor_time_blocks_clinic_id_branch_id_starts_at");
+
+                    b.HasIndex("ClinicId", "DoctorId", "BranchId")
+                        .HasDatabaseName("ix_doctor_time_blocks_clinic_id_doctor_id_branch_id");
+
+                    b.ToTable("doctor_time_blocks", "scheduling", t =>
+                        {
+                            t.HasCheckConstraint("ck_doctor_time_blocks_interval", "ends_at > starts_at");
+
+                            t.HasCheckConstraint("ck_doctor_time_blocks_kind", "kind IN ('Hold', 'Appointment', 'TimeOff')");
+
+                            t.HasCheckConstraint("ck_doctor_time_blocks_kind_refs", "(kind = 'TimeOff' AND appointment_id IS NULL AND branch_id IS NULL) OR (kind <> 'TimeOff' AND appointment_id IS NOT NULL AND branch_id IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("OqTish.Domain.Scheduling.WorkingHours", b =>
@@ -1402,6 +1886,56 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Booking.Appointment", b =>
+                {
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("PatientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_appointments_users_patient_user_id");
+
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_appointments_branches_clinic_id_branch_id");
+
+                    b.HasOne("OqTish.Domain.Catalog.BranchService", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId", "ServiceId")
+                        .HasPrincipalKey("ClinicId", "BranchId", "ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_appointments_branch_services_clinic_id_branch_id_service_id");
+
+                    b.HasOne("OqTish.Domain.Scheduling.DoctorBranch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "DoctorId", "BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_appointments_doctor_branches_clinic_id_doctor_id_branch_id");
+
+                    b.HasOne("OqTish.Domain.Scheduling.DoctorService", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId", "ServiceId")
+                        .HasPrincipalKey("ClinicId", "DoctorId", "ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_appointments_doctor_services_clinic_id_doctor_id_service_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Booking.AppointmentStatusHistory", b =>
+                {
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_appointment_status_history_appointments_clinic_id_appointme");
+                });
+
             modelBuilder.Entity("OqTish.Domain.Catalog.BranchService", b =>
                 {
                     b.HasOne("OqTish.Domain.Tenancy.Branch", null)
@@ -1520,6 +2054,49 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_telegram_link_tokens_users_user_id");
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Reviews.AbuseReport", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_abuse_reports_clinics_clinic_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_abuse_reports_users_reporter_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Reviews.Review", b =>
+                {
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("PatientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reviews_users_patient_user_id");
+
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reviews_appointments_clinic_id_appointment_id");
+
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reviews_branches_clinic_id_branch_id");
+                });
+
             modelBuilder.Entity("OqTish.Domain.Scheduling.Doctor", b =>
                 {
                     b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
@@ -1572,6 +2149,31 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_doctor_services_services_clinic_id_service_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.DoctorTimeBlock", b =>
+                {
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_doctor_time_blocks_appointments_clinic_id_appointment_id");
+
+                    b.HasOne("OqTish.Domain.Scheduling.Doctor", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_doctor_time_blocks_doctors_clinic_id_doctor_id");
+
+                    b.HasOne("OqTish.Domain.Scheduling.DoctorBranch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "DoctorId", "BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_doctor_time_blocks_doctor_branches_clinic_id_doctor_id_bran");
                 });
 
             modelBuilder.Entity("OqTish.Domain.Scheduling.WorkingHours", b =>

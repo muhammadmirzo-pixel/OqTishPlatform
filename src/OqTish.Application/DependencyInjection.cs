@@ -1,11 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OqTish.Application.Admin;
 using OqTish.Application.Audit;
+using OqTish.Application.Booking;
 using OqTish.Application.Catalog;
 using OqTish.Application.Common.Seeding;
 using OqTish.Application.Identity;
 using OqTish.Application.Identity.Handlers;
 using OqTish.Application.Public;
+using OqTish.Application.Reviews;
 using OqTish.Application.Scheduling;
 using OqTish.Application.Staff;
 using OqTish.Application.Tenancy;
@@ -33,8 +36,33 @@ public static class DependencyInjection
         services.AddScoped<DoctorHandlers>();
         services.AddScoped<WorkingHoursHandlers>();
 
+        // Booking (BE2)
+        services.AddScoped<BookingRules>();
+        services.AddScoped<BookingNotifier>();
+        services.AddScoped<BookingSweep>();
+        services.AddScoped<AvailabilityLoader>();
+        services.AddScoped<AppointmentReader>();
+        services.AddScoped<AvailabilityQuery>();
+        services.AddScoped<PublicAvailability>();
+        services.AddScoped<CreateAppointmentHandler>();
+        services.AddScoped<WalkInAppointmentHandler>();
+        services.AddScoped<StaffAppointmentHandlers>();
+        services.AddScoped<PatientAppointmentHandlers>();
+        services.AddScoped<ClinicAppointmentQueries>();
+        services.AddScoped<ExpirePendingAppointmentsHandler>();
+        services.AddScoped<TimeOffHandlers>();
+        services.TryAddScoped<IAppointmentCompletedHandler, NoOpAppointmentCompletedHandler>();
+        services.AddScoped<IClinicDashboardContributor, BookingDashboardContributor>();
+        services.AddScoped<IAdminDashboardContributor, BookingAdminDashboardContributor>();
+        services.AddScoped<IAccountDeletionContributor, BookingAccountDeletionContributor>();
+
+        // Reviews / reports (BE2)
+        services.AddScoped<ReviewHandlers>();
+        services.AddScoped<ReportHandlers>();
+
         // Public, audit, admin
         services.AddScoped<PublicCatalogQueries>();
+        services.AddScoped<TenantDataQueries>();
         services.AddScoped<AuditQueries>();
         services.AddScoped<AdminHandlers>();
         services.AddScoped<CreatePlatformAdminHandler>();
@@ -69,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<ISeedContributor, IdentitySeedContributor>();
         services.AddScoped<ISeedContributor, TenancyDemoSeedContributor>();
         services.AddScoped<ISeedContributor, CatalogSchedulingDemoSeedContributor>();
+        services.AddScoped<ISeedContributor, BookingDemoSeedContributor>();
 
         return services;
     }

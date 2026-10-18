@@ -1,10 +1,10 @@
 # Database Design
 
-Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2).
+Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2), `Booking` (§2.3).
 
 PostgreSQL 18 with the `btree_gist` and `citext` extensions. All timestamps are `timestamptz` (UTC).
 Money is `numeric(19,2)` with a `currency char(3)` (v1: UZS). Keys are UUID v7. Schemas: `identity`,
-`tenancy`, `staff`, `catalog`, `scheduling`, `booking`, `finance`, `notify`, `audit`.
+`tenancy`, `staff`, `catalog`, `scheduling`, `booking`, `reviews`, `reports`, `finance`, `notify`, `audit`, `common`.
 
 ## 1. ER diagram
 
@@ -164,6 +164,26 @@ Not created (by design): `effective_from/to` on working hours (v1 has one weekly
 reviews/abuse reports (BE2), booking/finance tables. `Down` drops the function, constraint and type
 before the tables; the latest-migration Down → Up test covers it.
 
+## 2.3 Implemented — migration `Booking` (BE2, 2026-10-18)
+
+| Table / object | Key columns / constraints |
+|---|---|
+| `scheduling.doctor_time_blocks` | id, clinic_id, branch_id (null for TimeOff), doctor_id, starts_at, ends_at, **`period tstzrange GENERATED ALWAYS AS (tstzrange(starts_at, ends_at, '[)')) STORED`**, kind (Hold/Appointment/TimeOff), appointment_id, is_active, reason(200), created_by_user_id, created_at, updated_at. **`ex_doctor_time_blocks_no_overlap` = `EXCLUDE USING gist (doctor_id WITH =, period WITH &&) WHERE (is_active)`**; `ck_doctor_time_blocks_period_valid` (non-empty, lower-inclusive, upper-exclusive); `ck_doctor_time_blocks_interval` (ends > starts); `ck_doctor_time_blocks_kind_refs` (TimeOff ⇔ no appointment and no branch). UNIQUE(appointment_id) WHERE NOT NULL (one block row per appointment; moved and re-activated, never duplicated). FKs (RESTRICT): (clinic_id, doctor_id) → doctors, (clinic_id, doctor_id, branch_id) → doctor_branches, (clinic_id, appointment_id) → appointments. Partial ix(doctor_id, starts_at) WHERE is_active |
+| `booking.appointments` | id, clinic_id, branch_id, service_id, patient_user_id (null for walk-ins) → identity.users, doctor_id (null while Pending), starts_at, ends_at, status (8 values), expires_at, quoted_price numeric(19,2) ≥ 0, currency, price_kind, charged_amount numeric(19,2) (null until Completed), contact_name(100), contact_phone(16, null after anonymisation), source (Patient/WalkIn), reason_code(32), created_by_user_id, created_at, updated_at, status_changed_at, **`xmin` concurrency token**. **UNIQUE(clinic_id, id)**. FKs (RESTRICT): (clinic_id, branch_id) → branches, (clinic_id, branch_id, service_id) → branch_services, (clinic_id, doctor_id, branch_id) → doctor_branches, (clinic_id, doctor_id, service_id) → doctor_services. CHECKs: ends > starts; doctor required for Confirmed/Completed/NoShow; Pending ⇒ expires_at; `(status = 'Completed') = (charged_amount IS NOT NULL)`, charged ≥ 0; `(source = 'Patient') = (patient_user_id IS NOT NULL)`. Indexes: (branch_id, starts_at), (patient_user_id, created_at DESC), partial (expires_at) WHERE status = 'Pending', (clinic_id, status, starts_at), (doctor_id, starts_at) |
+| `booking.appointment_status_history` | id, clinic_id, appointment_id, from_status (null for creation), to_status, actor_kind (Patient/Staff/System), actor_user_id, reason_code, occurred_at. FK (clinic_id, appointment_id) → appointments. **Append-only:** trigger `trg_appointment_status_history_append_only` (UPDATE/DELETE) and `…_no_truncate` raise 42501 for every role; `REVOKE UPDATE, DELETE, TRUNCATE … FROM oqtish_app` |
+| `reviews.reviews` | id, clinic_id, branch_id, **appointment_id UNIQUE**, patient_user_id → users, rating smallint **CHECK 1..5**, text ≤ 1000 (CHECK), moderation_status (Pending/Published/Hidden), moderation_reason(500), moderated_by_user_id, moderated_at, created_at, updated_at. FKs (clinic_id, appointment_id) → appointments, (clinic_id, branch_id) → branches. ix(clinic_id, moderation_status, created_at), ix(moderation_status, created_at) |
+| `reports.abuse_reports` | id, target_type (Clinic/Review), target_id, clinic_id → clinics, reporter_user_id → users, reason(500), status (Open/Resolved), resolution(1000), resolved_by_user_id, resolved_at, created_at. **UNIQUE(reporter_user_id, target_type, target_id) WHERE status = 'Open'** |
+
+Notes:
+- The domain keeps `starts_at`/`ends_at` (no Npgsql range type in Domain); the database derives `period` and
+  enforces the overlap rule on it. Released blocks stay as rows with `is_active = false`.
+- Database time: deadline predicates use `statement_timestamp()` (mapped as `DbTime.StatementTimestamp()` for
+  LINQ); handlers read `clock_timestamp()` after taking their locks (`IDbClock`).
+- Composite RESTRICT FKs mean a doctor's branch/service link that appointments or blocks reference cannot be
+  deleted (the handler answers 409 `schedule.link_in_use`; deactivate the doctor instead).
+- `Down` drops the triggers, the trigger function and the exclusion constraint before the tables; the latest
+  migration Down → Up test covers it.
+
 ## 3. Database roles — implemented in `deploy/postgres/init/01-create-roles.sh`
 
 | Role | Login | Rights |
@@ -174,8 +194,9 @@ before the tables; the latest-migration Down → Up test covers it.
 | `oqtish_worker` | yes | member of `oqtish_app` |
 | `oqtish_report_ro`, `oqtish_backup` | — | planned (Phase 5 / Phase 8) |
 
-`PUBLIC` has no database or `public`-schema CREATE rights. Append-only tables will revoke UPDATE/DELETE
-from `oqtish_app` in their own migrations. The init script runs only when the data volume is empty;
+`PUBLIC` has no database or `public`-schema CREATE rights. Append-only tables revoke UPDATE/DELETE
+from `oqtish_app` in their own migrations (`audit.audit_log` in CoreIdentityTenancy,
+`booking.appointment_status_history` in Booking; tested in `DatabaseRoleTests`). The init script runs only when the data volume is empty;
 changing roles on an existing database requires a migration or a reviewed SQL script.
 
 ## 4. RLS (defense in depth, Phase 8, OD-13)

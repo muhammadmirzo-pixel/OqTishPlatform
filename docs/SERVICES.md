@@ -215,11 +215,11 @@ Konfiguratsiya: `Staff:InvitationTtlDays` (default 7).
 
 | Handler | Endpoint | Kirish → chiqish |
 |---|---|---|
-| `PublicCatalogQueries.SearchAsync` | `GET /api/public/clinics` | Filtrlar: `q` (klinika yoki xizmat nomi, registrga befarq), `serviceCategory`, `serviceId`, `district`, `lat`+`lng` (Haversine, SQL funksiya `tenancy.distance_km`, km), `availableWithinDays` (qabul qilinadi, filtr **BE2 dan keyin** qo'llanadi), `sort` (`rating`/`price`/`distance`/`name`), sahifalash. Faqat `Approved` klinikalar, faol filiallar va faol xizmatlar. `minPrice`, `distanceKm` mos keluvchi filial/takliflar bo'yicha. → `Page<ClinicCard>` |
+| `PublicCatalogQueries.SearchAsync` | `GET /api/public/clinics` | Filtrlar: `q` (klinika yoki xizmat nomi, registrga befarq), `serviceCategory`, `serviceId`, `district`, `lat`+`lng` (Haversine, SQL funksiya `tenancy.distance_km`, km), `availableWithinDays` (BE2: bo'sh vaqti bor klinikalar, §3.2), `sort` (`rating`/`price`/`distance`/`name`), sahifalash. Faqat `Approved` klinikalar, faol filiallar va faol xizmatlar. `minPrice`, `distanceKm` mos keluvchi filial/takliflar bo'yicha. → `Page<ClinicCard>` |
 | `PublicCatalogQueries.DetailAsync` | `GET /api/public/clinics/{id}` | Tasdiqlanmagan / suspend → 404. → `ClinicDetail` (faol filiallar, ish soatlari, takliflar) |
 | `PublicCatalogQueries.FacetsAsync` | `GET /api/public/facets` | → tumanlar (faqat ommaviy filiallar), to'liq kategoriya katalogi, ommaviy xizmatlar (≤ 500) |
 
-Reyting: `tenancy.clinics.rating_average` / `review_count` — BE2 sharh moderatsiyasi `Clinic.SetRating(average, count, now)` orqali yangilaydi; hozircha `null` / `0`. `GeoFunctions.DistanceKm` faqat LINQ ichida (SQL'ga tarjima qilinadi), to'g'ridan-to'g'ri chaqirilmaydi.
+Reyting: `tenancy.clinics.rating_average` / `review_count` — BE2 sharh moderatsiyasi `Clinic.SetRating(average, count, now)` orqali yangilaydi (§3.10); Published sharh bo'lmasa `null` / `0`. `nextFreeSlot` — §3.2. `GeoFunctions.DistanceKm` faqat LINQ ichida (SQL'ga tarjima qilinadi), to'g'ridan-to'g'ri chaqirilmaydi.
 
 ### 2.7 Audit va platforma admini
 
@@ -285,3 +285,226 @@ Telefonlar tasdiqlangan holda yaratiladi, shuning uchun Fake SMS orqali OTP bila
 | `Staff:InvitationTtlDays` | 7 | Taklifnoma muddati |
 | `Seed:DemoStaffAccounts` | `false` | Development'da `true` — demo xodim loginlari |
 | `OQTISH_ADMIN_PASSWORD` (env, faqat CLI) | — | `create-platform-admin` paroli (sir; faylga yozilmaydi) |
+
+---
+
+## 3. Booking — qabulga yozilish, sharhlar, shikoyatlar (BE2, 2026-10-18)
+
+Bu bo'lim BE2 handlerlarini, Worker sweeper'ini, bo'sh vaqtlar algoritmini, qulflash strategiyasini va
+BE3/BE4 uchun kontraktlarni tavsiflaydi. DTO shakllari: `docs/API.md` §2.2, §3.1, §4.2, §5.3. Jadval va
+cheklovlar: `docs/DATABASE.md` §2.3. Qarorlar: `docs/DECISIONS.md` §5.2 (BE2-1 … BE2-22).
+
+### 3.1 Umumiy qoidalar
+
+- **Vaqt — faqat ma'lumotlar bazasi vaqti.** Har bir booking tranzaksiyasi qulflarni olgandan keyin
+  `IDbClock.NowAsync()` (`SELECT clock_timestamp()`) bilan "hozir"ni o'qiydi: muddat (expiry), 60 daqiqalik
+  minimal oldindan yozilish, 30 kunlik ufq, bemor bekor qilish chegarasi (boshlanishdan 2 soat oldin),
+  yakunlash/kelmadi vaqtlari, sharh muddati (30 kun). Shartli UPDATE'larda muddat `statement_timestamp()` bilan
+  solishtiriladi (`DbTime.StatementTimestamp()` LINQ'da SQL'ga tarjima qilinadi). `now()` ishlatilmaydi: u
+  tranzaksiya boshidagi vaqtda "muzlaydi" va qulf kutib qolgan kech tasdiqlashni o'tkazib yuborardi.
+- **Holatlar mashinasi** — `Domain/Booking/AppointmentStateMachine` (yagona manba):
+  Pending → Confirmed / Rejected / CancelledByPatient / Expired; Confirmed → CancelledByPatient /
+  CancelledByClinic / Confirmed (reschedule) / Completed / NoShow; qolganlari yakuniy. Har bir yozuv:
+  qatorni qulflash → holatni qayta o'qish → mashinadan so'rash → kutilgan holat bo'yicha **shartli UPDATE**
+  (`WHERE id = … AND status = …` [`AND expires_at > statement_timestamp()`]). Ikki parallel o'tishdan faqat
+  bittasi 1 qatorga ta'sir qiladi.
+- **O'qishda** muddati o'tgan Pending `Expired` sifatida ko'rsatiladi (`expiresAt` saqlanadi); `status=Pending`
+  filtri ularni chiqarib tashlaydi, `status=Expired` qo'shadi. `canCancel`, `canReview`, `hasReview` serverda
+  hisoblanadi (`AppointmentReader`).
+- Har bir yozuvchi amal: status tarixi (`booking.appointment_status_history`, faqat qo'shiladi), outbox
+  niyatlari va audit — **o'sha tranzaksiyada**. Audit `details` — faqat id'lar, kodlar, vaqtlar (telefon/ism yo'q).
+
+### 3.2 Bo'sh vaqtlar algoritmi (`AvailabilityEngine`, `AvailabilityLoader`)
+
+`GET /api/public/branches/{branchId}/availability?serviceId&date` (`AvailabilityQuery`, anon):
+
+1. Filial faol, klinika `Approved`, taklif va xizmat faol bo'lishi kerak (aks holda 404). `date` — filial
+   zonasidagi `YYYY-MM-DD`, bugundan bugun + 30 kungacha (aks holda 400).
+2. `AvailabilityLoader` o'zgarmas sondagi so'rovlar bilan yuklaydi: filial ish vaqti (opening hours),
+   faol takliflar (davomiylik), filialga bog'langan **faol** shifokorlar va ular ko'rsatadigan xizmatlar,
+   shifokorlarning shu filialdagi haftalik ish soatlari, shu kun bilan kesishadigan **faol** bloklar
+   (muddati o'tgan Pending'ning Hold bloklari hisobga olinmaydi — keyingi yozuvda ular baribir expire qilinadi).
+3. Mahalliy yarim tundan boshlab har 15 daqiqada S boshlanish vaqti tekshiriladi; [S, S + davomiylik) yarim
+   tundan o'tmasligi kerak. S taklif qilinadi, agar: S ≥ hozir (DB) + 60 daqiqa; filialda ish vaqti
+   sozlangan bo'lsa — interval shu hafta kunining ochiq oralig'i ichida; va kamida bitta mos shifokor
+   (faol, filialga bog'langan, xizmatni ko'rsatadi) uchun ish soati intervalni to'liq qoplaydi, dam olish (TimeOff)
+   kesishmaydi va hech bir faol blok (Hold/Appointment/TimeOff) kesishmaydi.
+4. Javob: `{ date, timeZone, durationMinutes, slots: [{ startsAt (UTC), localTime }] }`. Ro'yxat maslahat
+   xarakterida: yozilish hamma narsani filial qulfi ostida qayta hisoblaydi.
+
+Ommaviy qidiruv (`PublicAvailability`): `availableWithinDays = N` — bugun … bugun + N − 1 mahalliy kunlarda mos
+taklif/filial uchun kamida bitta bo'sh vaqt bo'lgan klinikalar (sahifalashdan oldin); `nextFreeSlot` — N (yoki 7)
+kun ichidagi eng erta bo'sh vaqt, sahifadagi klinikalar uchun. Hisob xotirada, klinika bo'yicha birinchi topilgan
+kunda to'xtaydi.
+
+### 3.3 Bemor handlerlari
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `CreateAppointmentHandler` | `POST /api/appointments` (+ ixtiyoriy `Idempotency-Key`, `booking` rate limit) | user | `{ branchId, serviceId, startsAt, contactName, contactPhone }` → 201 `AppointmentDto` (Pending, shifokorsiz, `expiresAt` = DB vaqti + 30 daq.). Xatolar: §3.1 API.md | Bitta tranzaksiya (§3.7): idempotency → filial qulfi → bemor advisory qulfi → 3 ta Pending chegarasi → sweep-on-write → nomzodlar → appointment INSERT → nomzodlar bo'yicha SAVEPOINT + Hold blok INSERT (23P01 → savepoint'ga qaytish, keyingi nomzod; hech biri → 409 `booking.slot_unavailable`, hammasi qaytariladi) → tarix (null → Pending, Patient) → outbox (`appointment.requested.staff`, `appointment.requested.patient`) → audit `booking.appointment.requested` → idempotency javobi |
+| `PatientAppointmentHandlers.ListAsync` | `GET /api/me/appointments?status&page&pageSize` | user (o'ziniki) | → `Page<AppointmentDto>`, yangisi birinchi | — |
+| `PatientAppointmentHandlers.GetAsync` | `GET /api/me/appointments/{id}` | user (o'ziniki; boshqaniki → 404) | → `AppointmentDto` + `history`. Shifokor faqat Pending'dan keyin ko'rinadi | — |
+| `PatientAppointmentHandlers.CancelAsync` | `POST /api/me/appointments/{id}/cancel` | user (o'ziniki) | Pending — istalgan vaqtda (muddati o'tmagan bo'lsa), Confirmed — boshlanishdan 2 soat oldingacha (422 `booking.cancel_too_late`) → 200 | filial → appointment qulfi, shartli UPDATE, blok bo'shatiladi, tarix (Patient, `PatientCancelled`), outbox `appointment.cancelled_by_patient.staff`, eslatmalar bekor, audit |
+
+Nomzodlar tartibi (`AvailabilityEngine.Candidates`): ish soati intervalni qoplaydigan va dam olishda bo'lmagan
+shifokorlar, eng kam moslashuvchani birinchi (eng kam xizmat ko'rsatadigan), keyin shu kuni eng kam band,
+keyin id. Bu ochko'z (greedy) evristika: B5 testi u yecha olmaydigan holatni hujjatlaydi; xodim tasdiqlashda
+shifokorni almashtirishi mumkin. Hech kim ishlamasa → 422 `booking.outside_hours`; ishlaydiganlar bor, lekin
+hammasi band → 409 `booking.slot_unavailable`.
+
+### 3.4 Klinika handlerlari
+
+Umumiy qoida: qabul **marshrutdagi klinika ichida** yuklanadi (boshqa klinika id'si → 404), ruxsat qabulning
+filialida tekshiriladi (a'zolik yo'q → 404, rol/filial yetmasa → 403), Doctor roli (o'z yozuvi) uchun
+o'ziga biriktirilmagan qabul → 404. FinanceManager faqat ko'radi — har bir o'tish 403.
+
+| Handler | Endpoint | Ruxsat | Mazmuni | Yon ta'sirlar |
+|---|---|---|---|---|
+| `ClinicAppointmentQueries.ListAsync` | `GET …/appointments?branchId&status&from&to&doctorId&page&pageSize` | `appointment.view` (Doctor: o'zi) | SQL'da scope filtri; `from`/`to` — UTC, yarim ochiq [from, to) `startsAt` bo'yicha | — |
+| `ClinicAppointmentQueries.GetAsync` | `GET …/appointments/{id}` | `appointment.view` | tarix bilan | — |
+| `ClinicAppointmentQueries.EligibleDoctorsAsync` | `GET …/appointments/{id}/eligible-doctors` | `appointment.triage` | faol, filialga bog'langan, xizmatni ko'rsatadi, interval bo'sh (so'rovning o'z Hold'i hisobga olinmaydi); `withinWorkingHours`, `provisional` | — |
+| `ClinicAppointmentQueries.CalendarAsync` | `GET …/calendar?branchId&date` | `appointment.view` filialda | kunlik ko'rinish: shifokorlar × bloklar (filial qabullari, Hold, dam olish, boshqa filialdagi bandlik — tafsilotsiz) | — |
+| `StaffAppointmentHandlers.ConfirmAsync` | `POST …/confirm { doctorId }` | `appointment.triage` | Pending, muddat DB vaqti bo'yicha, shifokor mos (422) va bo'sh (409) | sweep-on-write (o'zi bundan mustasno), blok shu shifokorga ko'chiriladi (`kind = Appointment`, exclusion qayta tekshiradi), shartli UPDATE (`expires_at > statement_timestamp()`), tarix, outbox `appointment.confirmed.patient` + eslatmalar, audit |
+| `StaffAppointmentHandlers.RejectAsync` | `POST …/reject { reasonCode }` | `appointment.triage` | faqat Pending | blok bo'shatiladi, `appointment.rejected.patient` |
+| `StaffAppointmentHandlers.CancelAsync` | `POST …/cancel { reasonCode }` | `appointment.cancel` | faqat Confirmed | blok bo'shatiladi, `appointment.cancelled_by_clinic.patient`, eslatmalar bekor |
+| `StaffAppointmentHandlers.RescheduleAsync` | `POST …/reschedule { startsAt, doctorId }` | `appointment.triage` | Confirmed; davomiylik saqlanadi; kelajakdagi grid vaqti | blok atomik ko'chiriladi, tarix Confirmed → Confirmed (`Rescheduled`), `appointment.rescheduled.patient`, eski eslatmalar bekor, yangilari qo'shiladi |
+| `StaffAppointmentHandlers.CompleteAsync` | `POST …/complete { chargedAmount }` | `appointment.outcome` (Doctor: o'zi) | Confirmed, boshlanish vaqtidan keyin | `charged_amount`, blok bo'shatiladi, **`IAppointmentCompletedHandler` (BE3) o'sha tranzaksiyada**, `appointment.completed.patient` |
+| `StaffAppointmentHandlers.NoShowAsync` | `POST …/no-show` | `appointment.outcome` (Doctor: o'zi) | Confirmed, boshlanish + 15 daqiqadan keyin | blok bo'shatiladi, eslatmalar bekor |
+| `WalkInAppointmentHandler` | `POST …/appointments` (+ ixtiyoriy `Idempotency-Key`) | `appointment.create_walkin` filialda | darhol Confirmed, bemor akkauntisiz (OD-08), shifokor tanlanadi; boshlanish ≥ hozir − 60 daq. | filial qulfi, sweep-on-write, appointment + Appointment blok (23P01 → 409 `booking.doctor_busy`), tarix (Staff), audit `booking.appointment.walkin_created`; bildirishnoma yo'q |
+
+Sabab kodlari (`ReasonCodes`): rad etish — `NoDoctorAvailable`, `TimeUnavailable`, `ServiceUnavailable`,
+`PatientUnreachable`, `Other`; klinika bekor qilishi — `DoctorUnavailable`, `ClinicClosed`, `PatientRequest`,
+`ClinicEmergency`, `Other` (brif va UI ro'yxatlari birlashtirilgan).
+
+### 3.5 Shifokor dam olishi (`TimeOffHandlers`)
+
+`GET/POST …/doctors/{doctorId}/time-off`, `DELETE …/time-off/{id}`. Dam olish = `TimeOff` turidagi faol blok,
+filialsiz (shifokor hamma joyda yo'q). Yozish: shifokor bog'langan **har bir** filialda `schedule.manage`, yoki
+Doctor roli o'z yozuvi uchun (`schedule.own_timeoff`). O'qish: shifokor bilan umumiy filiali bor a'zo yoki
+shifokorning o'zi. POST: tugash > boshlanish, tugash kelajakda, ≤ 90 kun, boshlanish ≤ 1 yil; avval shu
+shifokorning muddati o'tgan Hold'lari expire qilinadi; faol blok bilan kesishish (Hold, Appointment, boshqa
+dam olish) — exclusion constraint → 409 `schedule.timeoff_conflict`. DELETE bloki o'chirmaydi, nofaol qiladi.
+Audit: `schedule.timeoff.created` / `schedule.timeoff.deleted`.
+
+### 3.6 Muddati o'tganlarni tozalash: sweeper va sweep-on-write
+
+- **`BookingSweep.ExpireOverdueAsync`** (chaqiruvchi tranzaksiyasida): `IBookingStore.LockOverduePendingAsync`
+  `status = 'Pending' AND expires_at <= statement_timestamp()` qatorlarini id tartibida `FOR UPDATE`
+  (yoki `FOR UPDATE SKIP LOCKED`) bilan qulflaydi → shartli UPDATE `Expired` → bloklar bo'shatiladi → tarix
+  (System) → outbox `appointment.expired.patient` + `appointment.expired.staff`.
+- **Worker `ExpirySweeperService`** (`BackgroundService`, har `Booking:SweeperIntervalSeconds` = 30 s):
+  `ExpirePendingAppointmentsHandler.RunAsync` — `Booking:SweeperBatchSize` (100) talik partiyalar, har biri
+  alohida tranzaksiya, `SKIP LOCKED`: tasdiqlanayotgan qatorni kutmaydi ham, to'smaydi ham. Xato bo'lsa faqat
+  exception turi log qilinadi va keyingi tikda qayta urinadi. To'g'rilik sweeper'ga bog'liq emas.
+- **Sweep-on-write**: booking yaratish, tasdiqlash, ko'chirish, walk-in va dam olish blok qo'yish/ko'chirishdan
+  oldin filialning va tegishli shifokorlarning muddati o'tgan Pending'larini oddiy `FOR UPDATE` bilan expire
+  qiladi (kutadi, o'tkazib yubormaydi). Tasdiqlash o'zi ishlayotgan so'rovni bu tozalashdan chiqarib tashlaydi
+  (B7 testi topgan xato: aks holda o'z muddati tranzaksiya ichida o'tib, takroriy blok yaratilardi).
+
+### 3.7 Qulflash strategiyasi (nima uchun bu to'g'ri)
+
+1. **Izolyatsiya READ COMMITTED**, aniq qulflar + cheklovlar (ADR-005). `ITransactionRunner` faqat 40001/40P01 ni
+   ko'pi bilan 3 marta (jitter bilan) qayta urinadi, keyin 409 `common.concurrency` (B17 testi).
+2. **Qulf tartibi har doim bir xil:** idempotency kaliti qatori → filial qatori (`tenancy.branch_booking_locks
+   FOR UPDATE`) → bemor advisory qulfi (`booking-patient:{userId}`, faqat yaratishda) → appointment qatorlari
+   (id tartibida) → blok qatorlari. Hisobni o'chirishda bir nechta filial id tartibida qulflanadi. Sweeper
+   filial qulfini olmaydi va `SKIP LOCKED` ishlatadi — shuning uchun tsikl (deadlock) yo'q.
+3. **Filial qulfi** bir filialdagi booking qarorlarini ketma-ket qiladi (B1: 20 parallel so'rov → 1 Hold).
+4. **Exclusion constraint** — yakuniy kafolat: turli filiallar (turli qulflar), walk-in, dam olish yo'llarida
+   ham bitta shifokorga ikki faol blok tushmaydi (B1-cross-branch: constraint o'chirilgan tajribada 12 ta,
+   yoqilganda aniq 2 ta muvaffaqiyat). Nomzod 23P01 olsa, SAVEPOINT'ga qaytiladi va keyingisi sinaladi.
+5. **Shartli UPDATE + qator qulfi**: tasdiqlash ↔ sweeper (B7), ikki xodim tasdiqlashi (B6), bemor bekor qilishi ↔
+   tasdiqlash (B9), dam olish ↔ tasdiqlash (B10) — har doim aniq bitta natija.
+6. **Bemor advisory qulfi** 3 ta Pending chegarasini turli filiallarga parallel so'rovlarda ham ushlaydi (qulfsiz
+   tajribada 4 ta o'tdi; qulf bilan doim 3).
+7. **Klinika qatori qulfi** sharhlar moderatsiyasida reytingni qayta hisoblashni ketma-ket qiladi (qulfsiz
+   tajribada o'rtacha noto'g'ri chiqdi).
+
+### 3.8 Bildirishnoma kontrakti (BE4 uchun)
+
+Booking outbox'ga **niyat** yozadi (`notify.outbox_messages`), yetkazishni BE4 qiladi. Payload'lar —
+`Application/Notifications/BookingNotifications.cs`; JSON camelCase, enum'lar satr. Telefon va ism **hech qachon**
+yo'q (OD-10).
+
+| `type` | Kimga | Qachon | `dedup_key` |
+|---|---|---|---|
+| `appointment.requested.staff` | filial xodimlari (`appointment.triage`, Telegram bog'langan) | yangi so'rov | `appt:{id}:requested:staff` |
+| `appointment.requested.patient` | `patientUserId` | so'rov qabul qilindi | `appt:{id}:requested:patient` |
+| `appointment.confirmed.patient` | bemor | tasdiqlandi | `appt:{id}:confirmed:patient` |
+| `appointment.rejected.patient` | bemor | rad etildi (`reasonCode`) | `appt:{id}:rejected:patient` |
+| `appointment.cancelled_by_patient.staff` | filial xodimlari | bemor bekor qildi | `appt:{id}:cancelled_by_patient:staff` |
+| `appointment.cancelled_by_clinic.patient` | bemor | klinika bekor qildi (`reasonCode`) | `appt:{id}:cancelled_by_clinic:patient` |
+| `appointment.rescheduled.patient` | bemor | vaqt/shifokor o'zgardi (`previousStartsAt`) | `appt:{id}:rescheduled:{yangi start unix}:patient` |
+| `appointment.expired.patient` / `.staff` | bemor / xodimlar | 30 daqiqada tasdiqlanmadi | `appt:{id}:expired:patient` / `…:staff` |
+| `appointment.completed.patient` | bemor | yakunlandi (sharh taklifi) | `appt:{id}:completed:patient` |
+| `appointment.reminder.patient` | bemor | `not_before` = start − 24 soat va start − 2 soat | `appt:{id}:reminder:{24h\|2h}:{start unix}` |
+
+`AppointmentNotice` maydonlari: `event, appointmentId, requestNumber` (id'ning oxirgi 8 belgisi), `clinicId,
+branchId, patientUserId, clinicName, branchName, serviceName, timeZone, startsAt, endsAt, status, reasonCode,
+doctorId, doctorName, expiresAt, previousStartsAt`. `AppointmentReminder`: `appointmentId, patientUserId, kind
+('24h'|'2h'), clinicId, branchId, clinicName, branchName, serviceName, timeZone, startsAt, doctorName`.
+
+**BE4 majburiyatlari:** (1) eslatmani yuborishdan oldin qabulni qayta o'qish va u `Confirmed` bo'lmasa yoki
+`starts_at` payload'dagi `startsAt` dan farq qilsa — xabarni `Cancelled` qilib yubormaslik (Booking ham o'zi
+qabul Confirmed'dan chiqqanda yoki ko'chirilganda kutilayotgan eslatmalarni `Cancelled` qiladi, lekin dispatcher
+tekshiruvi kafolat). (2) Faqat vaqti kelgan (`not_before`) xabarlar. (3) Walk-in (bemor akkauntisiz) uchun
+bemor xabarlari yozilmaydi. (4) Xodim xabarlarida qabulning `requestNumber`i ko'rsatiladi, bemor ma'lumoti emas.
+
+### 3.9 Yakunlash hook kontrakti (BE3 uchun)
+
+`IAppointmentCompletedHandler.OnCompletedAsync(AppointmentCompletedContext, ct) → Result` —
+`POST …/complete` tranzaksiyasi **ichida**, qabul `Completed` ga o'tkazilgandan, `charged_amount` yozilgandan
+va blok bo'shatilgandan keyin, commit'dan oldin chaqiriladi. Kontekst: `appointmentId, clinicId, branchId,
+serviceId, doctorId, patientUserId, chargedAmount (Money), quotedPrice, startsAt, completedAt (DB vaqti),
+actorUserId`. BE3 shu yerda ServiceCompletion va daromad ledger yozuvini yaratadi; muvaffaqiyatsiz `Result`
+butun yakunlashni qaytaradi va xato chaqiruvchiga qaytadi. Hook o'sha scoped `IOqTishDb` dan foydalanadi, o'z
+tranzaksiyasini ochmaydi. Standart — `NoOpAppointmentCompletedHandler` (`TryAddScoped`); BE3
+`services.Replace(ServiceDescriptor.Scoped<IAppointmentCompletedHandler, …>())` bilan almashtiradi.
+
+### 3.10 Sharhlar, shikoyatlar, break-glass
+
+| Handler | Endpoint | Ruxsat | Mazmuni | Yon ta'sirlar |
+|---|---|---|---|---|
+| `ReviewHandlers.CreateAsync` | `POST /api/me/appointments/{id}/review { rating, text }` | o'z Completed qabuli, 30 kun ichida, bir marta | → 201 (moderatsiyada) | audit `review.created` |
+| `ReviewHandlers.PublicListAsync` | `GET /api/public/clinics/{id}/reviews` | anon | faqat Published; muallif "Ism F." | — |
+| `ReviewHandlers.AdminListAsync` / `PublishAsync` / `HideAsync` | `GET /api/admin/reviews`, `POST …/publish`, `/hide { reason }` | `platform.reports.handle` | holat o'tishi; bir xil holat → 409 | klinika qatori qulfi ostida Published sharhlar bo'yicha `Clinic.SetRating`, audit `admin.review.published/hidden` |
+| `ReportHandlers.CreateAsync` | `POST /api/reports` | user | maqsad ommaviy bo'lishi kerak; (shikoyatchi, maqsad) bo'yicha bitta ochiq | audit `report.created` |
+| `ReportHandlers.AdminListAsync` / `ResolveAsync` | `GET /api/admin/reports`, `POST …/resolve { resolution }` | `platform.reports.handle` | qayta hal qilish → 409 | audit `admin.report.resolved` |
+| `TenantDataQueries.AppointmentsAsync` | `GET /api/admin/clinics/{id}/appointments` + `X-Access-Reason` | `platform.tenant-data.read` | sabab percent-decode qilinadi, 15–300 belgi (aks holda 400) | audit `platform.tenant_data.read` (sabab, filtrlar, qatorlar soni) |
+
+### 3.11 Kengaytirish nuqtalari va boshqa servislar
+
+| Tur | Vazifasi |
+|---|---|
+| `BookingDashboardContributor` (`IClinicDashboardContributor`) | `pending` (hozir kutayotgan so'rovlar), bugungi `confirmed/completed/noShow`; Doctor — faqat o'ziniki |
+| `BookingAdminDashboardContributor` (`IAdminDashboardContributor`) | bugungi qabullar (Asia/Tashkent), ochiq shikoyatlar |
+| `BookingAccountDeletionContributor` (`IAccountDeletionContributor`) | hisob o'chirilganda faol (Pending va boshlanmagan Confirmed) qabullarni bekor qiladi (`AccountDeleted`), bloklarni bo'shatadi, xodimlarga xabar, barcha qabullarda `contact_name`/`contact_phone` anonimlashtiriladi |
+| `IBookingStore` (Infrastructure `BookingStore`) | SAVEPOINT ostida blok INSERT/UPDATE (23P01 → false/Conflict), bloklarni bo'shatish, muddati o'tgan Pending'larni qulflash (`FOR UPDATE [SKIP LOCKED]`) |
+| `IDbClock` (Infrastructure `DbClock`) | `clock_timestamp()` |
+| `DoctorHandlers` (BE2 qoidasi) | qabullar/bloklar havola qilgan filial yoki xizmat bog'lanishini o'chirish → 409 `schedule.link_in_use` |
+
+### 3.12 Demo ma'lumotlar (`BookingDemoSeedContributor`, order 400)
+
+Birinchi demo klinika ("Demo Tabassum Stomatologiya", "Demo Chilonzor filiali") uchun demo bemor
+(+998900000001) nomidan har bir holatdagi qabullar: kelasi ish kunida Pending (seed'dan 30 daqiqa keyin expire
+bo'ladi), Confirmed (Dr. Demo Aziza Karimova), CancelledByPatient, Rejected, CancelledByClinic va telefon orqali
+walk-in (Confirmed); oldingi ish kunida ikkita Completed, NoShow va Expired. Bitta Published sharh (klinika
+reytingi 5.00, 1 ta), bitta moderatsiyadagi sharh va bitta ochiq shikoyat. Idempotent: klinikada qabul bo'lsa
+o'tkazib yuboriladi (yangi Pending'larni UI orqali yarating).
+
+### 3.13 Konfiguratsiya kalitlari (BE2)
+
+| Kalit | Default | Izoh |
+|---|---|---|
+| `Booking:PendingTtlMinutes` | 30 | Pending muddati (DB vaqti, 24/7) |
+| `Booking:MinLeadMinutes` | 60 | bemor uchun minimal oldindan yozilish |
+| `Booking:HorizonDays` | 30 | eng kech sana = bugun + 30 (filial vaqti) |
+| `Booking:SlotStepMinutes` | 15 | boshlanish vaqtlari to'ri |
+| `Booking:PatientCancelCutoffMinutes` | 120 | Confirmed'ni bemor bekor qilish chegarasi |
+| `Booking:MaxPendingPerPatient` | 3 | bir bemorning faol so'rovlari |
+| `Booking:NoShowGraceMinutes` | 15 | kelmadi belgilash uchun kutish |
+| `Booking:ReviewWindowDays` | 30 | sharh muddati |
+| `Booking:WalkInPastToleranceMinutes` | 60 | walk-in o'tmishga qancha ruxsat |
+| `Booking:SweeperIntervalSeconds` / `SweeperBatchSize` | 30 / 100 | Worker sweeper |
+| `Booking:SearchDefaultAvailabilityDays` | 7 | `nextFreeSlot` ufqi |
+| `RateLimiting:BookingPermitPerHour` | 10 | `POST /api/appointments`, sessiya bo'yicha |

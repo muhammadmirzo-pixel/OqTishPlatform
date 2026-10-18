@@ -102,6 +102,7 @@ app.MapMeEndpoints();
 app.MapTelegramEndpoints();
 app.MapMyInvitationEndpoints();
 app.MapClinicEndpoints();
+app.MapBookingEndpoints();
 app.MapPublicEndpoints();
 app.MapAdminEndpoints();
 app.MapDevEndpoints(app.Environment);

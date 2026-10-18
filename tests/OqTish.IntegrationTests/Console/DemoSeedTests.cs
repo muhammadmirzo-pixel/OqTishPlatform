@@ -24,6 +24,8 @@ public class DemoSeedTests(PostgresFixture postgres)
             await db.Services.CountAsync(Ct), await db.BranchServices.CountAsync(Ct), await db.Doctors.CountAsync(Ct),
             await db.DoctorBranches.CountAsync(Ct), await db.DoctorServices.CountAsync(Ct), await db.WorkingHours.CountAsync(Ct),
             await db.ClinicMemberships.CountAsync(Ct), await db.Users.CountAsync(Ct), await db.AuthIdentities.CountAsync(Ct),
+            await db.Appointments.CountAsync(Ct), await db.AppointmentStatusHistory.CountAsync(Ct), await db.DoctorTimeBlocks.CountAsync(Ct),
+            await db.Reviews.CountAsync(Ct), await db.AbuseReports.CountAsync(Ct),
         ];
     }
 
@@ -38,6 +40,12 @@ public class DemoSeedTests(PostgresFixture postgres)
         Assert.Equal(first, await CountsAsync(factory));
         Assert.Equal([4, 5, 30, 24, 30, 7], first[..6]);
         Assert.Equal(6, first[9]);
+        Assert.Equal([10, 3, 2, 1], [first[12], first[14], first[15], first[16]]); // BE2: appointments, active blocks, reviews, reports
+        await using (var check = factory.CreateDbContext())
+        {
+            var statuses = await check.Appointments.Select(a => a.Status).Distinct().CountAsync(Ct);
+            Assert.Equal(8, statuses); // every status is represented
+        }
 
         foreach (var staff in DemoData.FirstClinicStaff.Append(DemoData.PendingClinicOwner))
         {

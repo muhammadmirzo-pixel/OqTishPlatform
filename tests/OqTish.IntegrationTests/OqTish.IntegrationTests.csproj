@@ -6,5 +6,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\OqTish.Api\OqTish.Api.csproj" />
     <ProjectReference Include="..\..\src\OqTish.Infrastructure\OqTish.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\OqTish.Worker\OqTish.Worker.csproj" Aliases="WorkerHost" />
   </ItemGroup>
 </Project>

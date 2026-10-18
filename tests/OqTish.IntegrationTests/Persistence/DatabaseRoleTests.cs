@@ -57,6 +57,12 @@ public sealed class DatabaseRoleTests : IAsyncLifetime
             await AssertDeniedAsync(user, password, "UPDATE audit.audit_log SET action = 'x'", ct);
             await AssertDeniedAsync(user, password, "DELETE FROM audit.audit_log", ct);
 
+            // Append-only appointment status history (BE2): same rule.
+            await ExecAsync(user, password, "SELECT count(*) FROM booking.appointment_status_history", ct);
+            await AssertDeniedAsync(user, password, "UPDATE booking.appointment_status_history SET reason_code = 'x'", ct);
+            await AssertDeniedAsync(user, password, "DELETE FROM booking.appointment_status_history", ct);
+            await ExecAsync(user, password, "SELECT id FROM booking.appointments FOR UPDATE", ct);
+
             // Ordinary module tables get DML (default privileges), including the branch-lock trigger path.
             await ExecAsync(user, password, "SELECT count(*) FROM identity.sessions", ct);
         }

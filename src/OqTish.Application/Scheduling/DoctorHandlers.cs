@@ -16,7 +16,8 @@ namespace OqTish.Application.Scheduling;
 /// branches: the permission anywhere in the clinic). Setting/changing <c>userId</c> additionally needs
 /// <c>staff.manage</c>, because it grants Doctor-own access; the user must hold a non-removed membership in the
 /// clinic (422 <c>schedule.doctor_user_invalid</c>) and not be linked to another doctor (409
-/// <c>schedule.doctor_user_taken</c>). Unlinking a branch deletes the doctor's working hours there.</item>
+/// <c>schedule.doctor_user_taken</c>). Unlinking a branch deletes the doctor's working hours there. A branch or
+/// service link referenced by appointments or time blocks cannot be removed (409 <c>schedule.link_in_use</c>, BE2).</item>
 /// </list>
 /// Side effects: audit <c>schedule.doctor.created</c> / <c>schedule.doctor.updated</c>.
 /// </summary>
@@ -58,6 +59,11 @@ public sealed class DoctorHandlers(IOqTishDb db, IAccessService access, ITransac
         {
             // Two concurrent links of the same user (unique index on clinic_id, user_id).
             return ScheduleErrors.DoctorUserTaken;
+        }
+        catch (Exception ex) when (errors.Classify(ex) is { Kind: DbErrorKind.ForeignKeyViolation })
+        {
+            // A booking referenced a link between the in-use check and the delete.
+            return ScheduleErrors.LinkInUse;
         }
     }
 
@@ -142,8 +148,23 @@ public sealed class DoctorHandlers(IOqTishDb db, IAccessService access, ITransac
             doctor.Update(name!, command.IsActive ?? doctor.IsActive, command.UserId, now);
         }
 
-        await db.SaveChangesAsync(ct);
         var removedBranches = oldBranches.Except(branchIds).ToList();
+        if (doctorId is { } existingId)
+        {
+            // Appointments and time blocks reference (clinic, doctor, branch) / (clinic, doctor, service) with
+            // RESTRICT foreign keys (BE2): such links cannot be removed.
+            var removedServices = await db.DoctorServices.Where(x => x.DoctorId == existingId && !serviceIds.Contains(x.ServiceId)).Select(x => x.ServiceId).ToListAsync(ct);
+            var inUse = (removedBranches.Count > 0
+                    && (await db.Appointments.AnyAsync(a => a.DoctorId == existingId && removedBranches.Contains(a.BranchId), ct)
+                        || await db.DoctorTimeBlocks.AnyAsync(b => b.DoctorId == existingId && b.BranchId != null && removedBranches.Contains(b.BranchId.Value), ct)))
+                || (removedServices.Count > 0 && await db.Appointments.AnyAsync(a => a.DoctorId == existingId && removedServices.Contains(a.ServiceId), ct));
+            if (inUse)
+            {
+                return ScheduleErrors.LinkInUse;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
         await db.DoctorBranches.Where(x => x.DoctorId == doctor.Id && removedBranches.Contains(x.BranchId)).ExecuteDeleteAsync(ct);
         foreach (var b in branchIds.Except(oldBranches))
         {

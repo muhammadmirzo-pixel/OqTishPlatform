@@ -18,11 +18,15 @@ public static class RateLimitPolicies
     /// <summary>Code/credential checks (OTP verify, password login, reset confirm, Telegram sign-in).</summary>
     public const string Credentials = "auth-credentials";
 
+    /// <summary>Patient booking requests (POST /appointments), per signed-in user per hour (SECURITY.md §4).</summary>
+    public const string Booking = "booking";
+
     public static IServiceCollection AddOqTishRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
         var global = configuration.GetValue("RateLimiting:GlobalPermitPerMinute", 300);
         var otp = configuration.GetValue("RateLimiting:OtpSendPermitPerMinute", 10);
         var credentials = configuration.GetValue("RateLimiting:CredentialsPermitPerMinute", 20);
+        var booking = configuration.GetValue("RateLimiting:BookingPermitPerHour", 10);
 
         services.AddRateLimiter(options =>
         {
@@ -30,6 +34,9 @@ public static class RateLimitPolicies
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http => PerIp(http, global));
             options.AddPolicy(OtpSend, http => PerIp(http, otp));
             options.AddPolicy(Credentials, http => PerIp(http, credentials));
+            options.AddPolicy(Booking, http => RateLimitPartition.GetFixedWindowLimiter(
+                SessionPartition(http),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = booking, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
             options.OnRejected = (context, _) =>
             {
                 var retry = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var after) ? after : TimeSpan.FromSeconds(60);
@@ -39,6 +46,15 @@ public static class RateLimitPolicies
         });
         return services;
     }
+
+    /// <summary>
+    /// The limiter runs before authentication, so the booking bucket is keyed by a hash of the session cookie
+    /// (one bucket per signed-in session; unauthenticated calls are rejected later with 401) or the IP.
+    /// </summary>
+    private static string SessionPartition(HttpContext http) =>
+        Auth.SessionCookie.Read(http.Request) is { } token
+            ? "s:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)))[..32]
+            : "ip:" + (http.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
     private static RateLimitPartition<string> PerIp(HttpContext http, int permitPerMinute) =>
         RateLimitPartition.GetFixedWindowLimiter(

@@ -37,6 +37,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             ["RateLimiting:GlobalPermitPerMinute"] = "100000",
             ["RateLimiting:OtpSendPermitPerMinute"] = "100000",
             ["RateLimiting:CredentialsPermitPerMinute"] = "100000",
+            ["RateLimiting:BookingPermitPerHour"] = "100000",
             ["Telegram:Enabled"] = "true",
             ["Telegram:BotToken"] = TelegramBotToken,
             ["Telegram:BotUsername"] = "oqtish_test_bot",

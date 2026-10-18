@@ -20,6 +20,8 @@ public static class ScheduleErrors
 
     public static readonly Error DoctorUserInvalid = Error.Rule("schedule.doctor_user_invalid", "The user must be an active member of this clinic.");
 
+    public static readonly Error LinkInUse = Error.Conflict("schedule.link_in_use", "A removed branch/service link is referenced by appointments or time blocks; deactivate the doctor instead.");
+
     public static readonly Error DoctorUserTaken = Error.Conflict("schedule.doctor_user_taken", "This user is already linked to another doctor of the clinic.");
 }
 

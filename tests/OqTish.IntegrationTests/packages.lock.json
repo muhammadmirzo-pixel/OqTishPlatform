@@ -632,6 +632,14 @@
           "OqTish.Application": "[1.0.0, )"
         }
       },
+      "oqtish.worker": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.Hosting": "[10.0.12, )",
+          "OqTish.Application": "[1.0.0, )",
+          "OqTish.Infrastructure": "[1.0.0, )"
+        }
+      },
       "EFCore.NamingConventions": {
         "type": "CentralTransitive",
         "requested": "[10.0.1, )",

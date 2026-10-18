@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using OqTish.Application.Common;
 using OqTish.Application.Public;
 using OqTish.Domain.Audit;
+using OqTish.Domain.Booking;
 using OqTish.Domain.Catalog;
 using OqTish.Domain.Common;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Notifications;
+using OqTish.Domain.Reviews;
 using OqTish.Domain.Scheduling;
 using OqTish.Domain.Staff;
 using OqTish.Domain.Tenancy;
@@ -62,6 +64,16 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
 
     public DbSet<WorkingHours> WorkingHours => Set<WorkingHours>();
 
+    public DbSet<DoctorTimeBlock> DoctorTimeBlocks => Set<DoctorTimeBlock>();
+
+    public DbSet<Appointment> Appointments => Set<Appointment>();
+
+    public DbSet<AppointmentStatusHistory> AppointmentStatusHistory => Set<AppointmentStatusHistory>();
+
+    public DbSet<Review> Reviews => Set<Review>();
+
+    public DbSet<AbuseReport> AbuseReports => Set<AbuseReport>();
+
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<TelegramLinkToken> TelegramLinkTokens => Set<TelegramLinkToken>();
@@ -90,5 +102,11 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
         modelBuilder.HasDbFunction(typeof(GeoFunctions).GetMethod(nameof(GeoFunctions.DistanceKm))!)
             .HasName("distance_km")
             .HasSchema("tenancy");
+
+        // statement_timestamp(): database time for deadline predicates in conditional UPDATEs (ADR-006, BE2).
+        modelBuilder.HasDbFunction(typeof(DbTime).GetMethod(nameof(DbTime.StatementTimestamp))!)
+            .HasName("statement_timestamp")
+            .IsBuiltIn()
+            .HasStoreType("timestamp with time zone");
     }
 }

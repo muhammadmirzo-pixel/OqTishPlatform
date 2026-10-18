@@ -1,6 +1,6 @@
 # Testing Strategy and Required Test Catalogue
 
-Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2).
+Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2, BE2 §0.3).
 
 ## 0. Current tests (Phase 2, verified 2026-10-18)
 
@@ -64,6 +64,54 @@ Status: Phase 2 harness in place. The catalogue below (§2–§6) is the require
 | Integration `AdminTests` | dashboard (any platform permission, patient 403); clinic verification with the **permission split** (verify vs suspend), invalid transitions 409, reason required, unknown 404, every action **audited**; **suspension disables memberships** (`/me` and console) and reinstate restores; TOTP rule → `auth.totp_setup_required` until enabled; user suspension → **sessions revoked, next request 401**, self 422, reinstate; admin audit filters (action prefix, clinic); **`create-platform-admin` CLI in Production**: weak passwords / argv password / missing phone → exit 1, success + idempotent re-run (password not reset, all grants, verified phone, audited), other account's phone → exit 3, admin can sign in |
 | Integration `DemoSeedTests` | **seed twice → identical row counts** (4 clinics, 5 branches, 30 opening hours, 24 services, 30 offers, 7 doctors, 6 memberships …); every demo staff login works with its documented password and has the expected role; demo doctor account resolves to its doctor record; receptionist is Branches-scoped |
 | Integration `EndpointAuthorizationTests` (unchanged) | covers every new endpoint automatically (auth metadata + anonymous 401) |
+
+### 0.3 Added in BE2 (booking, reviews, reports) — verified 2026-10-18
+
+`dotnet test`: **300 passed** (ArchitectureTests 6, UnitTests 149, IntegrationTests 145), 0 warnings; full run
+1 min 10 s on an idle machine, ~3 min under heavy host load. Concurrency tests carry `[Trait("Category", "Concurrency")]`
+and run in the default `dotnet test`; each loops **50 iterations** over a fresh fixture (new clinic, branch,
+doctors, patients in the same database), releases the racing calls through a barrier (`Race`: every participant
+opens its DI scope and DB connection first, then waits on one gate), and asserts DB state. They call the real
+handlers through `BookingHost` (AddInfrastructure DI graph, real transactions/AccessService/PostgreSQL, caller set
+per scope); contracts and authorization are covered over HTTP with real sign-in.
+
+| Id | Test (class) | Proves |
+|---|---|---|
+| B1 | `B1_twenty_concurrent_requests_for_one_doctor_slot_give_one_hold` (Concurrency) | 20 parallel requests, 1 doctor → exactly 1 Pending, 19 × 409 `booking.slot_unavailable`, 1 active block (50×) |
+| B1x | `B1_cross_branch_requests_and_walk_ins_for_a_shared_doctor_never_double_book` | 10 patient requests at branch 1 (doctors A, B) vs 10 walk-ins for A at branch 2 (different branch locks) → exactly 2 bookings on different doctors; with the exclusion constraint dropped (manual experiment) 12 succeeded — the constraint is what prevents it (50×) |
+| B2 | `B2_overlapping_30_and_60_minute_requests…` | [10:00,10:30) vs [10:15,11:15) on one doctor → exactly one wins (50×) |
+| B3 | `B3_adjacent_intervals…` (Rules) | [10:00,10:30) + [10:30,11:00) concurrently → both succeed (half-open periods) |
+| B4 | `B4_two_doctors_three_concurrent…` | 3 requests, 2 doctors → 2 succeed, blocks on both doctors (50×) |
+| B5 | `B5_least_flexible_doctor_is_held_first…` | A{X,Y}, B{X}: X held on B, Y on A; plus a documented greedy limit (A{X,Y}, B{X,Z} → later Y gets 409) |
+| B6 | `B6_two_staff_confirm_the_same_request…` | 2 staff confirm with different doctors → 1 Confirmed, 1 × 409 `booking.not_pending`, 1 history row, 1 confirmed outbox message (50×) |
+| B7 | `B7_confirm_racing_the_sweeper_at_the_deadline…` | deadline set 25 ms ahead in DB time, confirm vs Worker sweep handler → final status ∈ {Confirmed, Expired} consistent with the confirm result, exactly 2 history rows, 1 notice, block active iff Confirmed (50×; both outcomes observed on an idle machine, e.g. 40/10; all Expired under heavy load). This test found the confirm self-sweep bug (DECISIONS.md BE2-4) |
+| B8 | `B8_confirm_after_the_deadline_with_the_sweeper_stopped…` | late confirm → 409 `booking.expired`, DB still Pending, patient/staff reads and `status` filters show Expired, cancel → 409; one later sweep expires it and enqueues one notice |
+| B9 | `B9_patient_cancel_racing_staff_confirm…` | always ends CancelledByPatient; history is either Pending→Confirmed→Cancelled or Pending→Cancelled with the confirm getting 409 (both orders exercised, 50×) |
+| B10 | `B10_time_off_racing_a_confirm_onto_the_same_doctor…` | exactly one of {confirm, time off} commits (both orders exercised, 50×) |
+| B11 | `B11_failure_injected_after_the_block_insert…` | a trigger raising after the block insert → nothing persists (appointment, block, history, outbox, audit, idempotency key) and the key is reusable |
+| B12 | `B12_concurrent_duplicates_with_one_idempotency_key…` + `B12_same_key_sequential…` | 5 concurrent duplicates → one appointment, same id for all (50×); sequential replay, different body → 422 `common.idempotency_mismatch` |
+| B13 | `B13_reject_expire_and_cancel_release_the_block…` | reject / sweeper expiry / patient cancel / clinic cancel each release the block and the slot is rebookable |
+| B14 | `B14_an_overdue_pending_request_does_not_block…` | with the sweeper off, a new booking (and a doctor's time off) succeeds; the overdue request becomes Expired (System history, outbox notice) |
+| B15 | `B15_outside_hours_shift_end_time_off_inactive…` | outside hours / across shift end / during time off / branch closed → 422 `booking.outside_hours`; off-grid → 400; lead time and horizon → 422 `booking.lead_time`; 4th Pending → 422 `booking.too_many_pending`; inactive offer/service/branch, Pending/Suspended clinic → 422 `booking.clinic_unavailable`; unknown branch → 404 |
+| B16 | `B16_branch_local_time_near_utc_midnight…` | 00:15 Tashkent = 19:15Z of the previous day: listed under the local date, not the previous one, stored UTC, calendar on the right day |
+| B17 | `B17_forced_deadlock_is_retried_at_most_three_times_then_409` | trigger raising 40P01: exactly 3 attempts then 409 `common.concurrency`, nothing persisted; one forced deadlock → success on the 2nd attempt |
+| B18 | `BookingInvariants.AssertAsync` (called at the end of every booking test) | 0 overlapping active blocks per doctor; every active block ↔ Pending (Hold) / Confirmed (Appointment, same doctor/period/branch) / TimeOff; every Pending/Confirmed has exactly one active block; last history row = status |
+| — | `Pending_limit_per_patient_holds_across_branches_under_concurrency` | one patient, 6 parallel requests at 2 branches → exactly 3 Pending (without the advisory lock, manual experiment: 4) (50×) |
+| — | `Concurrent_moderation_of_two_reviews…` (20×) | two reviews published at once → exact rating 3.50 / 2 (without the clinic row lock, manual experiment: 2.00 / 1) |
+
+Other BE2 tests:
+
+| Suite / class | Proves |
+|---|---|
+| Unit `AppointmentStateMachineTests` | every (status × action) pair: exactly the 9 documented transitions; terminal states; factories and review/report moderation transitions |
+| Unit `AvailabilityEngineTests` | slots follow working hours and never cross a shift end; holds, time off, lead time, opening hours; one free doctor suffices; candidate order; UTC ↔ local (UTC+5), grid, ISO weekday; break-glass reason decoding; reason codes (UI + brief); review author label |
+| Integration `BookingApiTests` | patient flow over HTTP (availability, 201 without doctor, replay/mismatch, own lists/detail with history, other patient 404, cancel); **authorization matrix**: Branches-scoped receptionist (other branch 403), other clinic (404, also by id substitution), Doctor own-only (Pending invisible, after confirm visible), FinanceManager read-only (every transition 403), wrong-clinic/unlinked doctor 422; reject/cancel/reschedule/complete/no-show rules and errors; walk-in (Confirmed, idempotent, busy 409, scope 403/404, past 422); reminders enqueued/cancelled on reschedule; calendar + time off rights (schedule.manage on every branch, doctor own); dashboards (clinic, branch, doctor own, admin); `schedule.link_in_use`; self-deletion cancels and anonymises; booking rate limit 429 per session |
+| Integration `ReviewReportAndBreakGlassTests` | review eligibility (not completed, other patient, window 30 days, once), validation, moderation rights (403 without `platform.reports.handle`), publish/hide transitions, public list and clinic rating recompute; abuse reports (idempotent per reporter/target, 404 for non-public targets, resolve once, dashboard count); break-glass (403 without grant, 400 without/short reason, 404 unknown clinic, percent-encoded Uzbek/Cyrillic reason decoded and audited) |
+| Integration `ExpirySweeperServiceTests` | the Worker `BackgroundService` expires an overdue request on its timer and leaves a fresh one alone |
+| Integration `MigrationTests.Booking_schema_…` | S18 composite FK (appointment with another clinic's branch → 23503), CHECKs (doctor required, Pending deadline, source/patient, block kind refs, interval), exclusion 23P01 and adjacent periods allowed, one block per appointment, history UPDATE/DELETE/TRUNCATE → 42501 |
+| Integration `DatabaseRoleTests` (extended) | `oqtish_api`/`oqtish_worker` cannot UPDATE/DELETE `booking.appointment_status_history`, can `SELECT … FOR UPDATE` appointments |
+| Integration `DemoSeedTests`, `PublicCatalogTests` (updated) | seed twice → identical counts incl. 10 appointments (all 8 statuses), 3 active blocks, 2 reviews, 1 report; demo clinic rating 5.00/1, `nextFreeSlot` set, `availableWithinDays=7` filter |
+| Integration `EndpointAuthorizationTests` (unchanged) | covers all 28 new endpoints automatically (auth metadata, anonymous 401) |
 
 Test infrastructure: `ApiFactory` (real `Program`, https client with `X-OqTish-Client`, log capture, per-test database cloned from a migrated template), `TestAuth` (`SignInAsPatientAsync` via the Fake SMS mailbox, `SignInAsStaffAsync` = real sign-in + membership inserted in the DB, `CreateClinicAsync`, `EnableTotpAsync`, `AssertProblemAsync`), `TelegramSigning`. Test hosts disable config reload-on-change (inotify limit).
 

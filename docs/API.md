@@ -43,6 +43,7 @@ type AppointmentDto = {
   contactName: string; contactPhone: string       // full phone only for staff with appointment.view; patients see their own
   source: 'Patient'|'WalkIn'
   canCancel: boolean                              // server-computed for the caller
+  priceKind: 'Fixed'|'From'; hasReview: boolean; canReview: boolean   // additive (BE2)
   createdAt: string
   history?: { from: AppointmentStatus|null; to: AppointmentStatus; at: string; actor: 'Patient'|'Staff'|'System'; reasonCode: string|null }[]
 }
@@ -124,8 +125,8 @@ type ReviewDto = { id: string; rating: number; text: string; authorName: string;
 
 ### 2.1 Implementation notes (BE1b, 2026-10-18)
 
-Implemented: `GET /public/clinics`, `GET /public/clinics/{clinicId}`, `GET /public/facets`.
-**Not yet:** `…/reviews` and `…/availability` (BE2).
+Implemented: `GET /public/clinics`, `GET /public/clinics/{clinicId}`, `GET /public/facets`; BE2 added
+`…/reviews`, `…/availability`, `availableWithinDays` and `nextFreeSlot` (§2.2).
 
 | Item | Contract as implemented |
 |---|---|
@@ -135,11 +136,27 @@ Implemented: `GET /public/clinics`, `GET /public/clinics/{clinicId}`, `GET /publ
 | `serviceId`, `serviceCategory`, `district` | Clinic must have an active offer / branch that matches (`district` is case-insensitive exact). `minPrice` and `distanceKm` are computed over the **matching** branches/offers |
 | `lat` + `lng` | Both or neither (400). `distanceKm` = distance to the nearest matching branch with coordinates (Haversine in SQL, R = 6371 km, 2 decimals) |
 | `sort` | `rating` (default without coordinates; `rating` desc, nulls last, then `reviewCount` desc, name), `price` (`minPrice` asc, nulls last), `distance` (default with coordinates; requires `lat`/`lng`, else 400), `name`. Ties → name, id |
-| `availableWithinDays` | Validated (1..30) and accepted; **the filter is applied after BE2** (availability engine). `nextFreeSlot` is `null` until then |
-| `rating` / `reviewCount` | `null` / `0` until BE2 review moderation fills `tenancy.clinics.rating_average` / `review_count` |
+| `availableWithinDays` | 1..30 (else 400). **BE2:** only clinics with ≥ 1 free slot (§2.2 algorithm) for a matching offer at a matching branch on the branch-local days today … today + N − 1; applied before paging |
+| `nextFreeSlot` | **BE2:** earliest free slot (UTC instant) of the clinic within `availableWithinDays` days (default 7), over the matching branches/offers; `null` when none |
+| `rating` / `reviewCount` | Average (2 decimals) and count of **Published** reviews, maintained by review moderation (BE2); `null` / `0` without one |
 | Paging | `page` ≥ 1, `pageSize` 1..100 (else 400) |
 | `ClinicDetail` | As in the type above. `description` and branch `phone` are `""` when not set. Branches ordered by name; services by name |
 | `GET /public/facets` | `{ districts: string[] (distinct, sorted, public branches only), categories: { key, name }[] (the whole fixed catalogue; `name` is the Uzbek default — localise by `key`), services: { id, name, category }[] (public offers, ≤ 500, by name) }` |
+
+### 2.2 Implementation notes (BE2, 2026-10-18)
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `GET /public/branches/{branchId}/availability?serviceId&date` | anon. `serviceId` required, `date` = branch-local `YYYY-MM-DD` within today … today + 30 (else 400 `common.validation`). Branch inactive / clinic not Approved / offer or service inactive / unknown → 404. → `{ date, timeZone, durationMinutes, slots: [{ startsAt (UTC), localTime 'HH:mm' }] }` |
+| `GET /public/clinics/{clinicId}/reviews?page&pageSize` | anon. Approved clinic (else 404). Published reviews, newest first → `Page<ReviewDto>`; `authorName` = first name + initial of the last name (`"Aziza K."`), `"Bemor"` when unknown/anonymised |
+
+**Availability algorithm.** A start time S (branch-local grid of 15 minutes from local midnight, slots never
+cross local midnight) is offered iff S ≥ now + 60 min (database time), [S, S + duration) lies inside a branch
+opening interval of that weekday (only when the branch has opening hours configured at all), and at least one
+eligible doctor — active, linked to the branch, providing the service — has a working-hours interval covering
+[S, S + duration) in branch time and no active time block (hold, appointment, time off) overlapping it. Holds of
+overdue Pending requests are ignored (they are expired on the next write). The list is advisory: booking
+recomputes everything under the branch lock.
 
 Service category keys: `diagnostics`, `hygiene`, `therapy`, `surgery`, `implants`, `prosthetics`, `orthodontics`, `pediatric`, `whitening`, `periodontics`, `other`.
 
@@ -153,6 +170,24 @@ Service category keys: `diagnostics`, `hygiene`, `therapy`, `surgery`, `implants
 | `POST /me/appointments/{id}/cancel` | Pending: any time. Confirmed: until 2 h before start (`booking.cancel_too_late`) |
 | `POST /me/appointments/{id}/review` `{ rating 1-5, text ≤ 1000 }` | Only Completed, own, within 30 days, once (`review.not_eligible`, `review.already_exists`) |
 | `POST /reports` `{ targetType: 'Clinic'\|'Review', targetId, reason ≤ 500 }` | Abuse report to platform admins |
+
+### 3.1 Implementation notes (BE2, 2026-10-18)
+
+All endpoints need a signed-in user; another patient's appointment → 404 `common.not_found`.
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `POST /appointments` | Body as above (`contactPhone` any accepted Uzbek form, normalised to E.164; `contactName` 1–100). Optional `Idempotency-Key` (≤ 64 printable ASCII): replay → same 201 body; same key + different body → 422 `common.idempotency_mismatch`. → **201** `AppointmentDto` (Pending, `doctor: null`, `expiresAt` = database time + 30 min). Errors: 400 `common.validation` (fields; start not on the 15-minute grid); 404 unknown branch; 422 `booking.clinic_unavailable` (clinic not Approved, branch/offer/service inactive), `booking.lead_time` (< 60 min ahead or after today + 30 days, branch time), `booking.outside_hours` (no eligible doctor works then — working hours, time off, branch opening hours), `booking.too_many_pending` (3 Pending already); 409 `booking.slot_unavailable` (every working doctor busy); 409 `common.concurrency` (retries exhausted); 429 `auth.rate_limited` (`RateLimiting:BookingPermitPerHour`, default 10 per session) |
+| `GET /me/appointments?status&page&pageSize` | `Page<AppointmentDto>` newest first (by creation). `status=Pending` excludes overdue requests, `status=Expired` includes them |
+| `GET /me/appointments/{id}` | `AppointmentDto` with `history`. The doctor is shown only once the appointment is no longer Pending |
+| `POST /me/appointments/{id}/cancel` | No body. Pending (not yet expired) any time; Confirmed until start − 2 h (database time) else 422 `booking.cancel_too_late`; overdue Pending → 409 `booking.expired`; other statuses → 409 `booking.invalid_transition`. → 200 `AppointmentDto` (CancelledByPatient, with history) |
+| `POST /me/appointments/{id}/review` | `{ rating 1–5, text ≤ 1000 (may be empty) }` → **201** `{ id, appointmentId, rating, text, status: 'Pending', createdAt }`. Not Completed / more than 30 days after completion → 422 `review.not_eligible`; second review → 409 `review.already_exists`. Published only after moderation |
+| `POST /reports` | `{ targetType: 'Clinic'\|'Review', targetId, reason 1–500 }` → **201** `{ id, status: 'Open' }`. Target must be public (Approved clinic / Published review) else 404. An open report of the same reporter for the same target is returned again (idempotent) |
+
+Read rules for every `AppointmentDto`: an overdue Pending request is returned as `status: 'Expired'`
+(`expiresAt` kept); `canCancel` is computed for the caller (patient: rule above; staff: Confirmed and
+`appointment.cancel` on the branch — Pending requests are rejected, not cancelled); `canReview`: own,
+Completed, ≤ 30 days, no review yet; `hasReview`: a review exists (FRONTEND.md §9 gap 10).
 
 ## 4. Clinic console — `/api/clinics/{clinicId}/…`
 
@@ -199,8 +234,8 @@ Service category keys: `diagnostics`, `hygiene`, `therapy`, `surgery`, `implants
 
 Implemented in BE1b: clinic registration/profile, dashboard (counts are 0 until BE2/BE3 register
 contributors), branches + hours, services + branch offers, staff + invitations (+ `/me/invitations`),
-doctors + links + working hours, clinic audit. Time off, appointments, calendar, payments, reports,
-settlements: later stages.
+doctors + links + working hours, clinic audit. BE2: time off, appointments, calendar, walk-ins, dashboard
+appointment counts (§4.2). Payments, reports, settlements: BE3.
 
 Authorization pattern everywhere: the resource is loaded by id **within the route clinic**; another
 clinic's id → 404 `common.not_found`; no membership → 404; in-tenant without permission or outside a
@@ -252,6 +287,43 @@ type AuditEntryDto = { id; occurredAt; actorKind: 'User'|'System'|'Anonymous'; a
 | `PUT …/doctors/{doctorId}/working-hours` | `WorkingHoursEntry[]` (≤ 100) → **204**. Replaces the entries of the branches where the caller has `schedule.manage`; other branches' entries are kept (sending one → 403). Branch not linked → 422 `schedule.branch_not_linked`; overlap on a weekday across all branches → 422 `schedule.hours_overlap` |
 | `GET …/audit?page&pageSize` | `audit.view` (owner, clinic-wide) → `Page<AuditEntryDto>` newest first |
 
+### 4.2 Booking in the console (BE2, 2026-10-18)
+
+Every handler loads the appointment **within the route clinic** (other clinic's id → 404), checks the
+permission on the appointment's branch (no membership → 404; role lacks it or branch outside a Branches-scoped
+membership → 403), and for the Doctor role (own-only) treats appointments not assigned to its doctor record as
+404. Lists filter in SQL. FinanceManager has `appointment.view` only: every transition → 403. Time rules use
+**database time**.
+
+```ts
+type EligibleDoctor = { id: string; name: string; withinWorkingHours: boolean; provisional: boolean } // additive fields
+type CalendarDto = { date: string; timeZone: string; branchId: string
+  doctors: { id: string; name: string; workingHours: { start: 'HH:mm'; end: 'HH:mm' }[]
+             blocks: { kind: 'Appointment'|'Hold'|'TimeOff'; startsAt: string; endsAt: string; appointmentId: string|null
+                       status: AppointmentStatus|null; serviceName: string|null; contactName: string|null
+                       otherBranch: boolean /* busy at another branch, no details */; blockId: string|null /* time off id */ }[] }[] }
+type TimeOffDto = { id: string; startsAt: string; endsAt: string; reason: string|null }
+```
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `GET …/appointments?branchId&status&from&to&doctorId&page&pageSize` | `appointment.view` → `Page<AppointmentDto>` ordered by `startsAt`. `from`/`to` = UTC instants, **half-open [from, to) on `startsAt`** (FRONTEND.md F4); `from ≥ to` → 400. `branchId` outside scope → 403, other clinic's → 404. Doctor: only appointments assigned to it (Pending requests never) |
+| `GET …/appointments/{id}` | `appointment.view` → `AppointmentDto` with `history` (staff see the full contact phone) |
+| `GET …/appointments/{id}/eligible-doctors` | `appointment.triage` → `EligibleDoctor[]`: active, linked to the branch, providing the service, no active block overlapping the interval (the request's own hold excluded). Order: provisional holder, within working hours, name |
+| `POST …/appointments/{id}/confirm` `{ doctorId }` | `appointment.triage`. Pending only (409 `booking.not_pending`), deadline by database time (409 `booking.expired`), doctor of another clinic / not linked / not providing / inactive → 422 `booking.doctor_not_eligible`, overlap → 409 `booking.doctor_busy`. Working hours are not required (staff decide). → 200 `AppointmentDto` (Confirmed, with history). Enqueues the patient notice and reminders |
+| `POST …/appointments/{id}/reject` `{ reasonCode }` | `appointment.triage`. Pending only. `reasonCode` ∈ `NoDoctorAvailable`, `TimeUnavailable`, `ServiceUnavailable`, `PatientUnreachable`, `Other` (else 400). Releases the hold → 200 `AppointmentDto` |
+| `POST …/appointments/{id}/cancel` `{ reasonCode }` | `appointment.cancel`. **Confirmed only** (Pending → 409 `booking.invalid_transition`; use reject). `reasonCode` ∈ `DoctorUnavailable`, `ClinicClosed`, `PatientRequest`, `ClinicEmergency`, `Other` → 200 |
+| `POST …/appointments/{id}/reschedule` `{ startsAt, doctorId }` | `appointment.triage`. Confirmed only. Same duration; start on the grid (400), not in the past and within the horizon (422 `booking.lead_time`); doctor rules as confirm. Moves the block atomically; history row Confirmed → Confirmed `Rescheduled`; patient notice; old reminders cancelled, new ones enqueued → 200 |
+| `POST …/appointments/{id}/complete` `{ chargedAmount: Money }` | `appointment.outcome` (Doctor: own). Confirmed only; from the start time (422 `booking.too_early_for_outcome`); amount ≥ 0, ≤ 2 decimals (400 `finance.amount_invalid`). Sets `chargedAmount`, releases the block, calls the BE3 completion hook in the same transaction → 200 |
+| `POST …/appointments/{id}/no-show` | `appointment.outcome` (Doctor: own). Confirmed only; from start + 15 min (422) → 200 |
+| `POST …/appointments` (walk-in) | `appointment.create_walkin` on the body's branch (other clinic's branch → 404). Body `{ branchId, serviceId, startsAt, doctorId, contactName, contactPhone }`, optional `Idempotency-Key`. Start on the grid, not earlier than now − 60 min, within the horizon (422 `booking.lead_time`); doctor eligible (422) and free (409 `booking.doctor_busy`). → **201** `AppointmentDto` (Confirmed, `source: 'WalkIn'`, no patient account, no notifications) |
+| `GET …/calendar?branchId&date` | `appointment.view` on the branch (`branchId` required) → `CalendarDto` for the branch-local day: the branch's Pending (as `Hold`, not overdue), Confirmed, Completed, NoShow appointments in their doctor's column, time off, and busy time at other branches (`otherBranch: true`, no details). Doctor role: own column only, holds without details |
+| `GET …/doctors/{doctorId}/time-off?from&to` | Members who share a branch with the doctor (or the doctor itself) → `TimeOffDto[]` overlapping [from, to); default: not yet ended |
+| `POST …/doctors/{doctorId}/time-off` `{ startsAt, endsAt, reason? }` | `schedule.manage` on **every** branch the doctor is linked to, or the Doctor role for its own record. End after start and in the future, ≤ 90 days, start within a year, reason ≤ 200. Overlap with any active block (hold, appointment, other time off) → 409 `schedule.timeoff_conflict` (exclusion constraint). → **201** `TimeOffDto` |
+| `DELETE …/doctors/{doctorId}/time-off/{id}` | Same rights → 204 (deactivated); unknown/removed → 404 |
+| `GET …/dashboard` (BE2 counts) | `pending` = Pending requests waiting now (any date); `confirmed`/`completed`/`noShow` = appointments starting today (branch/clinic time). Doctor role: own appointments only |
+| `PUT …/doctors/{doctorId}` (BE2 rule) | Removing a branch or service link that appointments or time blocks reference → 409 `schedule.link_in_use` (deactivate the doctor instead) |
+
 ## 5. Platform admin — `/api/admin` (platform permissions, TOTP required)
 
 | Method & path | Permission | Purpose |
@@ -271,7 +343,8 @@ type AuditEntryDto = { id; occurredAt; actorKind: 'User'|'System'|'Anonymous'; a
 ### 5.1 Implementation notes and DTOs (BE1b, 2026-10-18)
 
 Implemented: dashboard, clinics (list/approve/reject/suspend/reinstate), users (list/suspend/reinstate),
-audit. Reports, reviews, commission rules, settlements, break-glass reads and notifications come later.
+audit; BE2: reports, reviews, break-glass appointment read (§5.3). Commission rules, settlements and
+notifications come later.
 Every platform check answers 403 `common.forbidden` without the grant and 403 `auth.totp_setup_required`
 while TOTP is not enabled (`Security:RequireTotpForPrivilegedRoles`). Permission split (as the UI
 assumed): approve/reject = `platform.clinic.verify`; suspend/reinstate = `platform.account.suspend`.
@@ -279,8 +352,8 @@ Note for BE2: the break-glass header `X-Access-Reason` arrives **percent-encoded
 must be decoded by the server.
 
 ```ts
-type AdminDashboardDto = { clinicsByStatus: Record<ClinicVerification, number>; appointmentsToday: number /* 0 until BE2 */
-                           openReports: number /* 0 until BE2 */; activeUsers: number; suspendedUsers: number }
+type AdminDashboardDto = { clinicsByStatus: Record<ClinicVerification, number>; appointmentsToday: number /* BE2: starting today, Asia/Tashkent */
+                           openReports: number /* BE2 */; activeUsers: number; suspendedUsers: number }
 type AdminClinicDto = { id; name; legalName: string; phone: string; verificationStatus: ClinicVerification; isSuspended: boolean
                         statusReason: string|null; branchCount: number; createdAt: string }
 type AdminUserDto = { id; displayName; phoneMasked: string|null; email: string|null; status: 'Active'|'Suspended'; statusReason: string|null; createdAt }
@@ -304,6 +377,23 @@ type AdminUserDto = { id; displayName; phoneMasked: string|null; email: string|n
 
 `dotnet OqTish.Api.dll create-platform-admin --email <e-mail> --phone <+998…>` — see docs/SERVICES.md §2.8.
 
+### 5.3 Reviews, reports and break-glass (BE2, 2026-10-18)
+
+```ts
+type AdminReviewDto = { id; clinicId; clinicName; branchName; appointmentId; rating: number; text: string; authorName: string
+                        status: 'Pending'|'Published'|'Hidden'; moderationReason: string|null; createdAt }
+type AbuseReportDto = { id; targetType: 'Clinic'|'Review'; targetId; targetLabel: string|null /* clinic name or review excerpt */
+                        clinicId; clinicName; reason; status: 'Open'|'Resolved'; createdAt; resolution: string|null; resolvedAt: string|null }
+```
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `GET /admin/reviews?status&clinicId&page&pageSize` | `platform.reports.handle` → `Page<AdminReviewDto>`, Pending first, then newest |
+| `POST /admin/reviews/{id}/publish` · `/hide { reason 1–500 }` | `platform.reports.handle` → 204. Pending/Hidden → Published, Pending/Published → Hidden; same status → 409 `admin.invalid_status_transition`. Recomputes the clinic's `rating`/`reviewCount` over Published reviews (serialised per clinic). Audited |
+| `GET /admin/reports?status&page&pageSize` | `platform.reports.handle` → `Page<AbuseReportDto>`, Open first |
+| `POST /admin/reports/{id}/resolve { resolution 1–1000 }` | → 204; already resolved → 409 `admin.invalid_status_transition`. Audited |
+| `GET /admin/clinics/{id}/appointments?branchId&status&from&to&doctorId&page&pageSize` + `X-Access-Reason` | `platform.tenant-data.read` (403 first). The header is **percent-encoded UTF-8** (`encodeURIComponent`) and decoded by the server; after trimming 15–300 characters, no control characters, else 400 `common.validation` (`errors["X-Access-Reason"]`). Unknown clinic → 404. → `Page<AppointmentDto>` (all branches, full contact data, `canCancel: false`). Every successful read writes audit `platform.tenant_data.read` with the decoded reason, the filters and the row count |
+
 ## 6. Telegram
 
 | Method & path | Auth | Purpose |
@@ -321,7 +411,7 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 |---|---|
 | `GET /dev/sms?phone` | Messages captured by the Fake SMS sender (to read OTP codes during local testing) → `[{ text, sentAt }]`, newest first |
 | `GET /dev/telegram` | Messages the Fake Telegram client would have sent |
-| `POST /dev/seed` | Idempotently loads fictional demo data (same as `dotnet run --project src/OqTish.Api -- seed`, which is allowed in Development and Staging and always refused in Production) → `{ contributors: string[] }`. Identity seed: admin `admin@oqtish.local` / `Seed:AdminPassword` (dev-only default `Admin123!demo`) with all platform permissions; demo patient `+998900000001`. BE1b adds 3 approved demo clinics in Tashkent + 1 Pending, services, doctors, hours and demo staff logins for every role (`Seed:DemoStaffAccounts`, Development only) — credentials in docs/SERVICES.md §2.9 |
+| `POST /dev/seed` | Idempotently loads fictional demo data (same as `dotnet run --project src/OqTish.Api -- seed`, which is allowed in Development and Staging and always refused in Production) → `{ contributors: string[] }`. Identity seed: admin `admin@oqtish.local` / `Seed:AdminPassword` (dev-only default `Admin123!demo`) with all platform permissions; demo patient `+998900000001`. BE1b adds 3 approved demo clinics in Tashkent + 1 Pending, services, doctors, hours and demo staff logins for every role (`Seed:DemoStaffAccounts`, Development only) — credentials in docs/SERVICES.md §2.9. BE2 adds demo appointments in every status for the first clinic, one published and one pending review and an open abuse report (SERVICES.md §3.12) |
 
 ## 8. Health
 
@@ -366,7 +456,7 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 | `booking.invalid_transition` | 409 | State machine rejects the action |
 | `booking.cancel_too_late` | 422 | Patient cutoff passed |
 | `booking.too_early_for_outcome` | 422 | Complete/no-show before allowed time |
-| `schedule.timeoff_conflict` | 409 | Time off overlaps appointments |
+| `schedule.timeoff_conflict` | 409 | Time off overlaps appointments, holds or other time off |
 | `staff.cannot_grant_role` | 403 | Escalation attempt |
 | `staff.last_owner` | 422 | Cannot remove the last owner |
 | `staff.already_member` | 409 | The phone/user is already a member of the clinic (BE1b) |
@@ -376,6 +466,7 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 | `schedule.branch_not_linked` | 422 | Working hours for a branch the doctor is not linked to (BE1b) |
 | `schedule.doctor_user_invalid` | 422 | Doctor `userId` is not a member of the clinic (BE1b) |
 | `schedule.doctor_user_taken` | 409 | The user is already linked to another doctor of the clinic (BE1b) |
+| `schedule.link_in_use` | 409 | A doctor's branch/service link is referenced by appointments or time blocks and cannot be removed (BE2) |
 | `admin.invalid_status_transition` | 409 | Clinic/account not in a state allowing the action (BE1b) |
 | `admin.cannot_suspend_self` | 422 | A platform admin cannot suspend their own account (BE1b) |
 | `finance.refund_exceeds_paid` | 422 | Refund too large |

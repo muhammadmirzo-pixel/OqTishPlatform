@@ -1,6 +1,7 @@
 // LINQ string calls below are translated to SQL lower()/strpos(); .NET culture rules never apply.
 #pragma warning disable CA1304, CA1311, CA1862
 using Microsoft.EntityFrameworkCore;
+using OqTish.Application.Booking;
 using OqTish.Application.Catalog;
 using OqTish.Application.Common;
 using OqTish.Application.Tenancy;
@@ -65,11 +66,13 @@ public sealed record FacetsDto(IReadOnlyList<string> Districts, IReadOnlyList<Se
 /// km, 2 decimals). <c>sort=distance</c> requires them.</item>
 /// <item><c>sort</c>: <c>rating</c> (default without coordinates; nulls last), <c>price</c> (min price, nulls
 /// last), <c>distance</c> (default with coordinates), <c>name</c>. Ties break by name, then id.</item>
-/// <item><c>availableWithinDays</c> (1..30) is accepted and validated; the filter is applied after BE2
-/// (availability engine); <c>nextFreeSlot</c> is null until then.</item>
+/// <item><c>availableWithinDays</c> (1..30): only clinics with at least one free slot (any matching offer and
+/// branch) on the branch-local days today … today + N − 1 (availability engine, BE2; applied before paging).
+/// <c>nextFreeSlot</c> = the earliest such slot within N days (default <c>Booking:SearchDefaultAvailabilityDays</c> = 7),
+/// computed for the page's clinics; null when none.</item>
 /// </list>
 /// </summary>
-public sealed class PublicCatalogQueries(IOqTishDb db)
+public sealed class PublicCatalogQueries(IOqTishDb db, PublicAvailability availability, Microsoft.Extensions.Options.IOptions<BookingOptions> bookingOptions)
 {
     private static readonly string[] Sorts = ["rating", "price", "distance", "name"];
 
@@ -179,6 +182,16 @@ public sealed class PublicCatalogQueries(IOqTishDb db)
             clinics = clinics.Where(c => c.Name.ToLower().Contains(term) || offers.Any(o => o.ClinicId == c.Id && o.Name.ToLower().Contains(term)));
         }
 
+        var slotDays = query.AvailableWithinDays ?? bookingOptions.Value.SearchDefaultAvailabilityDays;
+        IReadOnlyDictionary<Guid, DateTimeOffset>? freeSlots = null;
+        if (query.AvailableWithinDays is not null)
+        {
+            var candidateIds = await clinics.Select(c => c.Id).ToListAsync(ct);
+            freeSlots = await availability.NextFreeSlotsAsync(candidateIds, query.ServiceId, query.ServiceCategory, query.District, slotDays, ct);
+            var available = freeSlots.Keys.ToList();
+            clinics = clinics.Where(c => available.Contains(c.Id));
+        }
+
         var moffers = matchingOffers;
         IQueryable<SearchRow> rows;
         if (hasGeo)
@@ -221,12 +234,13 @@ public sealed class PublicCatalogQueries(IOqTishDb db)
 
         var page = await ordered.ToPageAsync(paging.Value, ct);
         var ids = page.Items.Select(r => r.Id).ToList();
+        freeSlots ??= await availability.NextFreeSlotsAsync(ids, query.ServiceId, query.ServiceCategory, query.District, slotDays, ct);
         var districts = await activeBranches.Where(b => ids.Contains(b.ClinicId)).Select(b => new { b.ClinicId, b.District }).Distinct().ToListAsync(ct);
         return new Page<ClinicCardDto>(
             [.. page.Items.Select(r => new ClinicCardDto(
                 r.Id, r.Name, r.Rating, r.ReviewCount, r.MinPrice is { } p ? Money.Uzs(p) : null, r.BranchCount,
                 [.. districts.Where(d => d.ClinicId == r.Id).Select(d => d.District).Order(StringComparer.Ordinal)],
-                r.DistanceKm, null))],
+                r.DistanceKm, freeSlots.TryGetValue(r.Id, out var slot) ? slot : (DateTimeOffset?)null))],
             page.PageNumber, page.PageSize, page.TotalCount);
     }
 

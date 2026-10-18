@@ -6,6 +6,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="OqTish.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\OqTish.Application\OqTish.Application.csproj" />
     <ProjectReference Include="..\OqTish.Infrastructure\OqTish.Infrastructure.csproj" />
   </ItemGroup>

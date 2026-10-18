@@ -1,7 +1,11 @@
 using OqTish.Api.Common;
 using OqTish.Application.Admin;
 using OqTish.Application.Audit;
+using OqTish.Application.Booking;
 using OqTish.Application.Common;
+using OqTish.Application.Reviews;
+using OqTish.Domain.Booking;
+using OqTish.Domain.Reviews;
 using OqTish.Domain.Tenancy;
 
 namespace OqTish.Api.Endpoints;
@@ -62,6 +66,38 @@ public static class AdminEndpoints
                 (await query.PlatformAsync(clinicId, action, page, pageSize, ct)).ToHttp(http, TypedResults.Ok))
             .WithName("AdminAudit").WithSummary("Platform audit log (platform.audit.view)")
             .Produces<Page<AuditEntryDto>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403);
+
+        admin.MapGet("/reports", async (ReportStatus? status, int? page, int? pageSize, ReportHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.AdminListAsync(status, page, pageSize, ct)).ToHttp(http, TypedResults.Ok))
+            .WithName("AdminReports").WithSummary("Abuse reports, open first (platform.reports.handle)")
+            .Produces<Page<AbuseReportDto>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403);
+
+        admin.MapPost("/reports/{reportId:guid}/resolve", async (Guid reportId, ResolveReportCommand body, ReportHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.ResolveAsync(reportId, body, ct)).ToHttp(http, TypedResults.NoContent))
+            .WithName("ResolveReport").WithSummary("Resolve an abuse report with a resolution note (platform.reports.handle)")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+
+        admin.MapGet("/reviews", async (ReviewModerationStatus? status, Guid? clinicId, int? page, int? pageSize, ReviewHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.AdminListAsync(status, clinicId, page, pageSize, ct)).ToHttp(http, TypedResults.Ok))
+            .WithName("AdminReviews").WithSummary("Reviews for moderation, Pending first (platform.reports.handle)")
+            .Produces<Page<AdminReviewDto>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403);
+
+        admin.MapPost("/reviews/{reviewId:guid}/publish", async (Guid reviewId, ReviewHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.PublishAsync(reviewId, ct)).ToHttp(http, TypedResults.NoContent))
+            .WithName("PublishReview").WithSummary("Publish a review and recompute the clinic rating (platform.reports.handle)")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+
+        admin.MapPost("/reviews/{reviewId:guid}/hide", async (Guid reviewId, AdminReasonCommand body, ReviewHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.HideAsync(reviewId, body, ct)).ToHttp(http, TypedResults.NoContent))
+            .WithName("HideReview").WithSummary("Hide a review with a reason and recompute the clinic rating (platform.reports.handle)")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+
+        admin.MapGet("/clinics/{clinicId:guid}/appointments", async (Guid clinicId, Guid? branchId, AppointmentStatus? status, DateTimeOffset? from, DateTimeOffset? to, Guid? doctorId,
+                    int? page, int? pageSize, [Microsoft.AspNetCore.Mvc.FromHeader(Name = TenantDataQueries.ReasonHeader)] string? reason,
+                    TenantDataQueries queries, HttpContext http, CancellationToken ct) =>
+                (await queries.AppointmentsAsync(clinicId, new AppointmentListQuery(branchId, status, from, to, doctorId, page, pageSize), reason, ct)).ToHttp(http, TypedResults.Ok))
+            .WithName("BreakGlassAppointments").WithSummary("Break-glass read of a clinic's appointments; X-Access-Reason (percent-encoded) required, audited (platform.tenant-data.read)")
+            .Produces<Page<AppointmentDto>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
 
         return app;
     }
