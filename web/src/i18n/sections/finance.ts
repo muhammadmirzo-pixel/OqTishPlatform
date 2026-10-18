@@ -69,6 +69,7 @@ const uz = {
   'audit.target': 'Obyekt',
   'audit.tzNote': 'Vaqt Asia/Tashkent mintaqasida.',
   'audit.clinicIntro': "Klinikadagi muhim o'zgarishlar jurnali. Yozuvlarni o'zgartirib yoki o'chirib bo'lmaydi.",
+  'audit.unknownUser': "Noma'lum foydalanuvchi",
 } as const
 
 type Keys = keyof typeof uz
@@ -142,6 +143,7 @@ const ru: Record<Keys, string> = {
   'audit.target': 'Объект',
   'audit.tzNote': 'Время указано в поясе Asia/Tashkent.',
   'audit.clinicIntro': 'Журнал важных изменений в клинике. Записи нельзя изменить или удалить.',
+  'audit.unknownUser': 'Неизвестный пользователь',
 }
 
 const en: Record<Keys, string> = {
@@ -213,6 +215,7 @@ const en: Record<Keys, string> = {
   'audit.target': 'Target',
   'audit.tzNote': 'Times are in Asia/Tashkent.',
   'audit.clinicIntro': 'Log of important changes in the clinic. Entries cannot be changed or deleted.',
+  'audit.unknownUser': 'Unknown user',
 }
 
 export const finance = { uz, ru, en }

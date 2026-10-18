@@ -50,6 +50,12 @@ export function ClinicLayout() {
       {membership.clinicStatus !== 'Approved' && (
         <div className="banner banner--info" role="note">
           {t(`console.clinicStatus.${membership.clinicStatus}`)}
+          {membership.clinicStatus === 'Rejected' && (
+            <>
+              {' '}
+              <Link to={`${base}/profile`}>{t('console.seeReason')}</Link>
+            </>
+          )}
         </div>
       )}
     </>

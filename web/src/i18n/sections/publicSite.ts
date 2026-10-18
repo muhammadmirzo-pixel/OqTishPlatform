@@ -1,6 +1,17 @@
 // Public catalogue: search, clinic profile, reviews, abuse reports.
 
 const uz = {
+  'category.diagnostics': 'Diagnostika va konsultatsiya',
+  'category.hygiene': 'Gigiena va professional tozalash',
+  'category.therapy': 'Terapiya (plomba, kanal davolash)',
+  'category.surgery': 'Jarrohlik (tish olish)',
+  'category.implants': 'Implantatsiya',
+  'category.prosthetics': 'Protezlash (koronka, protez)',
+  'category.orthodontics': 'Ortodontiya (breket, eleyner)',
+  'category.pediatric': 'Bolalar stomatologiyasi',
+  'category.whitening': 'Oqartirish va estetika',
+  'category.periodontics': 'Parodontologiya',
+  'category.other': 'Boshqa',
   'home.title': 'Ishonchli stomatologni toping',
   'home.subtitle': "Narxlarni solishtiring, bo'sh vaqtni tanlang va qabulga onlayn yoziling.",
   'home.searchPlaceholder': 'Klinika yoki xizmat nomi',
@@ -57,6 +68,17 @@ const uz = {
 type Keys = keyof typeof uz
 
 const ru: Record<Keys, string> = {
+  'category.diagnostics': 'Диагностика и консультация',
+  'category.hygiene': 'Гигиена и профессиональная чистка',
+  'category.therapy': 'Терапия (пломбы, лечение каналов)',
+  'category.surgery': 'Хирургия (удаление зубов)',
+  'category.implants': 'Имплантация',
+  'category.prosthetics': 'Протезирование (коронки, протезы)',
+  'category.orthodontics': 'Ортодонтия (брекеты, элайнеры)',
+  'category.pediatric': 'Детская стоматология',
+  'category.whitening': 'Отбеливание и эстетика',
+  'category.periodontics': 'Пародонтология',
+  'category.other': 'Другое',
   'home.title': 'Найдите надёжного стоматолога',
   'home.subtitle': 'Сравните цены, выберите свободное время и запишитесь онлайн.',
   'home.searchPlaceholder': 'Название клиники или услуги',
@@ -111,6 +133,17 @@ const ru: Record<Keys, string> = {
 }
 
 const en: Record<Keys, string> = {
+  'category.diagnostics': 'Diagnostics and consultation',
+  'category.hygiene': 'Hygiene and professional cleaning',
+  'category.therapy': 'Therapy (fillings, root canals)',
+  'category.surgery': 'Surgery (extractions)',
+  'category.implants': 'Implants',
+  'category.prosthetics': 'Prosthetics (crowns, dentures)',
+  'category.orthodontics': 'Orthodontics (braces, aligners)',
+  'category.pediatric': 'Pediatric dentistry',
+  'category.whitening': 'Whitening and aesthetics',
+  'category.periodontics': 'Periodontics',
+  'category.other': 'Other',
   'home.title': 'Find a dentist you can trust',
   'home.subtitle': 'Compare prices, pick a free time and book online.',
   'home.searchPlaceholder': 'Clinic or service name',

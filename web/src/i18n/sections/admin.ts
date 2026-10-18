@@ -71,6 +71,9 @@ const uz = {
   'settle.finalizeBody': "Oy yopiladi: keyingi yozuvlar joriy davrga tushadi. Bu amalni qaytarib bo'lmaydi.",
   'settle.markPaid': "To'langan deb belgilash",
   'settle.void': 'Bekor qilish',
+  'adm.statusReason': 'Sabab: {reason}',
+  'adm.activeUsers': 'Faol foydalanuvchilar',
+  'adm.suspendedUsers': 'Bloklangan foydalanuvchilar',
 } as const
 
 type Keys = keyof typeof uz
@@ -146,6 +149,9 @@ const ru: Record<Keys, string> = {
   'settle.finalizeBody': 'Месяц будет закрыт: последующие проводки попадут в текущий период. Это действие необратимо.',
   'settle.markPaid': 'Отметить оплату',
   'settle.void': 'Аннулировать',
+  'adm.statusReason': 'Причина: {reason}',
+  'adm.activeUsers': 'Активные пользователи',
+  'adm.suspendedUsers': 'Заблокированные пользователи',
 }
 
 const en: Record<Keys, string> = {
@@ -219,6 +225,9 @@ const en: Record<Keys, string> = {
   'settle.finalizeBody': 'The month will be locked: later postings go to the current period. This cannot be undone.',
   'settle.markPaid': 'Mark paid',
   'settle.void': 'Void',
+  'adm.statusReason': 'Reason: {reason}',
+  'adm.activeUsers': 'Active users',
+  'adm.suspendedUsers': 'Suspended users',
 }
 
 export const admin = { uz, ru, en }

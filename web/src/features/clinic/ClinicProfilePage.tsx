@@ -32,13 +32,14 @@ export function ClinicProfilePage() {
 function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSaved: () => void }) {
   const { t } = useI18n()
   const api = useApi()
-  const { clinicId, can } = useClinic()
+  const { clinicId, canClinicWide } = useClinic()
   const { refresh } = useSession()
   const [value, setValue] = useState<RegisterClinicBody>({ name: p.name, legalName: p.legalName, description: p.description, phone: p.phone })
   const [touched, setTouched] = useState(false)
   const [saved, setSaved] = useState(false)
   const save = useAction((body: RegisterClinicBody) => api.clinic.updateProfile(clinicId, body))
-  const editable = can(Perm.profileManage)
+  // clinic.profile.manage is clinic-wide only (DECISIONS.md BE1a-8).
+  const editable = canClinicWide(Perm.profileManage)
   const errors = validateClinicProfile(value, t, isValidUzPhone)
 
   async function submit(e: FormEvent) {
@@ -46,7 +47,12 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
     setTouched(true)
     setSaved(false)
     if (Object.values(errors).some(Boolean)) return
-    const r = await save.run({ ...value, phone: normalizePhone(value.phone) })
+    const r = await save.run({
+      name: value.name.trim(),
+      legalName: value.legalName.trim(),
+      description: value.description.trim(),
+      phone: value.phone.trim() ? normalizePhone(value.phone) : '',
+    })
     if (r.ok) {
       setSaved(true)
       await refresh()
@@ -59,6 +65,9 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
       <p>
         {t('common.status')}: <Badge tone={p.verificationStatus === 'Approved' ? 'success' : 'warning'}>{t(`verification.${p.verificationStatus}`)}</Badge>
       </p>
+      {p.statusReason && (p.verificationStatus === 'Rejected' || p.verificationStatus === 'Suspended') && (
+        <Notice tone="warning">{t('profile.statusReason', { reason: p.statusReason })}</Notice>
+      )}
       <ClinicProfileFields value={value} onChange={setValue} errors={touched ? errors : {}} disabled={!editable} />
       <FormError error={save.error} />
       {saved && <Notice>{t('common.saved')}</Notice>}

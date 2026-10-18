@@ -4,11 +4,12 @@ import type { MessageKey } from '../../i18n/messages'
 export type ClinicProfileErrors = Partial<Record<keyof RegisterClinicBody, string | null>>
 
 export function validateClinicProfile(v: RegisterClinicBody, t: (k: MessageKey, p?: Record<string, string | number>) => string, validPhone: (p: string) => boolean): ClinicProfileErrors {
-  const req = (s: string, max: number) => (!s.trim() ? t('valid.required') : s.trim().length > max ? t('valid.maxLength', { max }) : null)
+  // Limits of POST/PUT /clinics (API.md §4.1): only the name is required.
+  const max = (s: string, n: number) => (s.trim().length > n ? t('valid.maxLength', { max: n }) : null)
   return {
-    name: req(v.name, 120),
-    legalName: req(v.legalName, 200),
-    description: v.description.length > 2000 ? t('valid.maxLength', { max: 2000 }) : null,
-    phone: !v.phone.trim() ? t('valid.required') : !validPhone(v.phone) ? t('valid.phone') : null,
+    name: !v.name.trim() ? t('valid.required') : max(v.name, 200),
+    legalName: max(v.legalName, 300),
+    description: max(v.description, 4000),
+    phone: v.phone.trim() && !validPhone(v.phone) ? t('valid.phone') : null,
   }
 }

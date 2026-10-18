@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
-import type { BranchBody, BranchDto } from '../../api/types'
+import { branchTimeZones, type BranchBody, type BranchDto } from '../../api/types'
 import { useAction } from '../../hooks/useAction'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
@@ -18,18 +18,20 @@ import { hasOverlap, intervalError, type Interval } from './hours'
 export function BranchesPage() {
   const { t } = useI18n()
   useTitle(t('clinicNav.branches'))
-  const { branches, can, reloadBranches } = useClinic()
+  const { branches, can, canClinicWide, reloadBranches } = useClinic()
   const [editing, setEditing] = useState<BranchDto | 'new' | null>(null)
   const [hoursFor, setHoursFor] = useState<BranchDto | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // Creating a branch needs branch.manage clinic-wide; editing needs it on that branch (BE1a-8).
   const manage = can(Perm.branchManage)
+  const create = canClinicWide(Perm.branchManage)
 
   return (
     <div className="stack">
       <PageHeader
         title={t('clinicNav.branches')}
         actions={
-          manage && (
+          create && (
             <button type="button" className="btn" onClick={() => setEditing('new')}>
               {t('branch.add')}
             </button>
@@ -46,7 +48,8 @@ export function BranchesPage() {
               <div>
                 <strong>{b.name}</strong> {!b.isActive && <Badge>{t('common.inactive')}</Badge>}
                 <div className="muted small">
-                  {b.district}, {b.address} · {b.phone} · {b.timeZone}
+                  {b.district}, {b.address}
+                  {b.phone && <> · {b.phone}</>} · {b.timeZone}
                 </div>
                 <div className="small">
                   {b.hours.length === 0
@@ -106,23 +109,26 @@ function BranchDialog({ branch, onDone, onClose }: { branch: BranchDto | null; o
     district: branch?.district ?? '',
     address: branch?.address ?? '',
     phone: branch?.phone ?? '',
-    timeZone: branch?.timeZone ?? DEFAULT_TIME_ZONE,
+    timeZone: branch && (branchTimeZones as readonly string[]).includes(branch.timeZone) ? branch.timeZone : DEFAULT_TIME_ZONE,
     latitude: branch?.latitude?.toString() ?? '',
     longitude: branch?.longitude?.toString() ?? '',
     isActive: branch?.isActive ?? true,
   })
   const [touched, setTouched] = useState(false)
   const save = useAction((body: BranchBody) => (branch ? api.clinic.updateBranch(clinicId, branch.id, body) : api.clinic.createBranch(clinicId, body)))
-  const coord = (s: string, max: number) => (s.trim() === '' ? null : Number.isFinite(Number(s)) && Math.abs(Number(s)) <= max ? null : t('branch.coordInvalid'))
-  const req = (s: string) => (!s.trim() ? t('valid.required') : null)
+  // Coordinates: both or neither, at most 6 decimals (API.md §4.1).
+  const coord = (s: string, max: number) =>
+    s.trim() === '' ? null : /^-?\d{1,3}(\.\d{1,6})?$/.test(s.trim()) && Math.abs(Number(s)) <= max ? null : t('branch.coordInvalid')
+  const onlyOne = (v.latitude.trim() === '') !== (v.longitude.trim() === '')
+  const req = (s: string, max: number) => (!s.trim() ? t('valid.required') : s.trim().length > max ? t('valid.maxLength', { max }) : null)
   const errors = {
-    name: req(v.name),
-    district: req(v.district),
-    address: req(v.address),
-    phone: !isValidUzPhone(v.phone) ? t('valid.phone') : null,
-    timeZone: req(v.timeZone),
-    latitude: coord(v.latitude, 90),
-    longitude: coord(v.longitude, 180),
+    name: req(v.name, 200),
+    district: req(v.district, 100),
+    address: req(v.address, 500),
+    phone: v.phone.trim() && !isValidUzPhone(v.phone) ? t('valid.phone') : null,
+    timeZone: (branchTimeZones as readonly string[]).includes(v.timeZone) ? null : t('valid.required'),
+    latitude: coord(v.latitude, 90) ?? (onlyOne ? t('branch.coordPair') : null),
+    longitude: coord(v.longitude, 180) ?? (onlyOne ? t('branch.coordPair') : null),
   }
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value })
 
@@ -134,8 +140,8 @@ function BranchDialog({ branch, onDone, onClose }: { branch: BranchDto | null; o
       name: v.name.trim(),
       district: v.district.trim(),
       address: v.address.trim(),
-      phone: normalizePhone(v.phone),
-      timeZone: v.timeZone.trim(),
+      phone: v.phone.trim() ? normalizePhone(v.phone) : '',
+      timeZone: v.timeZone,
       latitude: v.latitude.trim() ? Number(v.latitude) : null,
       longitude: v.longitude.trim() ? Number(v.longitude) : null,
       isActive: v.isActive,
@@ -148,18 +154,18 @@ function BranchDialog({ branch, onDone, onClose }: { branch: BranchDto | null; o
     <Dialog title={branch ? t('branch.edit') : t('branch.add')} onClose={onClose}>
       <form className="stack" onSubmit={submit} noValidate>
         <Field label={t('common.name')} error={err('name')}>
-          {(p) => <input {...p} maxLength={120} value={v.name} onChange={set('name')} />}
+          {(p) => <input {...p} maxLength={200} value={v.name} onChange={set('name')} />}
         </Field>
         <div className="grid-2">
           <Field label={t('home.district')} error={err('district')}>
             {(p) => <input {...p} maxLength={100} value={v.district} onChange={set('district')} />}
           </Field>
-          <Field label={t('common.phone')} error={err('phone')}>
+          <Field label={t('common.phone')} error={err('phone')} optional>
             {(p) => <input {...p} type="tel" value={v.phone} onChange={set('phone')} />}
           </Field>
         </div>
         <Field label={t('branch.address')} error={err('address')}>
-          {(p) => <input {...p} maxLength={300} value={v.address} onChange={set('address')} />}
+          {(p) => <input {...p} maxLength={500} value={v.address} onChange={set('address')} />}
         </Field>
         <div className="grid-2">
           <Field label={t('branch.latitude')} error={err('latitude')} optional>
@@ -170,7 +176,15 @@ function BranchDialog({ branch, onDone, onClose }: { branch: BranchDto | null; o
           </Field>
         </div>
         <Field label={t('branch.timeZone')} hint={t('branch.timeZoneHint')} error={err('timeZone')}>
-          {(p) => <input {...p} value={v.timeZone} onChange={set('timeZone')} />}
+          {(p) => (
+            <select {...p} value={v.timeZone} onChange={set('timeZone')}>
+              {branchTimeZones.map((z) => (
+                <option key={z} value={z}>
+                  {t(`tz.${z}`)}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
         <Checkbox label={t('common.active')} checked={v.isActive} onChange={(isActive) => setV({ ...v, isActive })} />
         <FormError error={save.error} />

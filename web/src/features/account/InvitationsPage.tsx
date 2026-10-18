@@ -58,6 +58,9 @@ export function InvitationsPage() {
                         setAccepted({ clinicId: inv.clinicId, clinicName: inv.clinicName })
                         invitations.reload()
                         await refresh()
+                      } else {
+                        // Revoked/expired meanwhile (404 / 422 staff.invitation_expired): refresh the list.
+                        invitations.reload()
                       }
                     }}
                   >

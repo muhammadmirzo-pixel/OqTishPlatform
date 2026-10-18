@@ -44,6 +44,7 @@ const uz = {
   'adminNav.tenantData': "Bemor ma'lumotlariga kirish",
   'adminNav.audit': 'Audit jurnali',
   'adminNav.notifications': 'Xabarnomalar navbati',
+  'console.seeReason': "Sababini ko'rish",
 } as const
 
 type Keys = keyof typeof uz
@@ -92,6 +93,7 @@ const ru: Record<Keys, string> = {
   'adminNav.tenantData': 'Доступ к данным пациентов',
   'adminNav.audit': 'Журнал аудита',
   'adminNav.notifications': 'Очередь уведомлений',
+  'console.seeReason': 'Посмотреть причину',
 }
 
 const en: Record<Keys, string> = {
@@ -138,6 +140,7 @@ const en: Record<Keys, string> = {
   'adminNav.tenantData': 'Patient data access',
   'adminNav.audit': 'Audit log',
   'adminNav.notifications': 'Notification outbox',
+  'console.seeReason': 'See the reason',
 }
 
 export const shell = { uz, ru, en }

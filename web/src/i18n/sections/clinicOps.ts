@@ -80,7 +80,8 @@ const uz = {
   'register.step2': "Filiallar, xizmatlar, narxlar va shifokorlarni kiriting.",
   'register.step3': "Platforma tasdiqlagach, bemorlar onlayn yozila boshlaydi.",
   'register.submit': 'Ariza yuborish',
-  'profile.readOnly': "Profilni faqat klinika egasi yoki administratori o'zgartira oladi.",
+  'profile.readOnly': "Profilni faqat butun klinika bo'yicha huquqqa ega ega yoki administrator o'zgartira oladi.",
+  'profile.statusReason': 'Platforma izohi: {reason}',
 } as const
 
 type Keys = keyof typeof uz
@@ -165,7 +166,8 @@ const ru: Record<Keys, string> = {
   'register.step2': 'Добавьте филиалы, услуги, цены и врачей.',
   'register.step3': 'После одобрения платформой пациенты смогут записываться онлайн.',
   'register.submit': 'Отправить заявку',
-  'profile.readOnly': 'Изменять профиль может только владелец или администратор клиники.',
+  'profile.readOnly': 'Изменять профиль может только владелец или администратор с доступом ко всей клинике.',
+  'profile.statusReason': 'Комментарий платформы: {reason}',
 }
 
 const en: Record<Keys, string> = {
@@ -248,7 +250,8 @@ const en: Record<Keys, string> = {
   'register.step2': 'Add branches, services, prices and doctors.',
   'register.step3': 'After the platform approves it, patients can book online.',
   'register.submit': 'Submit application',
-  'profile.readOnly': 'Only the clinic owner or administrator can change the profile.',
+  'profile.readOnly': 'Only a clinic-wide owner or administrator can change the profile.',
+  'profile.statusReason': 'Platform note: {reason}',
 }
 
 export const clinicOps = { uz, ru, en }

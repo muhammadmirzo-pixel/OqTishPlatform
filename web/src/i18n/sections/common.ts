@@ -135,6 +135,7 @@ const uz = {
   'valid.percent': "Foizni 0 dan 100 gacha kiriting (ko'pi bilan 2 kasr xonasi)",
   'valid.number': "Butun son kiriting",
   'valid.chooseOne': 'Kamida bittasini tanlang',
+  'actor.Anonymous': 'Anonim',
 } as const
 
 type Keys = keyof typeof uz
@@ -274,6 +275,7 @@ const ru: Record<Keys, string> = {
   'valid.percent': 'Введите процент от 0 до 100 (не более 2 знаков после запятой)',
   'valid.number': 'Введите целое число',
   'valid.chooseOne': 'Выберите хотя бы один вариант',
+  'actor.Anonymous': 'Аноним',
 }
 
 const en: Record<Keys, string> = {
@@ -411,6 +413,7 @@ const en: Record<Keys, string> = {
   'valid.percent': 'Enter a percentage from 0 to 100 (at most 2 decimals)',
   'valid.number': 'Enter a whole number',
   'valid.chooseOne': 'Choose at least one option',
+  'actor.Anonymous': 'Anonymous',
 }
 
 export const common = { uz, ru, en }

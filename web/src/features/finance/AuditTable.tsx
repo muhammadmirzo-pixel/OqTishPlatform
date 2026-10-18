@@ -26,7 +26,14 @@ export function AuditTable({ page, onPage, showClinic }: { page: Page<AuditEntry
             {page.items.map((e) => (
               <tr key={e.id}>
                 <td>{formatFullDateTime(e.occurredAt, DEFAULT_TIME_ZONE, locale)}</td>
-                <td>{e.actorName ?? t('actor.System')}</td>
+                <td>
+                  {e.actorKind === 'User' ? (e.actorName ?? t('audit.unknownUser')) : t(`actor.${e.actorKind}`)}
+                  {e.actorKind === 'User' && e.actorUserId && (
+                    <div className="muted small" title={e.actorUserId}>
+                      {e.actorUserId.slice(0, 8)}
+                    </div>
+                  )}
+                </td>
                 <td>
                   <code>{e.action}</code>
                 </td>

@@ -117,9 +117,9 @@ function WorkingHoursForm({ doctor, initial, editable, onSaved }: { doctor: Doct
   async function submit(e: FormEvent) {
     e.preventDefault()
     setTouched(true)
-    const byBranch = doctorBranches.map((b) => all.filter((x) => x.branchId === b.id))
-    if (all.some((i) => intervalError(i)) || byBranch.some(hasOverlap)) return
-    const r = await save.run(all.filter((x) => doctor.branchIds.includes(x.branchId)))
+    const sent = all.filter((x) => doctorBranches.some((b) => b.id === x.branchId))
+    if (sent.some((i) => intervalError(i)) || hasOverlap(sent)) return
+    const r = await save.run(sent)
     if (r.ok) {
       setSaved(true)
       onSaved()
@@ -141,6 +141,11 @@ function WorkingHoursForm({ doctor, initial, editable, onSaved }: { doctor: Doct
       {editable ? (
         <>
           <WeeklyHoursEditor value={current} onChange={setCurrent} legend={branchName(branchId)} showErrors={touched} />
+          {touched && !hasOverlap(current) && hasOverlap(all.filter((x) => doctorBranches.some((b) => b.id === x.branchId))) && (
+            <p className="field__error" role="alert">
+              {t('doc.hoursOverlapBranches')}
+            </p>
+          )}
           <FormError error={save.error} />
           {saved && <Notice>{t('common.saved')}</Notice>}
           <SubmitButton pending={save.pending}>{t('common.save')}</SubmitButton>

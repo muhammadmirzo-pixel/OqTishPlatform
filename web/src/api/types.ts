@@ -1,6 +1,8 @@
-// Types mirroring the DTOs in docs/API.md. Shapes marked "ASSUMED" are used by screens but are not
-// spelled out in the contract yet; they are listed in docs/FRONTEND.md ("Contract gaps") so the
-// backend can confirm or correct them. The server stays authoritative for every value.
+// Types mirroring the DTOs in docs/API.md. Shapes for auth/session (§1), the public catalogue (§2.1),
+// the clinic console setup screens (§4.1) and the admin dashboard/clinics/users/audit (§5.1) follow the
+// implemented backend. Shapes still marked "ASSUMED" (booking, finance, reviews, …) are used by
+// screens but not yet specified; they are listed in docs/FRONTEND.md ("Contract gaps"). The server
+// stays authoritative for every value.
 
 /** Money as the API sends it: decimal string + currency. Never parsed into floats. */
 export interface Money {
@@ -126,7 +128,7 @@ export interface SessionDto {
   current: boolean
 }
 
-/** ASSUMED: GET /me/invitations item shape. */
+/** GET /me/invitations item (API.md §4.1). */
 export interface MyInvitationDto {
   id: string
   clinicId: string
@@ -274,6 +276,7 @@ export interface Availability {
   slots: { startsAt: string; localTime: string }[]
 }
 
+/** GET /public/facets (API.md §2.1). Category `name` is the Uzbek default — localise by `key`. */
 export interface Facets {
   districts: string[]
   categories: { key: string; name: string }[]
@@ -282,6 +285,7 @@ export interface Facets {
 
 // ---------------------------------------------------------------- clinic console
 
+/** POST/PUT /clinics body: `name` 1–200; legalName ≤ 300, description ≤ 4000, phone — optional ("" = not set). */
 export interface RegisterClinicBody {
   name: string
   legalName: string
@@ -289,7 +293,7 @@ export interface RegisterClinicBody {
   phone: string
 }
 
-/** ASSUMED: GET /clinics/{id} shape (fields of POST /clinics plus status). */
+/** GET /clinics/{id} (API.md §4.1). Empty strings mean "not set". */
 export interface ClinicProfileDto {
   id: string
   name: string
@@ -297,20 +301,44 @@ export interface ClinicProfileDto {
   description: string
   phone: string
   verificationStatus: ClinicVerification
+  /** Reason of the last reject/suspend, shown to the owner. */
+  statusReason: string | null
   createdAt: string
 }
 
-/** ASSUMED: dashboard counters; `collected` present only with finance.report.view. */
+/** GET /clinics/{id}/dashboard (API.md §4.1); `collected` is null without finance.report.view. */
 export interface DashboardDto {
+  /** YYYY-MM-DD, branch/clinic local. */
   date: string
+  branchId: string | null
   pending: number
   confirmed: number
   completed: number
   noShow: number
-  collected?: Money | null
+  collected: Money | null
 }
 
-/** ASSUMED: branch shape (API.md lists the fields but not the response object). */
+/** Branch time zones accepted by the API (DECISIONS.md BE1b-15). */
+export const branchTimeZones = ['Asia/Tashkent', 'Asia/Samarkand'] as const
+export type BranchTimeZone = (typeof branchTimeZones)[number]
+
+/** Fixed service category keys (API.md §2.1, DECISIONS.md BE1b-1). Labels: `category.<key>`. */
+export const serviceCategories = [
+  'diagnostics',
+  'hygiene',
+  'therapy',
+  'surgery',
+  'implants',
+  'prosthetics',
+  'orthodontics',
+  'pediatric',
+  'whitening',
+  'periodontics',
+  'other',
+] as const
+export type ServiceCategory = (typeof serviceCategories)[number]
+
+/** Branch (API.md §4.1). `phone` is "" when not set. */
 export interface BranchDto {
   id: string
   name: string
@@ -324,9 +352,10 @@ export interface BranchDto {
   hours: OpeningHours[]
 }
 
+/** POST/PUT branch body; coordinates both or neither (≤ 6 decimals), timeZone from the allow-list. */
 export type BranchBody = Omit<BranchDto, 'id' | 'hours'>
 
-/** ASSUMED: branch offers are embedded in the service list (needed for the price editor). */
+/** Branch offer embedded in ServiceDto (only branches in the caller's scope). */
 export interface BranchOfferDto {
   branchId: string
   price: Money
@@ -345,7 +374,7 @@ export interface ServiceDto {
 
 export interface ServiceBody {
   name: string
-  category: string
+  category: ServiceCategory
   isActive: boolean
 }
 
@@ -356,7 +385,7 @@ export interface BranchOfferBody {
   isActive: boolean
 }
 
-/** ASSUMED: GET /staff item. */
+/** GET /staff item (API.md §4.1). */
 export interface StaffMemberDto {
   membershipId: string
   userId: string
@@ -374,7 +403,7 @@ export interface StaffBody {
   branchIds: string[]
 }
 
-/** ASSUMED: GET /invitations item. */
+/** GET /invitations item (API.md §4.1); expired ones are included — compare `expiresAt`. */
 export interface InvitationDto {
   id: string
   phoneMasked: string
@@ -389,7 +418,7 @@ export interface InvitationBody extends StaffBody {
   phone: string
 }
 
-/** ASSUMED: doctor shape, mirroring the PUT body. */
+/** Doctor (API.md §4.1). */
 export interface DoctorDto {
   id: string
   displayName: string
@@ -399,7 +428,17 @@ export interface DoctorDto {
   userId: string | null
 }
 
-export type DoctorBody = Omit<DoctorDto, 'id'>
+/**
+ * POST/PUT doctor body. Links are replaced. Changing `userId` needs `staff.manage` as well, so the
+ * field is sent only when the caller may (and wants to) change it.
+ */
+export interface DoctorBody {
+  displayName: string
+  isActive: boolean
+  branchIds: string[]
+  serviceIds: string[]
+  userId?: string | null
+}
 
 export interface WorkingHoursEntry {
   branchId: string
@@ -540,10 +579,14 @@ export interface SettlementDto {
   voidReason: string | null
 }
 
-/** ASSUMED: audit entry. */
+export type AuditActorKind = 'User' | 'System' | 'Anonymous'
+
+/** Audit entry, clinic and platform (API.md §4.1). */
 export interface AuditEntryDto {
   id: string
   occurredAt: string
+  actorKind: AuditActorKind
+  actorUserId: string | null
   actorName: string | null
   action: string
   clinicId: string | null
@@ -554,32 +597,36 @@ export interface AuditEntryDto {
 
 // ---------------------------------------------------------------- platform admin
 
-/** ASSUMED */
+/** GET /admin/dashboard (API.md §5.1). `appointmentsToday` / `openReports` are 0 until BE2. */
 export interface AdminDashboardDto {
   clinicsByStatus: Partial<Record<ClinicVerification, number>>
   appointmentsToday: number
   openReports: number
+  activeUsers: number
+  suspendedUsers: number
 }
 
-/** ASSUMED */
+/** GET /admin/clinics item; approve/reject/suspend/reinstate answer 200 with this (API.md §5.1). */
 export interface AdminClinicDto {
   id: string
   name: string
   legalName: string
   phone: string
   verificationStatus: ClinicVerification
-  isSuspended?: boolean
+  isSuspended: boolean
+  statusReason: string | null
   branchCount: number
   createdAt: string
 }
 
-/** ASSUMED */
+/** GET /admin/users item (API.md §5.1). */
 export interface AdminUserDto {
   id: string
   displayName: string
   phoneMasked: string | null
   email: string | null
   status: 'Active' | 'Suspended'
+  statusReason: string | null
   createdAt: string
 }
 

@@ -7,7 +7,7 @@ export function authApi(c: ApiClient) {
     requestOtp: (phone: string) => c.send<OtpChallenge>('POST', '/auth/otp/request', { phone }),
     verifyOtp: (challengeId: string, code: string, totpCode?: string) => c.send<Me>('POST', '/auth/otp/verify', { challengeId, code, ...(totpCode ? { totpCode } : {}) }),
     passwordLogin: (body: { email: string; password: string; totpCode?: string }) => c.send<Me>('POST', '/auth/password/login', body),
-    requestPasswordReset: (email: string) => c.send<{ challengeId?: string } | undefined>('POST', '/auth/password/reset/request', { email }),
+    requestPasswordReset: (email: string) => c.send<{ challengeId: string }>('POST', '/auth/password/reset/request', { email }),
     confirmPasswordReset: (body: { challengeId: string; code: string; newPassword: string }) =>
       c.send<void>('POST', '/auth/password/reset/confirm', body),
     telegramWebApp: (initData: string, totpCode?: string) => c.send<Me>('POST', '/auth/telegram/webapp', { initData, ...(totpCode ? { totpCode } : {}) }),

@@ -102,25 +102,30 @@ export function AdminClinicsPage() {
                         <td>
                           <strong>{c.name}</strong>
                           <div className="muted small">
-                            {c.legalName} · {t('home.branches', { count: c.branchCount })}
+                            {c.legalName && <>{c.legalName} · </>}
+                            {t('home.branches', { count: c.branchCount })}
                           </div>
                         </td>
-                        <td>{c.phone}</td>
+                        <td>{c.phone || '—'}</td>
                         <td>
                           <Badge tone={c.verificationStatus === 'Approved' ? 'success' : c.verificationStatus === 'Pending' ? 'warning' : 'neutral'}>{t(`verification.${c.verificationStatus}`)}</Badge>
+                          {c.statusReason && (c.verificationStatus === 'Rejected' || c.verificationStatus === 'Suspended') && (
+                            <div className="muted small">{t('adm.statusReason', { reason: c.statusReason })}</div>
+                          )}
                         </td>
                         <td>{formatInstantDate(c.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
                         <td>
                           <div className="row">
+                            {/* Status machine (DECISIONS.md BE1b-11): approve = Pending/Rejected → Approved; reject = Pending → Rejected. */}
+                            {verify && (c.verificationStatus === 'Pending' || c.verificationStatus === 'Rejected') && (
+                              <button type="button" className="btn btn--small" onClick={() => setAction({ kind: 'approve', clinic: c })}>
+                                {t('adm.approve')}
+                              </button>
+                            )}
                             {verify && c.verificationStatus === 'Pending' && (
-                              <>
-                                <button type="button" className="btn btn--small" onClick={() => setAction({ kind: 'approve', clinic: c })}>
-                                  {t('adm.approve')}
-                                </button>
-                                <button type="button" className="btn btn--ghost btn--small" onClick={() => setAction({ kind: 'reject', clinic: c })}>
-                                  {t('adm.reject')}
-                                </button>
-                              </>
+                              <button type="button" className="btn btn--ghost btn--small" onClick={() => setAction({ kind: 'reject', clinic: c })}>
+                                {t('adm.reject')}
+                              </button>
                             )}
                             {suspend && c.verificationStatus === 'Approved' && (
                               <button type="button" className="btn btn--ghost btn--small" onClick={() => setAction({ kind: 'suspend', clinic: c })}>
@@ -165,6 +170,7 @@ export function AdminClinicsPage() {
           label={t('common.reason')}
           intro={<p className="muted">{t('adm.reasonAudited')}</p>}
           submitLabel={t(action.kind === 'reject' ? 'adm.reject' : 'adm.suspend')}
+          maxLength={1000}
           onSubmit={(reason) => (action.kind === 'reject' ? api.admin.rejectClinic(action.clinic.id, reason) : api.admin.suspendClinic(action.clinic.id, reason))}
           onDone={() => done(t('adm.done'))}
           onClose={() => setAction(null)}

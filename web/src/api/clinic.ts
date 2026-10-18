@@ -32,26 +32,28 @@ export function clinicApi(c: ApiClient) {
   return {
     register: (body: RegisterClinicBody) => c.send<ClinicProfileDto>('POST', '/clinics', body),
     profile: (clinicId: string) => c.get<ClinicProfileDto>(base(clinicId)),
-    updateProfile: (clinicId: string, body: RegisterClinicBody) => c.send<ClinicProfileDto | undefined>('PUT', base(clinicId), body),
+    updateProfile: (clinicId: string, body: RegisterClinicBody) => c.send<ClinicProfileDto>('PUT', base(clinicId), body),
     dashboard: (clinicId: string, branchId?: string) => c.get<DashboardDto>(`${base(clinicId)}/dashboard${query({ branchId })}`),
 
     branches: (clinicId: string) => c.get<BranchDto[]>(`${base(clinicId)}/branches`),
     createBranch: (clinicId: string, body: BranchBody) => c.send<BranchDto>('POST', `${base(clinicId)}/branches`, body),
     updateBranch: (clinicId: string, branchId: string, body: BranchBody) =>
-      c.send<BranchDto | undefined>('PUT', `${base(clinicId)}/branches/${seg(branchId)}`, body),
+      c.send<BranchDto>('PUT', `${base(clinicId)}/branches/${seg(branchId)}`, body),
+    /** → 204; replaces all opening hours of the branch. */
     setBranchHours: (clinicId: string, branchId: string, hours: OpeningHours[]) =>
       c.send<void>('PUT', `${base(clinicId)}/branches/${seg(branchId)}/hours`, hours),
 
     services: (clinicId: string) => c.get<ServiceDto[]>(`${base(clinicId)}/services`),
     createService: (clinicId: string, body: ServiceBody) => c.send<ServiceDto>('POST', `${base(clinicId)}/services`, body),
     updateService: (clinicId: string, serviceId: string, body: ServiceBody) =>
-      c.send<ServiceDto | undefined>('PUT', `${base(clinicId)}/services/${seg(serviceId)}`, body),
+      c.send<ServiceDto>('PUT', `${base(clinicId)}/services/${seg(serviceId)}`, body),
+    /** → 204 (upsert). */
     setBranchOffer: (clinicId: string, branchId: string, serviceId: string, body: BranchOfferBody) =>
       c.send<void>('PUT', `${base(clinicId)}/branches/${seg(branchId)}/services/${seg(serviceId)}`, body),
 
     staff: (clinicId: string) => c.get<StaffMemberDto[]>(`${base(clinicId)}/staff`),
     updateStaff: (clinicId: string, membershipId: string, body: StaffBody) =>
-      c.send<void>('PUT', `${base(clinicId)}/staff/${seg(membershipId)}`, body),
+      c.send<StaffMemberDto>('PUT', `${base(clinicId)}/staff/${seg(membershipId)}`, body),
     removeStaff: (clinicId: string, membershipId: string) => c.send<void>('DELETE', `${base(clinicId)}/staff/${seg(membershipId)}`),
     invitations: (clinicId: string) => c.get<InvitationDto[]>(`${base(clinicId)}/invitations`),
     invite: (clinicId: string, body: InvitationBody) => c.send<InvitationDto>('POST', `${base(clinicId)}/invitations`, body),
@@ -60,9 +62,10 @@ export function clinicApi(c: ApiClient) {
     doctors: (clinicId: string) => c.get<DoctorDto[]>(`${base(clinicId)}/doctors`),
     createDoctor: (clinicId: string, body: DoctorBody) => c.send<DoctorDto>('POST', `${base(clinicId)}/doctors`, body),
     updateDoctor: (clinicId: string, doctorId: string, body: DoctorBody) =>
-      c.send<DoctorDto | undefined>('PUT', `${base(clinicId)}/doctors/${seg(doctorId)}`, body),
+      c.send<DoctorDto>('PUT', `${base(clinicId)}/doctors/${seg(doctorId)}`, body),
     workingHours: (clinicId: string, doctorId: string) =>
       c.get<WorkingHoursEntry[]>(`${base(clinicId)}/doctors/${seg(doctorId)}/working-hours`),
+    /** → 204; replaces the entries of the branches where the caller has schedule.manage. */
     setWorkingHours: (clinicId: string, doctorId: string, entries: WorkingHoursEntry[]) =>
       c.send<void>('PUT', `${base(clinicId)}/doctors/${seg(doctorId)}/working-hours`, entries),
     timeOff: (clinicId: string, doctorId: string, from: string, to: string) =>

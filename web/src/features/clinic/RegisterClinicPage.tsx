@@ -27,7 +27,7 @@ export function RegisterClinicPage() {
     e.preventDefault()
     setTouched(true)
     if (Object.values(errors).some(Boolean)) return
-    const r = await register.run({ ...value, name: value.name.trim(), legalName: value.legalName.trim(), description: value.description.trim(), phone: normalizePhone(value.phone) })
+    const r = await register.run({ ...value, name: value.name.trim(), legalName: value.legalName.trim(), description: value.description.trim(), phone: value.phone.trim() ? normalizePhone(value.phone) : '' })
     if (r.ok) {
       await refresh()
       navigate(`/clinic/${r.value.id}/branches`, { replace: true })

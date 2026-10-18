@@ -79,7 +79,11 @@ export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: Do
   const { t } = useI18n()
   const api = useApi()
   const { clinicId, branches, can } = useClinic()
-  const staff = useQuery(can(Perm.staffManage) ? `staff:${clinicId}` : null, () => api.clinic.staff(clinicId))
+  // Linking the record to an account grants Doctor-own access, so changing `userId` also needs
+  // staff.manage (DECISIONS.md BE1b-6). Without it the current link is sent back unchanged — the API
+  // treats a missing/null userId as "unlink".
+  const canLink = can(Perm.staffManage)
+  const staff = useQuery(canLink ? `staff:${clinicId}` : null, () => api.clinic.staff(clinicId))
   const [name, setName] = useState(doctor?.displayName ?? '')
   const [isActive, setActive] = useState(doctor?.isActive ?? true)
   const [branchIds, setBranchIds] = useState<string[]>(doctor?.branchIds ?? [])
@@ -87,9 +91,13 @@ export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: Do
   const [userId, setUserId] = useState(doctor?.userId ?? '')
   const [touched, setTouched] = useState(false)
   const save = useAction((body: DoctorBody) => (doctor ? api.clinic.updateDoctor(clinicId, doctor.id, body) : api.clinic.createDoctor(clinicId, body)))
-  const doctorsStaff: StaffMemberDto[] = (staff.data ?? []).filter((s) => s.role === 'Doctor')
+  // Any non-removed member may be linked; Doctor-role members are listed first.
+  const linkable: StaffMemberDto[] = [...(staff.data ?? [])].sort((a, b) => Number(b.role === 'Doctor') - Number(a.role === 'Doctor') || a.displayName.localeCompare(b.displayName))
+  const currentLinkHidden = !!doctor?.userId && !linkable.some((s) => s.userId === doctor.userId)
+  // Branch links outside the caller's scope are invisible here; keep them instead of silently dropping them.
+  const hiddenBranchIds = (doctor?.branchIds ?? []).filter((id) => !branches.some((b) => b.id === id))
   const errors = {
-    name: !name.trim() ? t('valid.required') : name.length > 100 ? t('valid.maxLength', { max: 100 }) : null,
+    name: !name.trim() ? t('valid.required') : name.trim().length > 200 ? t('valid.maxLength', { max: 200 }) : null,
     branches: branchIds.length === 0 ? t('valid.chooseOne') : null,
     services: serviceIds.length === 0 ? t('valid.chooseOne') : null,
   }
@@ -98,7 +106,13 @@ export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: Do
     e.preventDefault()
     setTouched(true)
     if (errors.name || errors.branches || errors.services) return
-    const r = await save.run({ displayName: name.trim(), isActive, branchIds, serviceIds, userId: userId || null })
+    const r = await save.run({
+      displayName: name.trim(),
+      isActive,
+      branchIds: [...branchIds, ...hiddenBranchIds],
+      serviceIds,
+      userId: canLink ? userId || null : (doctor?.userId ?? null),
+    })
     if (r.ok) onDone()
   }
 
@@ -106,19 +120,20 @@ export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: Do
     <Dialog title={doctor ? t('doc.edit') : t('doc.add')} onClose={onClose}>
       <form className="stack" onSubmit={submit} noValidate>
         <Field label={t('doc.name')} error={touched ? errors.name : null}>
-          {(p) => <input {...p} maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />}
+          {(p) => <input {...p} maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
         <CheckboxGroup legend={t('doc.branches')} options={branches.map((b) => ({ id: b.id, label: b.name }))} value={branchIds} onChange={setBranchIds} error={touched ? errors.branches : null} />
         <CheckboxGroup legend={t('doc.services')} options={services.filter((s) => s.isActive).map((s) => ({ id: s.id, label: s.name }))} value={serviceIds} onChange={setServiceIds} error={touched ? errors.services : null} />
-        {staff.data && (
+        {canLink && staff.data && (
           <Field label={t('doc.account')} hint={t('doc.accountHint')} optional>
             {(p) => (
               <select {...p} value={userId} onChange={(e) => setUserId(e.target.value)}>
                 <option value="">{t('doc.noAccount')}</option>
-                {doctorsStaff.map((s) => (
+                {currentLinkHidden && <option value={doctor!.userId!}>{t('doc.currentAccount')}</option>}
+                {linkable.map((s) => (
                   <option key={s.userId} value={s.userId}>
                     {s.displayName}
-                    {s.phoneMasked ? ` (${s.phoneMasked})` : ''}
+                    {s.phoneMasked ? ` (${s.phoneMasked})` : ''} · {t(`role.${s.role}`)}
                   </option>
                 ))}
               </select>

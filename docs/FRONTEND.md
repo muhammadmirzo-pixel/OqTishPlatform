@@ -6,9 +6,11 @@ Server holati uchun kichik o'z hook'larimiz bor (`useQuery`, `useAction`). Uslub
 dizayn tokenlari (yorug' va qorong'i rejim `prefers-color-scheme` orqali), 360 / 768 / 1280 px uchun
 moslashuvchan.
 
-Kontrakt: `docs/API.md` (shu jumladan §1.1 BE1a o'zgarishlari). Kontraktda shakli yozilmagan DTO'lar
-`web/src/api/types.ts` da **ASSUMED** deb belgilangan va quyidagi "Kontraktdagi bo'shliqlar"
-bo'limida sanab o'tilgan.
+Kontrakt: `docs/API.md`. Auth/seans (§1, §1.1), ommaviy katalog (§2.1), klinika paneli sozlash
+ekranlari (§4.1) va admin dashboard/klinikalar/foydalanuvchilar/audit (§5.1) DTO'lari backend
+implementatsiyasi bilan moslashtirilgan (2026-10-18, BE1a/BE1b). Hali yozilmagan shakllar
+(booking, moliya, sharhlar, Telegram va h.k.) `web/src/api/types.ts` da **ASSUMED** deb
+belgilangan va quyidagi "Kontraktdagi bo'shliqlar" bo'limida sanab o'tilgan.
 
 ## 1. Ishga tushirish va tekshirish
 
@@ -73,7 +75,7 @@ a'zolikning `permissions` massividagi huquq (birortasi yetarli); admin marshrutl
 
 | Marshrut | Vazifasi | API chaqiruvlari | Huquq |
 |---|---|---|---|
-| `/` | Klinikalarni qidirish: q, yo'nalish, xizmat, tuman, saralash (reyting/narx/masofa/nom), "7 kun ichida bo'sh vaqt", sahifalash | `GET /public/facets`, `GET /public/clinics` | anon |
+| `/` | Klinikalarni qidirish: q, yo'nalish (11 ta qat'iy kalit, nomlari UI katalogidan `category.<key>`), xizmat, tuman, saralash (reyting/narx/masofa/nom), "7 kun ichida bo'sh vaqt", sahifalash | `GET /public/facets`, `GET /public/clinics` | anon |
 | `/clinics/:clinicId` | Klinika profili: filiallar, ish vaqti, xizmatlar va narxlar (Fixed / From), sharhlar, shikoyat | `GET /public/clinics/{id}`, `GET /public/clinics/{id}/reviews`, `POST /reports` | anon (shikoyat — user) |
 | `/book/:clinicId` | Yozilish ustasi: filial → xizmat → sana (30 kun) + vaqt → aloqa → tekshirish → yuborish | `GET /public/clinics/{id}`, `GET /public/branches/{id}/availability`, `POST /appointments` (+Idempotency-Key) | ko'rish anon; yuborish user |
 | `/login` | Telefon OTP (qayta yuborish hisoblagichi), xodim email+parol (+TOTP), parolni tiklash, Telegram Login Widget | `POST /auth/otp/request`, `/auth/otp/verify`, `/auth/password/login`, `/auth/password/reset/*`, `GET /telegram/config`, `POST /auth/telegram/widget` | anon |
@@ -99,23 +101,23 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
 | `appointments/:appointmentId` | Tafsilot va tarix; Pending: tasdiqlash/rad; Confirmed: yakunlash (summa taklif qilingan narx bilan to'ldiriladi), kelmadi, ko'chirish, bekor qilish; qoldiq, to'lovlar, to'lov kiritish, qaytarish, "o'tmagan" | `GET …/appointments/{id}`, `POST …/complete`, `/no-show`, `/reschedule`, `/cancel`, `GET …/balance`, `GET …/payments`, `POST …/payments`, `POST …/payments/{id}/refund`, `/fail` | `appointment.view` (+ har bir amal o'z huquqi bilan) |
 | `walk-in` | Qabulxona/telefon orqali yozuv (darhol Confirmed, shifokor tanlanadi) | `GET …/services`, `GET …/doctors`, `GET /public/branches/{id}/availability` (taklif uchun), `POST …/appointments` (+Idempotency-Key) | `appointment.create_walkin` |
 | `calendar` | Kun jadvali: ustunlar — shifokorlar, bloklar vaqt bo'yicha joylashtirilgan (filial vaqti) | `GET …/calendar?branchId&date` | `appointment.view` |
-| `doctors`, `doctors/:doctorId` | Shifokorlar CRUD, filial/xizmat bog'lanishi, xodim hisobini bog'lash, haftalik jadval muharriri, dam olish (time off) | `GET/POST/PUT …/doctors`, `GET/PUT …/working-hours`, `GET/POST/DELETE …/time-off`, `GET …/staff` (faqat `staff.manage` bo'lsa) | `schedule.manage` / `schedule.own_timeoff` (o'z yozuvi) / `catalog.manage` (ko'rish) |
-| `services` | Xizmatlar va har bir filial narxi/davomiyligi | `GET/POST/PUT …/services`, `PUT …/branches/{b}/services/{s}`, `GET /public/facets` | `catalog.manage` |
-| `branches` | Filiallar va ish vaqti | `POST/PUT …/branches`, `PUT …/branches/{id}/hours` | `branch.manage` |
-| `staff` | A'zolar (rol, doira, filiallar), takliflar; egasi bo'lmagan administrator Owner/Admin rolini bera olmaydi; o'zini tahrirlash yo'q | `GET/PUT/DELETE …/staff`, `GET/POST/DELETE …/invitations` | `staff.manage` |
+| `doctors`, `doctors/:doctorId` | Shifokorlar CRUD, filial/xizmat bog'lanishi, xodim hisobini bog'lash (faqat `staff.manage` bilan; aks holda joriy `userId` o'zgarmasdan qaytariladi — API bo'sh `userId` ni "uzish" deb tushunadi), haftalik jadval muharriri (filiallar bo'yicha ham ustma-ust tushish tekshiriladi), dam olish (time off) | `GET/POST/PUT …/doctors`, `GET/PUT …/working-hours`, `GET/POST/DELETE …/time-off`, `GET …/staff` (faqat `staff.manage` bo'lsa) | `schedule.manage` / `schedule.own_timeoff` (o'z yozuvi) / `catalog.manage` (ko'rish) |
+| `services` | Xizmatlar (qat'iy yo'nalish kalitlari) va har bir filial narxi/davomiyligi | `GET/POST/PUT …/services`, `PUT …/branches/{b}/services/{s}` (204) | xizmat yaratish/tahrirlash — `catalog.manage` **butun klinika** bo'yicha; filial narxi — o'sha filialda `catalog.manage` |
+| `branches` | Filiallar (vaqt mintaqasi faqat `Asia/Tashkent` / `Asia/Samarkand`, telefon ixtiyoriy, koordinatalar ikkalasi birga, ≤ 6 kasr) va ish vaqti | `POST/PUT …/branches`, `PUT …/branches/{id}/hours` (204) | yaratish — `branch.manage` butun klinika bo'yicha; tahrir — o'sha filialda |
+| `staff` | A'zolar (rol, doira, filiallar), takliflar (muddati o'tganlari belgilanadi; SMS yuborilmaydi); egasi bo'lmagan administrator Owner/Admin rolini bera olmaydi; filial doirasidagi menejer faqat "Tanlangan filiallar" doirasini beradi; o'zini tahrirlash yo'q | `GET/PUT/DELETE …/staff`, `GET/POST/DELETE …/invitations` | `staff.manage` |
 | `payments` | To'lovlar ro'yxati, tezkor to'lov kiritish (so'nggi 3 kun qabullari), qaytarish, "o'tmagan" | `GET …/payments`, `GET …/appointments`, `GET …/balance`, `POST …/payments` | `payment.record` yoki `finance.report.view` |
 | `reports` | Kunlik (oraliq, jami) va oylik hisobot, solishtirish (reconciliation) belgisi | `GET …/reports/daily`, `GET …/reports/monthly` | `finance.report.view` |
 | `settlements` | Platforma bilan hisob-kitoblar (faqat ko'rish) | `GET …/settlements` | `finance.settlement.view` |
 | `audit` | Klinika audit jurnali | `GET …/audit` | `audit.view` |
-| `profile` | Klinika profili va tekshiruv holati | `GET/PUT /clinics/{id}` | ko'rish — a'zolik; tahrir — `clinic.profile.manage` |
+| `profile` | Klinika profili, tekshiruv holati va rad/to'xtatish sababi (`statusReason`) | `GET/PUT /clinics/{id}` | ko'rish — a'zolik; tahrir — `clinic.profile.manage` (butun klinika bo'yicha) |
 
 ### 3.3 Platforma admini (`/admin/…`)
 
 | Marshrut | Vazifasi | API chaqiruvlari | Huquq |
 |---|---|---|---|
-| `` | Holat bo'yicha klinikalar, bugungi qabullar, ochiq shikoyatlar | `GET /admin/dashboard` | har qanday platforma huquqi |
-| `clinics` | Tekshirish: tasdiqlash / rad (sabab) / to'xtatish (sabab) / tiklash | `GET /admin/clinics`, `POST …/approve`, `/reject`, `/suspend`, `/reinstate` | ro'yxat `platform.clinic.verify`; to'xtatish/tiklash `platform.account.suspend` |
-| `users` | Hisoblarni to'xtatish / tiklash | `GET /admin/users`, `POST …/suspend`, `/reinstate` | `platform.account.suspend` |
+| `` | Holat bo'yicha klinikalar, bugungi qabullar, ochiq shikoyatlar, faol / bloklangan foydalanuvchilar | `GET /admin/dashboard` | har qanday platforma huquqi |
+| `clinics` | Tekshirish: tasdiqlash (Pending yoki Rejected) / rad (faqat Pending, sabab) / to'xtatish (sabab) / tiklash; `statusReason` ko'rsatiladi | `GET /admin/clinics`, `POST …/approve`, `/reject`, `/suspend`, `/reinstate` | ro'yxat `platform.clinic.verify`; to'xtatish/tiklash `platform.account.suspend` |
+| `users` | Hisoblarni to'xtatish (sabab; o'z hisobini emas) / tiklash, `statusReason` | `GET /admin/users`, `POST …/suspend`, `/reinstate` | `platform.account.suspend` |
 | `reports` | Shikoyatlarni hal qilish | `GET /admin/reports`, `POST …/resolve` | `platform.reports.handle` |
 | `reviews` | Sharhlarni e'lon qilish / yashirish | `GET /admin/reviews`, `POST …/publish`, `/hide` | `platform.reports.handle` |
 | `commission?clinic=<id>` | Komissiya qoidalari: yaratish, tugatish (tahrirlash yo'q), `contractReference` ko'rsatiladi | `GET/POST /admin/clinics/{id}/commission-rules`, `POST …/end` | `platform.finance.settle` |
@@ -219,30 +221,61 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
 
 ## 9. Kontraktdagi bo'shliqlar (backend tasdiqlashi kerak)
 
-1. Javob shakli yozilmagan, UI taxmin qilgan (`api/types.ts`, ASSUMED): `GET /clinics/{id}`,
-   dashboard, branches, services (filial narxlari `offers[]` ichida deb taxmin), staff, invitations
-   (klinika va `/me/invitations`), doctors (`userId` bilan), time-off, eligible-doctors (`{id,name}[]`),
-   calendar, payments, daily (massiv) va monthly (`reconciled`, `commissionRuleConfigured`) hisobotlar,
-   settlements, audit, admin ro'yxatlari (dashboard, clinics, users, reports, reviews, commission
-   rules, notifications).
+### 9.1 Hal qilingan (BE1a/BE1b, 2026-10-18)
+
+- **R1.** `GET /clinics/{id}` (`statusReason` bilan), dashboard (`branchId`, `collected: Money | null`),
+  branches, services (`offers[]` ichida — taxmin to'g'ri chiqdi), staff, invitations (klinika va
+  `/me/invitations`), doctors (`userId`), working hours, audit (`actorKind`, `actorUserId`), admin
+  dashboard (`activeUsers`, `suspendedUsers`), admin clinics (`isSuspended`, `statusReason`), admin users
+  (`statusReason`) — API.md §4.1/§5.1 dagi yakuniy shakllar `api/types.ts` ga ko'chirildi, ASSUMED
+  belgilari olib tashlandi.
+- **R2.** 204 javoblar: `PUT …/hours`, `PUT …/branches/{b}/services/{s}`, `PUT …/working-hours`,
+  `POST /me/invitations/{id}/accept`, `POST /me/password`, `POST /me/totp/enable|disable`,
+  `POST /admin/users/{id}/suspend|reinstate` — `void`; `PUT` profil/filial/xizmat/xodim/shifokor va
+  admin klinika amallari 200 + DTO qaytaradi.
+- **R3.** Yo'nalishlar — 11 ta qat'iy kalit (`diagnostics` … `other`); UI ularni `category.<key>`
+  orqali uz/ru/en da ko'rsatadi, xizmat formasi faqat shu kalitlarni yuboradi. Test API.md §2.1
+  ro'yxati bilan solishtiradi.
+- **R4.** Vaqt mintaqasi — faqat `Asia/Tashkent` (standart) va `Asia/Samarkand` (tanlov ro'yxati).
+- **R5.** Huquqlar: xizmat yaratish/tahrirlash va filial yaratish — butun klinika doirasida;
+  profil tahriri — butun klinika (`canClinicWide`); shifokorning `userId` sini o'zgartirish —
+  qo'shimcha `staff.manage`.
+- **R6.** §5 approve/reject — `platform.clinic.verify`, suspend/reinstate — `platform.account.suspend`
+  (BE1b-11 tasdiqladi; avvalgi 12-band).
+- **R7.** `/me/invitations*` implement qilindi (avvalgi 13-band); boshqa telefonga yuborilgan
+  taklif → 404, muddati o'tgan → 422 `staff.invitation_expired` (UI ro'yxatni yangilaydi).
+- **R8.** `X-Access-Reason` UTF-8 percent-encoded bo'lib keladi va server decode qiladi — §5.1 da
+  BE2 uchun yozib qo'yildi (endpoint hali yo'q, avvalgi 5-band).
+- **R9.** Yangi xato kodlari (`staff.already_member`, `staff.invitation_expired`,
+  `clinic.registration_limit`, `schedule.hours_overlap`, `schedule.branch_not_linked`,
+  `schedule.doctor_user_invalid`, `schedule.doctor_user_taken`, `admin.invalid_status_transition`,
+  `admin.cannot_suspend_self`) uz/ru/en da lokalizatsiya qilindi.
+
+### 9.2 Ochiq
+
+1. Javob shakli hali yozilmagan, UI taxmin qilgan (`api/types.ts`, ASSUMED): time-off,
+   eligible-doctors (`{id,name}[]`), calendar, payments, daily (massiv) va monthly (`reconciled`,
+   `commissionRuleConfigured`) hisobotlar, settlements, admin reports, reviews, commission rules,
+   notifications; ommaviy `…/reviews` va `…/availability` (BE2).
 2. Bitta qabul to'lovlarini olish usuli yo'q: UI `GET …/payments` ga `appointmentId` qo'shib yuboradi
    va natijani mijozda ham filtrlaydi. Taklif: `appointmentId` filtrini kontraktga qo'shish.
 3. `from`/`to` semantikasi (instant yoki sana, inclusive/exclusive) aniqlanmagan — F4 ga qarang.
 4. `reasonCode` qiymatlari ro'yxati yo'q — F5 ga qarang.
-5. `X-Access-Reason` kodlanishi aniqlanmagan — F6 ga qarang (server percent-decode qilishi kerak).
-6. Komissiya `rate` formati va sanalar turi aniqlanmagan — F7.
-7. `GET /telegram/config` da `botId` yo'q: eval'siz popup kirish uchun kerak; hozircha redirect rejimi.
-8. `Me.totpSetupRequired` umumiy: platforma huquqlari aynan TOTP kutayotganini bilish uchun alohida
+5. Komissiya `rate` formati va sanalar turi aniqlanmagan — F7.
+6. `GET /telegram/config` da `botId` yo'q: eval'siz popup kirish uchun kerak; hozircha redirect rejimi.
+7. `Me.totpSetupRequired` umumiy: platforma huquqlari aynan TOTP kutayotganini bilish uchun alohida
    belgi (masalan `platformTotpSetupRequired`) yo'q.
-9. `/admin/settlements` va `/clinics/{id}/settlements` sahifalanmagan massiv deb taxmin qilindi.
-10. Sharh qoldirilgan-qoldirilmaganini bildiruvchi maydon yo'q — UI formani ko'rsatadi va
-    `review.already_exists` ni qayta ishlaydi.
-11. Walk-in uchun "shu vaqtda bo'sh shifokorlar" endpoint'i yo'q: UI ommaviy availability
+8. `/admin/settlements` va `/clinics/{id}/settlements` sahifalanmagan massiv deb taxmin qilindi.
+9. Sharh qoldirilgan-qoldirilmaganini bildiruvchi maydon yo'q — UI formani ko'rsatadi va
+   `review.already_exists` ni qayta ishlaydi.
+10. Walk-in uchun "shu vaqtda bo'sh shifokorlar" endpoint'i yo'q: UI ommaviy availability
     (faqat tasdiqlangan klinikalar uchun ishlaydi) va shifokorlar ro'yxatidan foydalanadi; band
     bo'lsa server 409 qaytaradi.
-12. §5 da approve/reject va suspend/reinstate uchun huquqlar bitta katakda: UI approve/reject uchun
-    `platform.clinic.verify`, suspend/reinstate uchun `platform.account.suspend` ni oldi.
-13. `/me/invitations*` hali implement qilinmagan (BE1b) — UI tayyor.
+11. `availableWithinDays` filtri va `nextFreeSlot` BE2 gacha ishlamaydi (server qabul qiladi, lekin
+    qo'llamaydi / `null`); `rating`/`reviewCount` — `null`/`0`. UI o'zgartirilmadi.
+12. Admin audit `clinicId` ustunida faqat id bor (klinika nomi DTO'da yo'q).
+13. Xodim o'z a'zoligidan chiqishi mumkin (`DELETE …/staff/{own}`), lekin UI'da "Klinikadan chiqish"
+    tugmasi hali yo'q.
 
 ## 10. Testlar
 
@@ -252,12 +285,13 @@ OTP kirish (qayta yuborish hisoblagichi, TOTP bosqichi), xodim + TOTP; guard'lar
 403, TOTP holati); yozilish ustasi (muvaffaqiyat, 409, 422, mehmon); qabulni bekor qilish va
 hisoblagich; so'rovni shifokor tanlab tasdiqlash va `booking.expired`; to'lov formasi validatsiyasi
 va bir xil Idempotency-Key bilan qayta urinish; menyuni huquqlar bo'yicha filtrlash; admin klinikani
-tasdiqlashi va break-glass sarlavhasi; Mini App kirishi (mock `window.Telegram`), tema, til,
+tasdiqlashi (Rejected → Approved, `statusReason`, `admin.invalid_status_transition`), o'zini bloklash tugmasi yo'qligi va break-glass sarlavhasi; klinika sozlash ekranlari (`clinicSetup.test.tsx`: qat'iy yo'nalishlar, filial doirasidagi `catalog.manage`/`branch.manage`, vaqt mintaqalari va koordinata juftligi, shifokor `userId` va `staff.manage`, `schedule.hours_overlap`, muddati o'tgan taklif, profil sababi); yo'nalish kalitlari ↔ API.md §2.1 (`lib/categories.test.ts`); Mini App kirishi (mock `window.Telegram`), tema, til,
 MainButton va Telegram'dan tashqari holat.
 
 ## 11. Ma'lum cheklovlar
 
-- Ishlayotgan backend'ga qarshi tekshirilmagan (backend parallel yozilmoqda) — faqat kontrakt va mock'lar.
+- Ishlayotgan backend'ga qarshi tekshirilmagan (backend parallel yozilmoqda) — faqat kontrakt
+  (API.md §1.1/§2.1/§4.1/§5.1, C# DTO'lar bilan solishtirilgan) va mock'lar.
 - Haqiqiy Telegram klientlarida va haqiqiy bot bilan Login Widget sinab ko'rilmagan.
 - 360/768/1280 px moslashuvchanlik CSS'da yozilgan, lekin haqiqiy brauzerda vizual tekshirilmagan.
 - Uchala til katalogi boshlang'ich chunk'da (alohida til yuklash yo'q).

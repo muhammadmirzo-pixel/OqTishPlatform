@@ -22,6 +22,8 @@ export function AdminDashboardPage() {
             ))}
             <StatCard label={t('adm.appointmentsToday')} value={d.appointmentsToday} />
             <StatCard label={t('adm.openReports')} value={d.openReports} tone={d.openReports > 0 ? 'warning' : undefined} />
+            <StatCard label={t('adm.activeUsers')} value={d.activeUsers} />
+            <StatCard label={t('adm.suspendedUsers')} value={d.suspendedUsers} tone={d.suspendedUsers > 0 ? 'warning' : undefined} />
           </div>
         )}
       </QueryView>

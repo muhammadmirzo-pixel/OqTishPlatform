@@ -6,6 +6,7 @@ import { weekdays } from '../../api/types'
 import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
+import { categoryLabel } from '../../lib/categories'
 import { formatInstantDate, formatMoney } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
@@ -145,7 +146,7 @@ function BranchSection({ clinicId, branch }: { clinicId: string; branch: PublicB
                     <tr key={s.serviceId}>
                       <td>
                         {s.name}
-                        <div className="muted small">{s.category}</div>
+                        <div className="muted small">{categoryLabel(t, s.category)}</div>
                       </td>
                       <td>{t('common.minutes', { minutes: s.durationMinutes })}</td>
                       <td className="num">

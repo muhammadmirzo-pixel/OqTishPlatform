@@ -5,6 +5,7 @@ import type { ClinicCard, ClinicSearchParams, ClinicSort } from '../../api/types
 import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
+import { categoryLabel } from '../../lib/categories'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Checkbox } from '../../ui/forms'
@@ -109,7 +110,7 @@ export function HomePage() {
             <option value="">{t('common.all')}</option>
             {facets.data?.categories.map((c) => (
               <option key={c.key} value={c.key}>
-                {c.name}
+                {categoryLabel(t, c.key, c.name)}
               </option>
             ))}
           </select>

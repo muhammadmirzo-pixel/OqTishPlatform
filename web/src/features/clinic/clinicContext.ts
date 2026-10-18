@@ -10,6 +10,12 @@ export interface ClinicContextValue {
   branches: BranchDto[]
   reloadBranches: () => void
   can: (...anyOf: string[]) => boolean
+  /**
+   * Like `can`, but only for a clinic-wide membership: actions about the whole clinic (creating a
+   * branch, creating/editing a service, editing the profile) need the permission clinic-wide
+   * (DECISIONS.md BE1a-8, BE1b-2). The server re-checks.
+   */
+  canClinicWide: (...anyOf: string[]) => boolean
   branchName: (branchId: string) => string
   /** Time zone of the branch, or of the first branch when none is selected. */
   timeZoneFor: (branchId?: string | null) => string
@@ -31,6 +37,7 @@ export function makeClinicContext(membership: Membership, allBranches: BranchDto
     branches,
     reloadBranches,
     can: (...anyOf) => hasAny(membership.permissions, anyOf),
+    canClinicWide: (...anyOf) => membership.scope === 'Clinic' && hasAny(membership.permissions, anyOf),
     branchName: (id) => allBranches.find((b) => b.id === id)?.name ?? '—',
     timeZoneFor: (id) => (id ? allBranches.find((b) => b.id === id)?.timeZone : undefined) ?? branches[0]?.timeZone ?? DEFAULT_TIME_ZONE,
   }

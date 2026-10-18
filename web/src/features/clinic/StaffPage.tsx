@@ -3,6 +3,7 @@ import { useApi } from '../../api/context'
 import type { InvitationBody, MembershipScope, StaffBody, StaffMemberDto, StaffRole } from '../../api/types'
 import { useSession } from '../../auth/session'
 import { useAction } from '../../hooks/useAction'
+import { useNow } from '../../hooks/useNow'
 import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
@@ -33,6 +34,7 @@ export function StaffPage() {
   const canTouch = (s: StaffMemberDto) => s.userId !== me?.id && roles.includes(s.role)
   const scopeText = (scope: MembershipScope, ids: string[]) => (scope === 'Clinic' ? t('scope.Clinic') : ids.map(branchName).join(', '))
   const tz = timeZoneFor()
+  const now = useNow(60_000)
 
   return (
     <div className="stack">
@@ -110,7 +112,14 @@ export function StaffPage() {
                   <li key={i.id} className="card row row--between">
                     <span>
                       <strong>{i.phoneMasked}</strong> · {t(`role.${i.role}`)} · {scopeText(i.scope, i.branchIds)}
-                      <span className="muted small"> · {t('invite.expires', { date: formatInstantDate(i.expiresAt, tz, locale) })}</span>
+                      {new Date(i.expiresAt).getTime() <= now ? (
+                        <>
+                          {' '}
+                          <Badge tone="warning">{t('staff.invitationExpired')}</Badge>
+                        </>
+                      ) : (
+                        <span className="muted small"> · {t('invite.expires', { date: formatInstantDate(i.expiresAt, tz, locale) })}</span>
+                      )}
                     </span>
                     <button type="button" className="btn btn--ghost btn--small" onClick={() => setRevoking(i.id)}>
                       {t('staff.revoke')}
@@ -197,7 +206,10 @@ function StaffDialog({
   onClose: () => void
 }) {
   const { t } = useI18n()
-  const { branches } = useClinic()
+  const { branches, membership } = useClinic()
+  // Scope containment (DECISIONS.md BE1b-3): a Branches-scoped manager grants only Branches scope
+  // inside its own branches. The server re-checks (403 staff.cannot_grant_role).
+  const canGrantClinicWide = membership.scope === 'Clinic'
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState<StaffRole | ''>(member?.role ?? '')
   const [scope, setScope] = useState<MembershipScope>(member?.scope ?? 'Branches')
@@ -243,7 +255,7 @@ function StaffDialog({
           {(p) => (
             <select {...p} value={scope} onChange={(e) => setScope(e.target.value as MembershipScope)}>
               <option value="Branches">{t('scope.Branches')}</option>
-              <option value="Clinic">{t('scope.Clinic')}</option>
+              {canGrantClinicWide && <option value="Clinic">{t('scope.Clinic')}</option>}
             </select>
           )}
         </Field>

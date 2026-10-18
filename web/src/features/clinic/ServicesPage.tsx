@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
-import type { BranchDto, BranchOfferBody, BranchOfferDto, PriceKind, ServiceBody, ServiceDto } from '../../api/types'
+import { serviceCategories, type BranchDto, type BranchOfferBody, type BranchOfferDto, type PriceKind, type ServiceBody, type ServiceCategory, type ServiceDto } from '../../api/types'
 import { useAction } from '../../hooks/useAction'
 import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
+import { categoryLabel, isServiceCategory } from '../../lib/categories'
 import { formatMoney } from '../../lib/format'
 import { amountForInput, parseAmount, uzs } from '../../lib/money'
 import { Dialog } from '../../ui/Dialog'
@@ -18,15 +19,15 @@ export function ServicesPage() {
   const { t, locale } = useI18n()
   useTitle(t('clinicNav.services'))
   const api = useApi()
-  const { clinicId, branches, can } = useClinic()
+  const { clinicId, branches, can, canClinicWide } = useClinic()
   const services = useQuery(`services:${clinicId}`, () => api.clinic.services(clinicId))
-  const facets = useQuery('facets', () => api.public.facets())
   const [editing, setEditing] = useState<ServiceDto | 'new' | null>(null)
   const [offer, setOffer] = useState<{ service: ServiceDto; branch: BranchDto } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const manage = can(Perm.catalogManage)
-  const categories = facets.data?.categories ?? []
-  const categoryName = (key: string) => categories.find((c) => c.key === key)?.name ?? key
+  // Services belong to the whole clinic: create/edit needs catalog.manage clinic-wide; a branch offer
+  // (price/duration) needs catalog.manage on that branch (DECISIONS.md BE1b-2).
+  const manageServices = canClinicWide(Perm.catalogManage)
+  const manageOffers = can(Perm.catalogManage)
   const saved = () => {
     setNotice(t('common.saved'))
     services.reload()
@@ -38,13 +39,14 @@ export function ServicesPage() {
         title={t('clinicNav.services')}
         subtitle={t('svc.intro')}
         actions={
-          manage && (
+          manageServices && (
             <button type="button" className="btn" onClick={() => setEditing('new')}>
               {t('svc.add')}
             </button>
           )
         }
       />
+      {manageOffers && !manageServices && <p className="muted small">{t('svc.clinicWideOnly')}</p>}
       <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       <QueryView query={services}>
         {(list) =>
@@ -56,9 +58,9 @@ export function ServicesPage() {
                 <li key={s.id} className="card stack">
                   <div className="row row--between">
                     <div>
-                      <strong>{s.name}</strong> <span className="muted">· {categoryName(s.category)}</span> {!s.isActive && <Badge>{t('common.inactive')}</Badge>}
+                      <strong>{s.name}</strong> <span className="muted">· {categoryLabel(t, s.category)}</span> {!s.isActive && <Badge>{t('common.inactive')}</Badge>}
                     </div>
-                    {manage && (
+                    {manageServices && (
                       <button type="button" className="btn btn--ghost btn--small" onClick={() => setEditing(s)}>
                         {t('common.edit')}
                       </button>
@@ -72,7 +74,7 @@ export function ServicesPage() {
                           <th scope="col">{t('clinic.price')}</th>
                           <th scope="col">{t('clinic.duration')}</th>
                           <th scope="col">{t('common.status')}</th>
-                          {manage && <th scope="col">{t('common.actions')}</th>}
+                          {manageOffers && <th scope="col">{t('common.actions')}</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -84,7 +86,7 @@ export function ServicesPage() {
                               <td>{o ? `${o.priceKind === 'From' ? t('clinic.priceFrom', { price: formatMoney(o.price, locale) }) : formatMoney(o.price, locale)}` : '—'}</td>
                               <td>{o ? t('common.minutes', { minutes: o.durationMinutes }) : '—'}</td>
                               <td>{o ? <Badge tone={o.isActive ? 'success' : 'neutral'}>{t(o.isActive ? 'common.active' : 'common.inactive')}</Badge> : <span className="muted">{t('svc.notOffered')}</span>}</td>
-                              {manage && (
+                              {manageOffers && (
                                 <td>
                                   <button type="button" className="btn btn--ghost btn--small" onClick={() => setOffer({ service: s, branch: b })}>
                                     {o ? t('common.edit') : t('svc.offer')}
@@ -106,7 +108,6 @@ export function ServicesPage() {
       {editing && (
         <ServiceDialog
           service={editing === 'new' ? null : editing}
-          categories={categories}
           onDone={() => {
             setEditing(null)
             saved()
@@ -130,22 +131,22 @@ export function ServicesPage() {
   )
 }
 
-function ServiceDialog({ service, categories, onDone, onClose }: { service: ServiceDto | null; categories: { key: string; name: string }[]; onDone: () => void; onClose: () => void }) {
+function ServiceDialog({ service, onDone, onClose }: { service: ServiceDto | null; onDone: () => void; onClose: () => void }) {
   const { t } = useI18n()
   const api = useApi()
   const { clinicId } = useClinic()
   const [name, setName] = useState(service?.name ?? '')
-  const [category, setCategory] = useState(service?.category ?? '')
+  const [category, setCategory] = useState<ServiceCategory | ''>(service && isServiceCategory(service.category) ? service.category : '')
   const [isActive, setActive] = useState(service?.isActive ?? true)
   const [touched, setTouched] = useState(false)
   const save = useAction((body: ServiceBody) => (service ? api.clinic.updateService(clinicId, service.id, body) : api.clinic.createService(clinicId, body)))
-  const errors = { name: !name.trim() ? t('valid.required') : null, category: !category.trim() ? t('valid.required') : null }
+  const errors = { name: !name.trim() ? t('valid.required') : null, category: !category ? t('valid.required') : null }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setTouched(true)
-    if (errors.name || errors.category) return
-    const r = await save.run({ name: name.trim(), category: category.trim(), isActive })
+    if (errors.name || !category) return
+    const r = await save.run({ name: name.trim(), category, isActive })
     if (r.ok) onDone()
   }
 
@@ -153,23 +154,19 @@ function ServiceDialog({ service, categories, onDone, onClose }: { service: Serv
     <Dialog title={service ? t('svc.edit') : t('svc.add')} onClose={onClose}>
       <form className="stack" onSubmit={submit} noValidate>
         <Field label={t('common.name')} error={touched ? errors.name : null}>
-          {(p) => <input {...p} maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />}
+          {(p) => <input {...p} maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
         <Field label={t('home.category')} error={touched ? errors.category : null}>
-          {(p) =>
-            categories.length > 0 ? (
-              <select {...p} value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="">{t('svc.chooseCategory')}</option>
-                {categories.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input {...p} maxLength={60} value={category} onChange={(e) => setCategory(e.target.value)} />
-            )
-          }
+          {(p) => (
+            <select {...p} value={category} onChange={(e) => setCategory(e.target.value as ServiceCategory | '')}>
+              <option value="">{t('svc.chooseCategory')}</option>
+              {serviceCategories.map((c) => (
+                <option key={c} value={c}>
+                  {t(`category.${c}`)}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
         <Checkbox label={t('common.active')} checked={isActive} onChange={setActive} />
         <FormError error={save.error} />

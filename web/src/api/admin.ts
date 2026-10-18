@@ -32,14 +32,14 @@ export function encodeAccessReason(reason: string): string {
 export function adminApi(c: ApiClient) {
   return {
     dashboard: () => c.get<AdminDashboardDto>('/admin/dashboard'),
-    clinics: (params: { status?: ClinicVerification; q?: string; page?: number }) =>
+    clinics: (params: { status?: ClinicVerification; q?: string; page?: number; pageSize?: number }) =>
       c.get<Page<AdminClinicDto>>(`/admin/clinics${query(params)}`),
-    approveClinic: (id: string) => c.send<void>('POST', `/admin/clinics/${seg(id)}/approve`),
-    rejectClinic: (id: string, reason: string) => c.send<void>('POST', `/admin/clinics/${seg(id)}/reject`, { reason }),
-    suspendClinic: (id: string, reason: string) => c.send<void>('POST', `/admin/clinics/${seg(id)}/suspend`, { reason }),
-    reinstateClinic: (id: string) => c.send<void>('POST', `/admin/clinics/${seg(id)}/reinstate`),
+    approveClinic: (id: string) => c.send<AdminClinicDto>('POST', `/admin/clinics/${seg(id)}/approve`),
+    rejectClinic: (id: string, reason: string) => c.send<AdminClinicDto>('POST', `/admin/clinics/${seg(id)}/reject`, { reason }),
+    suspendClinic: (id: string, reason: string) => c.send<AdminClinicDto>('POST', `/admin/clinics/${seg(id)}/suspend`, { reason }),
+    reinstateClinic: (id: string) => c.send<AdminClinicDto>('POST', `/admin/clinics/${seg(id)}/reinstate`),
 
-    users: (params: { q?: string; page?: number }) => c.get<Page<AdminUserDto>>(`/admin/users${query(params)}`),
+    users: (params: { q?: string; page?: number; pageSize?: number }) => c.get<Page<AdminUserDto>>(`/admin/users${query(params)}`),
     suspendUser: (id: string, reason: string) => c.send<void>('POST', `/admin/users/${seg(id)}/suspend`, { reason }),
     reinstateUser: (id: string) => c.send<void>('POST', `/admin/users/${seg(id)}/reinstate`),
 
@@ -68,7 +68,7 @@ export function adminApi(c: ApiClient) {
         headers: { 'X-Access-Reason': encodeAccessReason(reason) },
       }),
 
-    audit: (params: { clinicId?: string; action?: string; page?: number }) => c.get<Page<AuditEntryDto>>(`/admin/audit${query(params)}`),
+    audit: (params: { clinicId?: string; action?: string; page?: number; pageSize?: number }) => c.get<Page<AuditEntryDto>>(`/admin/audit${query(params)}`),
     notifications: (params: { status?: NotificationStatus; page?: number }) =>
       c.get<Page<NotificationDto>>(`/admin/notifications${query(params)}`),
     retryNotification: (id: string) => c.send<void>('POST', `/admin/notifications/${seg(id)}/retry`),

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApi } from '../../api/context'
 import type { AdminUserDto } from '../../api/types'
+import { useSession } from '../../auth/session'
 import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
@@ -16,6 +17,7 @@ export function AdminUsersPage() {
   const { t, locale } = useI18n()
   useTitle(t('adminNav.users'))
   const api = useApi()
+  const { me } = useSession()
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -76,10 +78,13 @@ export function AdminUsersPage() {
                         <td>{u.phoneMasked ?? '—'}</td>
                         <td>
                           <Badge tone={u.status === 'Active' ? 'success' : 'danger'}>{t(`staff.${u.status}`)}</Badge>
+                          {u.status === 'Suspended' && u.statusReason && <div className="muted small">{u.statusReason}</div>}
                         </td>
                         <td>{formatInstantDate(u.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
                         <td>
-                          {u.status === 'Active' ? (
+                          {u.id === me?.id ? (
+                            <span className="muted small">{t('doc.you')}</span>
+                          ) : u.status === 'Active' ? (
                             <button type="button" className="btn btn--ghost btn--small" onClick={() => setAction({ kind: 'suspend', user: u })}>
                               {t('adm.suspend')}
                             </button>
@@ -105,6 +110,7 @@ export function AdminUsersPage() {
           label={t('common.reason')}
           intro={<p className="muted">{t('adm.suspendUserBody')}</p>}
           submitLabel={t('adm.suspend')}
+          maxLength={1000}
           onSubmit={(reason) => api.admin.suspendUser(action.user.id, reason)}
           onDone={done}
           onClose={() => setAction(null)}
