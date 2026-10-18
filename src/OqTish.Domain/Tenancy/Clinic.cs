@@ -39,6 +39,15 @@ public sealed class Clinic
 
     public Guid? CreatedByUserId { get; private set; }
 
+    /// <summary>
+    /// Average of published review ratings (1.00–5.00), null until the first published review. Maintained
+    /// by review moderation (BE2) through <see cref="SetRating"/>; read by public search.
+    /// </summary>
+    public decimal? RatingAverage { get; private set; }
+
+    /// <summary>Number of published reviews behind <see cref="RatingAverage"/>.</summary>
+    public int ReviewCount { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -69,6 +78,20 @@ public sealed class Clinic
         LegalName = legalName?.Trim();
         Description = description?.Trim();
         Phone = phone;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Stores the published-review statistics (computed by the Reviews module).</summary>
+    public void SetRating(decimal? average, int reviewCount, DateTimeOffset now)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(reviewCount);
+        if (average is { } a && (a < 1m || a > 5m))
+        {
+            throw new ArgumentOutOfRangeException(nameof(average), "Rating average must be within 1..5.");
+        }
+
+        RatingAverage = reviewCount == 0 ? null : average is null ? null : decimal.Round(average.Value, 2, MidpointRounding.AwayFromZero);
+        ReviewCount = reviewCount;
         UpdatedAt = now;
     }
 

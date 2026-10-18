@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.SectionName));
         services.Configure<TelegramOptions>(configuration.GetSection(TelegramOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+        services.Configure<OqTish.Application.Staff.StaffOptions>(configuration.GetSection(OqTish.Application.Staff.StaffOptions.SectionName));
         services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
 
         // Common ports

@@ -10,6 +10,8 @@ internal static class Schemas
     public const string Identity = "identity";
     public const string Tenancy = "tenancy";
     public const string Staff = "staff";
+    public const string Catalog = "catalog";
+    public const string Scheduling = "scheduling";
     public const string Notify = "notify";
     public const string Audit = "audit";
     public const string Common = "common";

@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using OqTish.Domain.Audit;
+using OqTish.Domain.Catalog;
 using OqTish.Domain.Common;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Notifications;
+using OqTish.Domain.Scheduling;
 using OqTish.Domain.Staff;
 using OqTish.Domain.Tenancy;
 
@@ -48,6 +50,20 @@ public interface IOqTishDb
     DbSet<StaffInvitation> StaffInvitations { get; }
 
     DbSet<PlatformAdminGrant> PlatformAdminGrants { get; }
+
+    // catalog
+    DbSet<Service> Services { get; }
+
+    DbSet<BranchService> BranchServices { get; }
+
+    // scheduling
+    DbSet<Doctor> Doctors { get; }
+
+    DbSet<DoctorBranch> DoctorBranches { get; }
+
+    DbSet<DoctorService> DoctorServices { get; }
+
+    DbSet<WorkingHours> WorkingHours { get; }
 
     // notify
     DbSet<OutboxMessage> OutboxMessages { get; }

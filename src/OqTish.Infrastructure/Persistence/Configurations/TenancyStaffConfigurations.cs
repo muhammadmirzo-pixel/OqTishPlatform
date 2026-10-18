@@ -10,7 +10,11 @@ internal sealed class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
 {
     public void Configure(EntityTypeBuilder<Clinic> b)
     {
-        b.ToTable("clinics", Schemas.Tenancy);
+        b.ToTable("clinics", Schemas.Tenancy, t =>
+        {
+            t.HasCheckConstraint("ck_clinics_rating_average", "rating_average IS NULL OR (rating_average >= 1 AND rating_average <= 5)");
+            t.HasCheckConstraint("ck_clinics_review_count", "review_count >= 0");
+        });
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedNever();
         b.Property(x => x.Name).HasMaxLength(200);
@@ -19,6 +23,8 @@ internal sealed class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
         b.Property(x => x.Phone).HasMaxLength(16);
         b.Property(x => x.VerificationStatus).AsEnumText(b, "clinics", "verification_status");
         b.Property(x => x.StatusReason).HasMaxLength(1000);
+        b.Property(x => x.RatingAverage).HasPrecision(3, 2);
+        b.Property(x => x.ReviewCount).HasDefaultValue(0);
         b.Ignore(x => x.IsSuspended);
         b.HasIndex(x => x.VerificationStatus);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);

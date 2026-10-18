@@ -20,6 +20,13 @@ public sealed class SeedOptions
     public string AdminPassword { get; set; } = string.Empty;
 
     public string DemoPatientPhone { get; set; } = "+998900000001";
+
+    /// <summary>
+    /// Create the demo staff accounts with the documented, publicly known passwords (docs/SERVICES.md
+    /// "Demo ma'lumotlar"). Default false; true only in appsettings.Development.json, so a Staging seed
+    /// never creates guessable logins unless explicitly enabled.
+    /// </summary>
+    public bool DemoStaffAccounts { get; set; }
 }
 
 /// <summary>

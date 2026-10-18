@@ -1,6 +1,6 @@
 # Database Design
 
-Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1).
+Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2).
 
 PostgreSQL 18 with the `btree_gist` and `citext` extensions. All timestamps are `timestamptz` (UTC).
 Money is `numeric(19,2)` with a `currency char(3)` (v1: UZS). Keys are UUID v7. Schemas: `identity`,
@@ -146,7 +146,25 @@ All ids `uuid` (v7, app-generated), enums stored as `text` with a `CHECK (col IN
 
 Not created (by decision): `identity.account_link_requests` (conflicts are audited instead, DECISIONS.md BE1a-5).
 
- — implemented in `deploy/postgres/init/01-create-roles.sh`
+## 2.2 Implemented — migration `CatalogScheduling` (BE1b, 2026-10-18)
+
+| Table / object | Key columns / constraints |
+|---|---|
+| `tenancy.clinics` (+2 columns) | `rating_average numeric(3,2)` null (CHECK 1..5), `review_count int` default 0 (CHECK ≥ 0). Maintained by review moderation (BE2) via `Clinic.SetRating`; read by public search |
+| `catalog.services` | id, clinic_id → clinics, name(200), category(32, key of the fixed catalogue, validated in the handler), is_active, created_at, updated_at. **UNIQUE(clinic_id, id)**. ix(clinic_id, is_active), ix(category) |
+| `catalog.branch_services` | PK(branch_id, service_id); **UNIQUE(clinic_id, branch_id, service_id)** (target of the appointment FK in BE2); FK (clinic_id, branch_id) → branches and (clinic_id, service_id) → services, both composite + cascade. price numeric(19,2) **CHECK ≥ 0**, currency char(3) CHECK 'UZS', price_kind CHECK Fixed/From, duration_minutes **CHECK 5..480**, is_active |
+| `scheduling.doctors` | id, clinic_id → clinics, user_id null → identity.users (restrict), display_name(200), is_active. **UNIQUE(clinic_id, id)**; **UNIQUE(clinic_id, user_id) WHERE user_id IS NOT NULL** (a user is a doctor at most once per clinic); ix(user_id) |
+| `scheduling.doctor_branches` | PK(doctor_id, branch_id); **UNIQUE(clinic_id, doctor_id, branch_id)**; composite FKs (clinic_id, doctor_id) → doctors and (clinic_id, branch_id) → branches (cascade) |
+| `scheduling.doctor_services` | PK(doctor_id, service_id); **UNIQUE(clinic_id, doctor_id, service_id)**; composite FKs to doctors and services (cascade) |
+| `scheduling.working_hours` | id, clinic_id, doctor_id, branch_id, weekday smallint **CHECK 1..7**, start_local / end_local `time` **CHECK start < end**. FK (clinic_id, doctor_id, branch_id) → doctor_branches (cascade: unlinking a branch removes its hours). **Exclusion constraint `ex_working_hours_no_overlap`**: `EXCLUDE USING gist (doctor_id WITH =, weekday WITH =, scheduling.timerange(start_local, end_local, '[)') WITH &&)` — no overlapping intervals for one doctor on a weekday across all branches (adjacent intervals allowed) |
+| type `scheduling.timerange` | `CREATE TYPE … AS RANGE (subtype = time)` (used by the exclusion constraint) |
+| function `tenancy.distance_km(lat1, lng1, lat2, lng2 numeric) → numeric` | IMMUTABLE STRICT SQL: Haversine great-circle distance in km (R = 6371), rounded to 2 decimals (OD-16). Mapped to `GeoFunctions.DistanceKm` for LINQ |
+
+Not created (by design): `effective_from/to` on working hours (v1 has one weekly template per doctor),
+reviews/abuse reports (BE2), booking/finance tables. `Down` drops the function, constraint and type
+before the tables; the latest-migration Down → Up test covers it.
+
+## 3. Database roles — implemented in `deploy/postgres/init/01-create-roles.sh`
 
 | Role | Login | Rights |
 |---|---|---|

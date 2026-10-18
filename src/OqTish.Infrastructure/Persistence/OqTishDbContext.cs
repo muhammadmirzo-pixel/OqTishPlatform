@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using OqTish.Application.Common;
+using OqTish.Application.Public;
 using OqTish.Domain.Audit;
+using OqTish.Domain.Catalog;
 using OqTish.Domain.Common;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Notifications;
+using OqTish.Domain.Scheduling;
 using OqTish.Domain.Staff;
 using OqTish.Domain.Tenancy;
 
@@ -47,6 +50,18 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
 
     public DbSet<PlatformAdminGrant> PlatformAdminGrants => Set<PlatformAdminGrant>();
 
+    public DbSet<Service> Services => Set<Service>();
+
+    public DbSet<BranchService> BranchServices => Set<BranchService>();
+
+    public DbSet<Doctor> Doctors => Set<Doctor>();
+
+    public DbSet<DoctorBranch> DoctorBranches => Set<DoctorBranch>();
+
+    public DbSet<DoctorService> DoctorServices => Set<DoctorService>();
+
+    public DbSet<WorkingHours> WorkingHours => Set<WorkingHours>();
+
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<TelegramLinkToken> TelegramLinkTokens => Set<TelegramLinkToken>();
@@ -69,5 +84,11 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
         modelBuilder.HasPostgresExtension("citext");
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OqTishDbContext).Assembly);
+
+        // tenancy.distance_km(lat1, lng1, lat2, lng2): Haversine great-circle distance in km (OD-16),
+        // created by migration CatalogScheduling. Mapped so public search stays in LINQ and decimal.
+        modelBuilder.HasDbFunction(typeof(GeoFunctions).GetMethod(nameof(GeoFunctions.DistanceKm))!)
+            .HasName("distance_km")
+            .HasSchema("tenancy");
     }
 }

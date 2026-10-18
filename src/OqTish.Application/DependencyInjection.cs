@@ -1,9 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using OqTish.Application.Admin;
+using OqTish.Application.Audit;
+using OqTish.Application.Catalog;
 using OqTish.Application.Common.Seeding;
 using OqTish.Application.Identity;
 using OqTish.Application.Identity.Handlers;
+using OqTish.Application.Public;
+using OqTish.Application.Scheduling;
 using OqTish.Application.Staff;
+using OqTish.Application.Tenancy;
 
 namespace OqTish.Application;
 
@@ -14,7 +19,25 @@ public static class DependencyInjection
     {
         // Staff / access
         services.AddScoped<IAccessService, AccessService>();
-        services.TryAddScoped<IDoctorIdentityResolver, NoDoctorIdentityResolver>();
+        services.AddScoped<IDoctorIdentityResolver, DoctorIdentityResolver>();
+        services.AddScoped<StaffHandlers>();
+        services.AddScoped<ClinicInvitationHandlers>();
+        services.AddScoped<MyInvitationHandlers>();
+
+        // Tenancy / catalog / scheduling
+        services.AddScoped<RegisterClinicHandler>();
+        services.AddScoped<ClinicProfileHandler>();
+        services.AddScoped<ClinicDashboardQuery>();
+        services.AddScoped<BranchHandlers>();
+        services.AddScoped<CatalogHandlers>();
+        services.AddScoped<DoctorHandlers>();
+        services.AddScoped<WorkingHoursHandlers>();
+
+        // Public, audit, admin
+        services.AddScoped<PublicCatalogQueries>();
+        services.AddScoped<AuditQueries>();
+        services.AddScoped<AdminHandlers>();
+        services.AddScoped<CreatePlatformAdminHandler>();
 
         // Identity services
         services.AddScoped<SessionService>();
@@ -44,6 +67,8 @@ public static class DependencyInjection
         // Seeding
         services.AddScoped<SeedRunner>();
         services.AddScoped<ISeedContributor, IdentitySeedContributor>();
+        services.AddScoped<ISeedContributor, TenancyDemoSeedContributor>();
+        services.AddScoped<ISeedContributor, CatalogSchedulingDemoSeedContributor>();
 
         return services;
     }

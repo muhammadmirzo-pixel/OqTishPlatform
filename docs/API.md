@@ -78,7 +78,7 @@ SameSite=Lax, and expires after 30 days sliding / 14 days idle. Sessions live se
 
 ### 1.1 Implementation notes and deviations (BE1a, 2026-10-18)
 
-Implemented: everything in the table above except `/me/invitations*` (Staff module, BE1b).
+Implemented: everything in the table above (`/me/invitations*` added in BE1b, see §4.1).
 
 | Item | Contract as implemented |
 |---|---|
@@ -121,6 +121,27 @@ type ClinicDetail = { id: string; name: string; description: string; rating: num
               services: { serviceId: string; name: string; category: string; price: Money; priceKind: 'Fixed'|'From'; durationMinutes: number }[] }[] }
 type ReviewDto = { id: string; rating: number; text: string; authorName: string; createdAt: string; branchName: string }
 ```
+
+### 2.1 Implementation notes (BE1b, 2026-10-18)
+
+Implemented: `GET /public/clinics`, `GET /public/clinics/{clinicId}`, `GET /public/facets`.
+**Not yet:** `…/reviews` and `…/availability` (BE2).
+
+| Item | Contract as implemented |
+|---|---|
+| Visibility | Only `Approved` clinics (Pending/Rejected/Suspended → invisible; detail → 404 `common.not_found`). Only active branches, and only active offers of active services. A clinic needs ≥ 1 matching active branch to be listed |
+| `q` | ≤ 100 chars; case-insensitive "contains" on the clinic name **or** any offered service name |
+| `serviceCategory` | A key from the fixed catalogue (`GET /public/facets` → `categories`); unknown → 400 |
+| `serviceId`, `serviceCategory`, `district` | Clinic must have an active offer / branch that matches (`district` is case-insensitive exact). `minPrice` and `distanceKm` are computed over the **matching** branches/offers |
+| `lat` + `lng` | Both or neither (400). `distanceKm` = distance to the nearest matching branch with coordinates (Haversine in SQL, R = 6371 km, 2 decimals) |
+| `sort` | `rating` (default without coordinates; `rating` desc, nulls last, then `reviewCount` desc, name), `price` (`minPrice` asc, nulls last), `distance` (default with coordinates; requires `lat`/`lng`, else 400), `name`. Ties → name, id |
+| `availableWithinDays` | Validated (1..30) and accepted; **the filter is applied after BE2** (availability engine). `nextFreeSlot` is `null` until then |
+| `rating` / `reviewCount` | `null` / `0` until BE2 review moderation fills `tenancy.clinics.rating_average` / `review_count` |
+| Paging | `page` ≥ 1, `pageSize` 1..100 (else 400) |
+| `ClinicDetail` | As in the type above. `description` and branch `phone` are `""` when not set. Branches ordered by name; services by name |
+| `GET /public/facets` | `{ districts: string[] (distinct, sorted, public branches only), categories: { key, name }[] (the whole fixed catalogue; `name` is the Uzbek default — localise by `key`), services: { id, name, category }[] (public offers, ≤ 500, by name) }` |
+
+Service category keys: `diagnostics`, `hygiene`, `therapy`, `surgery`, `implants`, `prosthetics`, `orthodontics`, `pediatric`, `whitening`, `periodontics`, `other`.
 
 ## 3. Patient — `/api/me/appointments`, `/api/appointments` (patient)
 
@@ -174,6 +195,63 @@ type ReviewDto = { id: string; rating: number; text: string; authorName: string;
 | `GET …/settlements` | `finance.settlement.view` | Clinic's settlements |
 | `GET …/audit?page` | `audit.view` (owner) | Clinic audit log |
 
+### 4.1 Implementation notes and DTOs (BE1b, 2026-10-18)
+
+Implemented in BE1b: clinic registration/profile, dashboard (counts are 0 until BE2/BE3 register
+contributors), branches + hours, services + branch offers, staff + invitations (+ `/me/invitations`),
+doctors + links + working hours, clinic audit. Time off, appointments, calendar, payments, reports,
+settlements: later stages.
+
+Authorization pattern everywhere: the resource is loaded by id **within the route clinic**; another
+clinic's id → 404 `common.not_found`; no membership → 404; in-tenant without permission or outside a
+Branches-scoped membership → 403 `common.forbidden` (TOTP rule → 403 `auth.totp_setup_required`).
+
+```ts
+type ClinicProfileDto = { id: string; name: string; legalName: string; description: string; phone: string
+                          verificationStatus: ClinicVerification; statusReason: string | null; createdAt: string }
+type DashboardDto = { date: string /* YYYY-MM-DD, branch/clinic local */; branchId: string | null
+                      pending: number; confirmed: number; completed: number; noShow: number; collected: Money | null }
+type BranchDto = { id; name; district; address; latitude: number|null; longitude: number|null; phone: string /* "" if none */
+                   timeZone: string; isActive: boolean; hours: { weekday: Weekday; open: 'HH:mm'; close: 'HH:mm' }[] }
+type ServiceDto = { id; name; category: string /* category key */; isActive: boolean
+                    offers: { branchId; price: Money; priceKind: 'Fixed'|'From'; durationMinutes: number; isActive: boolean }[] }
+type StaffMemberDto = { membershipId; userId; displayName; phoneMasked: string|null; role: StaffRole; scope: 'Clinic'|'Branches'
+                        branchIds: string[]; status: 'Active'|'Suspended' }
+type InvitationDto = { id; phoneMasked; role: StaffRole; scope; branchIds: string[]; createdAt; expiresAt }
+type MyInvitationDto = { id; clinicId; clinicName; role: StaffRole; scope; branchNames: string[]; expiresAt }
+type DoctorDto = { id; displayName; isActive: boolean; branchIds: string[]; serviceIds: string[]; userId: string|null }
+type WorkingHoursEntry = { branchId; weekday: Weekday; start: 'HH:mm'; end: 'HH:mm' }
+type AuditEntryDto = { id; occurredAt; actorKind: 'User'|'System'|'Anonymous'; actorUserId: string|null; actorName: string|null
+                       action: string; clinicId: string|null; branchId: string|null; targetType: string|null; targetId: string|null }
+```
+
+| Endpoint | Request → response; rules |
+|---|---|
+| `POST /clinics` | `{ name (1–200), legalName? (≤300), description? (≤4000), phone? }` → **201** `ClinicProfileDto` (Pending). Phones are normalised to E.164 (+998…). At most 3 Pending registrations per user → 422 `clinic.registration_limit` |
+| `GET /clinics/{id}` | any membership → `ClinicProfileDto` |
+| `PUT /clinics/{id}` | same body as POST → 200 `ClinicProfileDto`; `clinic.profile.manage` **clinic-wide** (Branches-scoped admin → 403) |
+| `GET …/dashboard?branchId` | any membership → `DashboardDto`. Without `branchId`: the caller's accessible branches. `branchId` outside scope → 403, another clinic's → 404. `collected` is `Money` (zero until BE3) with `finance.report.view`, else `null` |
+| `GET …/branches` | any membership → `BranchDto[]` (Branches-scoped: own branches only), by name |
+| `POST …/branches` | `{ name, district, address (required), latitude?, longitude? (both or neither, ≤ 6 decimals), phone?, timeZone? ('Asia/Tashkent' default or 'Asia/Samarkand'), isActive? }` → **201** `BranchDto`; `branch.manage` clinic-wide |
+| `PUT …/branches/{branchId}` | same body → 200 `BranchDto`; `branch.manage` on that branch |
+| `PUT …/branches/{branchId}/hours` | `[{ weekday 1–7, open 'HH:mm', close 'HH:mm' }]` (≤ 28, open < close, no overlap per weekday) → **204**; replaces all hours |
+| `GET …/services` | any membership → `ServiceDto[]`; `offers` only for branches in the caller's scope |
+| `POST …/services`, `PUT …/services/{serviceId}` | `{ name (1–200), category (key), isActive? }` → 201 / 200 `ServiceDto`; `catalog.manage` **clinic-wide** (services belong to the whole clinic) |
+| `PUT …/branches/{branchId}/services/{serviceId}` | `{ price: Money ≥ 0, priceKind, durationMinutes 5–480, isActive? }` → **204** (upsert); `catalog.manage` on the branch. More than 2 decimals → 400 `finance.amount_invalid` |
+| `GET …/staff` | `staff.manage` → `StaffMemberDto[]` (non-removed). Branches-scoped managers see only Branches-scoped memberships inside their branches |
+| `PUT …/staff/{membershipId}` | `{ role, scope, branchIds }` → 200 `StaffMemberDto`. 403 `staff.cannot_grant_role` when: the actor's role may not manage the target's current **or** new role (owners: all; ClinicAdmin: Receptionist/Doctor/FinanceManager), the scope/branches exceed the actor's own, or the target is the caller. 422 `staff.last_owner` |
+| `DELETE …/staff/{membershipId}` | → 204; status Removed, effective on the next request. Leaving (own membership) is allowed unless last owner (422 `staff.last_owner`) |
+| `GET …/invitations` | `staff.manage` → open (not accepted/revoked) `InvitationDto[]`, newest first; expired ones are included (compare `expiresAt`) |
+| `POST …/invitations` | `{ phone, role, scope, branchIds }` → **201** `InvitationDto`; same escalation rules; 7-day expiry; an open invitation for the same phone is revoked (replaced); phone already a member → 409 `staff.already_member`. **No SMS is sent** in v1 — the invitee sees it in `GET /me/invitations` |
+| `DELETE …/invitations/{id}` | → 204 (revoked); same escalation rules |
+| `GET /me/invitations` | user → `MyInvitationDto[]` — open, unexpired invitations for the caller's **verified** phone ( `[]` without one); suspended clinics excluded |
+| `POST /me/invitations/{id}/accept` | → **204**. Not addressed to the caller's verified phone / revoked / accepted → 404; expired (DB time) → 422 `staff.invitation_expired`; already an active member → 409 `staff.already_member`. A removed membership is reactivated with the invited grant |
+| `GET …/doctors` | any membership → `DoctorDto[]` (Branches-scoped: doctors linked to one of their branches) |
+| `POST …/doctors`, `PUT …/doctors/{doctorId}` | `{ displayName (1–200), isActive?, branchIds?, serviceIds?, userId? }` → 201 / 200 `DoctorDto`; links are **replaced**. `schedule.manage` on every branch before and after the change. Changing `userId` also needs `staff.manage`; the user must have a non-removed membership in the clinic (422 `schedule.doctor_user_invalid`) and must not be another doctor's user (409 `schedule.doctor_user_taken`). Unknown/other-clinic branch or service ids → 400. Removing a branch deletes the doctor's working hours there |
+| `GET …/doctors/{doctorId}/working-hours` | any membership → `WorkingHoursEntry[]` (entries of branches outside a Branches-scoped member's scope omitted) |
+| `PUT …/doctors/{doctorId}/working-hours` | `WorkingHoursEntry[]` (≤ 100) → **204**. Replaces the entries of the branches where the caller has `schedule.manage`; other branches' entries are kept (sending one → 403). Branch not linked → 422 `schedule.branch_not_linked`; overlap on a weekday across all branches → 422 `schedule.hours_overlap` |
+| `GET …/audit?page&pageSize` | `audit.view` (owner, clinic-wide) → `Page<AuditEntryDto>` newest first |
+
 ## 5. Platform admin — `/api/admin` (platform permissions, TOTP required)
 
 | Method & path | Permission | Purpose |
@@ -189,6 +267,42 @@ type ReviewDto = { id: string; rating: number; text: string; authorName: string;
 | `GET /admin/clinics/{id}/appointments?…` + header `X-Access-Reason` | `platform.tenant-data.read` | Break-glass read of tenant patient data. Audited with the reason |
 | `GET /admin/audit?clinicId&action&page` | `platform.audit.view` | Platform audit log |
 | `GET /admin/notifications?status&page` · `POST /admin/notifications/{id}/retry` | `platform.audit.view` | Outbox delivery status / manual retry |
+
+### 5.1 Implementation notes and DTOs (BE1b, 2026-10-18)
+
+Implemented: dashboard, clinics (list/approve/reject/suspend/reinstate), users (list/suspend/reinstate),
+audit. Reports, reviews, commission rules, settlements, break-glass reads and notifications come later.
+Every platform check answers 403 `common.forbidden` without the grant and 403 `auth.totp_setup_required`
+while TOTP is not enabled (`Security:RequireTotpForPrivilegedRoles`). Permission split (as the UI
+assumed): approve/reject = `platform.clinic.verify`; suspend/reinstate = `platform.account.suspend`.
+Note for BE2: the break-glass header `X-Access-Reason` arrives **percent-encoded (UTF-8)** from the UI and
+must be decoded by the server.
+
+```ts
+type AdminDashboardDto = { clinicsByStatus: Record<ClinicVerification, number>; appointmentsToday: number /* 0 until BE2 */
+                           openReports: number /* 0 until BE2 */; activeUsers: number; suspendedUsers: number }
+type AdminClinicDto = { id; name; legalName: string; phone: string; verificationStatus: ClinicVerification; isSuspended: boolean
+                        statusReason: string|null; branchCount: number; createdAt: string }
+type AdminUserDto = { id; displayName; phoneMasked: string|null; email: string|null; status: 'Active'|'Suspended'; statusReason: string|null; createdAt }
+```
+
+| Endpoint | Rules |
+|---|---|
+| `GET /admin/dashboard` | any effective platform permission |
+| `GET /admin/clinics?status&q&page&pageSize` | `Page<AdminClinicDto>`; Pending first, then newest; `q` = name / legal name contains |
+| `POST /admin/clinics/{id}/approve` | Pending or Rejected → Approved → 200 `AdminClinicDto` |
+| `POST …/reject { reason }` | Pending → Rejected (`reason` 1–1000, shown to the owner as `statusReason`) |
+| `POST …/suspend { reason }` | Approved → Suspended: hidden from public, every membership behaves as "no membership" on the next request |
+| `POST …/reinstate` | Suspended → Approved |
+| | Other transitions → 409 `admin.invalid_status_transition`; unknown id → 404 |
+| `GET /admin/users?q&page&pageSize` | `Page<AdminUserDto>` (deleted accounts excluded); `q` = display name / e-mail contains, or an exact phone |
+| `POST /admin/users/{id}/suspend { reason }` | → 204; rotates the security stamp and revokes every session (next request → 401). Self → 422 `admin.cannot_suspend_self`; not Active → 409 |
+| `POST /admin/users/{id}/reinstate` | Suspended → Active → 204 |
+| `GET /admin/audit?clinicId&action&page&pageSize` | `Page<AuditEntryDto>`; `action` exact, or a prefix ending in `.` (e.g. `staff.`) |
+
+### 5.2 Bootstrap CLI (not HTTP)
+
+`dotnet OqTish.Api.dll create-platform-admin --email <e-mail> --phone <+998…>` — see docs/SERVICES.md §2.8.
 
 ## 6. Telegram
 
@@ -207,7 +321,7 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 |---|---|
 | `GET /dev/sms?phone` | Messages captured by the Fake SMS sender (to read OTP codes during local testing) → `[{ text, sentAt }]`, newest first |
 | `GET /dev/telegram` | Messages the Fake Telegram client would have sent |
-| `POST /dev/seed` | Idempotently loads fictional demo data (same as `dotnet run --project src/OqTish.Api -- seed`, which is allowed in Development and Staging and always refused in Production) → `{ contributors: string[] }`. Identity seed: admin `admin@oqtish.local` / `Seed:AdminPassword` (dev-only default `Admin123!demo`) with all platform permissions; demo patient `+998900000001` |
+| `POST /dev/seed` | Idempotently loads fictional demo data (same as `dotnet run --project src/OqTish.Api -- seed`, which is allowed in Development and Staging and always refused in Production) → `{ contributors: string[] }`. Identity seed: admin `admin@oqtish.local` / `Seed:AdminPassword` (dev-only default `Admin123!demo`) with all platform permissions; demo patient `+998900000001`. BE1b adds 3 approved demo clinics in Tashkent + 1 Pending, services, doctors, hours and demo staff logins for every role (`Seed:DemoStaffAccounts`, Development only) — credentials in docs/SERVICES.md §2.9 |
 
 ## 8. Health
 
@@ -255,6 +369,15 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 | `schedule.timeoff_conflict` | 409 | Time off overlaps appointments |
 | `staff.cannot_grant_role` | 403 | Escalation attempt |
 | `staff.last_owner` | 422 | Cannot remove the last owner |
+| `staff.already_member` | 409 | The phone/user is already a member of the clinic (BE1b) |
+| `staff.invitation_expired` | 422 | Invitation past its 7-day expiry (BE1b) |
+| `clinic.registration_limit` | 422 | Too many Pending clinic registrations for this user (BE1b) |
+| `schedule.hours_overlap` | 422 | Working-hour intervals overlap on a weekday (BE1b) |
+| `schedule.branch_not_linked` | 422 | Working hours for a branch the doctor is not linked to (BE1b) |
+| `schedule.doctor_user_invalid` | 422 | Doctor `userId` is not a member of the clinic (BE1b) |
+| `schedule.doctor_user_taken` | 409 | The user is already linked to another doctor of the clinic (BE1b) |
+| `admin.invalid_status_transition` | 409 | Clinic/account not in a state allowing the action (BE1b) |
+| `admin.cannot_suspend_self` | 422 | A platform admin cannot suspend their own account (BE1b) |
 | `finance.refund_exceeds_paid` | 422 | Refund too large |
 | `finance.amount_invalid` | 400 | Amount ≤ 0 or > 2 decimals |
 | `finance.period_locked` | 409 | Posting into a finalized month (redirected) |

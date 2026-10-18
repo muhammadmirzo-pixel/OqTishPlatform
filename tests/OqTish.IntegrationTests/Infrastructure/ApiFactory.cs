@@ -83,6 +83,15 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         return client;
     }
 
+    /// <summary>Also drops this database's idle pooled connections (each test has its own database).</summary>
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        await using var connection = new Npgsql.NpgsqlConnection(ConnectionString);
+        Npgsql.NpgsqlConnection.ClearPool(connection);
+        GC.SuppressFinalize(this);
+    }
+
     public OqTishDbContext CreateDbContext() => PostgresFixture.CreateDbContext(ConnectionString);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

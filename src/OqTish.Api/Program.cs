@@ -70,6 +70,11 @@ if (SeedCommand.IsRequested(args))
     return await SeedCommand.RunAsync(app.Services, app.Environment, app.Logger, CancellationToken.None);
 }
 
+if (PlatformAdminBootstrapCommand.IsRequested(args))
+{
+    return await PlatformAdminBootstrapCommand.RunAsync(app.Services, args, PlatformAdminBootstrapCommand.ReadPasswordFromEnvironmentOrStdin, app.Logger, CancellationToken.None);
+}
+
 if (!app.Environment.IsDevelopment() && !app.Services.GetRequiredService<IOptions<SecurityOptions>>().Value.RequireTotpForPrivilegedRoles)
 {
     StartupLog.TotpRuleDisabled(app.Logger, app.Environment.EnvironmentName);
@@ -95,6 +100,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check 
 app.MapAuthEndpoints();
 app.MapMeEndpoints();
 app.MapTelegramEndpoints();
+app.MapMyInvitationEndpoints();
+app.MapClinicEndpoints();
+app.MapPublicEndpoints();
+app.MapAdminEndpoints();
 app.MapDevEndpoints(app.Environment);
 
 await app.RunAsync();

@@ -125,6 +125,124 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Catalog.BranchService", b =>
+                {
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("price");
+
+                    b.Property<string>("PriceKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("price_kind");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("BranchId", "ServiceId")
+                        .HasName("pk_branch_services");
+
+                    b.HasAlternateKey("ClinicId", "BranchId", "ServiceId")
+                        .HasName("ak_branch_services_clinic_id_branch_id_service_id");
+
+                    b.HasIndex("ClinicId", "ServiceId")
+                        .HasDatabaseName("ix_branch_services_clinic_id_service_id");
+
+                    b.ToTable("branch_services", "catalog", t =>
+                        {
+                            t.HasCheckConstraint("ck_branch_services_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_branch_services_duration", "duration_minutes BETWEEN 5 AND 480");
+
+                            t.HasCheckConstraint("ck_branch_services_price", "price >= 0");
+
+                            t.HasCheckConstraint("ck_branch_services_price_kind", "price_kind IN ('Fixed', 'From')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Catalog.Service", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("category");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_services");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_services_clinic_id_id");
+
+                    b.HasIndex("Category")
+                        .HasDatabaseName("ix_services_category");
+
+                    b.HasIndex("ClinicId", "IsActive")
+                        .HasDatabaseName("ix_services_clinic_id_is_active");
+
+                    b.ToTable("services", "catalog");
+                });
+
             modelBuilder.Entity("OqTish.Domain.Common.IdempotencyRecord", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -674,6 +792,158 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                     b.ToTable("telegram_link_tokens", "notify");
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Scheduling.Doctor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("display_name");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_doctors");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_doctors_clinic_id_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_doctors_user_id")
+                        .HasFilter("user_id IS NOT NULL");
+
+                    b.HasIndex("ClinicId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_doctors_clinic_id_user_id")
+                        .HasFilter("user_id IS NOT NULL");
+
+                    b.ToTable("doctors", "scheduling");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.DoctorBranch", b =>
+                {
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("doctor_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.HasKey("DoctorId", "BranchId")
+                        .HasName("pk_doctor_branches");
+
+                    b.HasAlternateKey("ClinicId", "DoctorId", "BranchId")
+                        .HasName("ak_doctor_branches_clinic_id_doctor_id_branch_id");
+
+                    b.HasIndex("ClinicId", "BranchId")
+                        .HasDatabaseName("ix_doctor_branches_clinic_id_branch_id");
+
+                    b.ToTable("doctor_branches", "scheduling");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.DoctorService", b =>
+                {
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("doctor_id");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.HasKey("DoctorId", "ServiceId")
+                        .HasName("pk_doctor_services");
+
+                    b.HasAlternateKey("ClinicId", "DoctorId", "ServiceId")
+                        .HasName("ak_doctor_services_clinic_id_doctor_id_service_id");
+
+                    b.HasIndex("ClinicId", "ServiceId")
+                        .HasDatabaseName("ix_doctor_services_clinic_id_service_id");
+
+                    b.ToTable("doctor_services", "scheduling");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.WorkingHours", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("doctor_id");
+
+                    b.Property<TimeOnly>("EndLocal")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("end_local");
+
+                    b.Property<TimeOnly>("StartLocal")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("start_local");
+
+                    b.Property<short>("Weekday")
+                        .HasColumnType("smallint")
+                        .HasColumnName("weekday");
+
+                    b.HasKey("Id")
+                        .HasName("pk_working_hours");
+
+                    b.HasIndex("DoctorId", "Weekday")
+                        .HasDatabaseName("ix_working_hours_doctor_id_weekday");
+
+                    b.HasIndex("ClinicId", "BranchId", "Weekday")
+                        .HasDatabaseName("ix_working_hours_clinic_id_branch_id_weekday");
+
+                    b.HasIndex("ClinicId", "DoctorId", "BranchId")
+                        .HasDatabaseName("ix_working_hours_clinic_id_doctor_id_branch_id");
+
+                    b.ToTable("working_hours", "scheduling", t =>
+                        {
+                            t.HasCheckConstraint("ck_working_hours_interval", "start_local < end_local");
+
+                            t.HasCheckConstraint("ck_working_hours_weekday", "weekday BETWEEN 1 AND 7");
+                        });
+                });
+
             modelBuilder.Entity("OqTish.Domain.Staff.BranchAccess", b =>
                 {
                     b.Property<Guid>("MembershipId")
@@ -1087,6 +1357,17 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("phone");
 
+                    b.Property<decimal?>("RatingAverage")
+                        .HasPrecision(3, 2)
+                        .HasColumnType("numeric(3,2)")
+                        .HasColumnName("rating_average");
+
+                    b.Property<int>("ReviewCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("review_count");
+
                     b.Property<string>("StatusReason")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
@@ -1113,8 +1394,41 @@ namespace OqTish.Infrastructure.Persistence.Migrations
 
                     b.ToTable("clinics", "tenancy", t =>
                         {
+                            t.HasCheckConstraint("ck_clinics_rating_average", "rating_average IS NULL OR (rating_average >= 1 AND rating_average <= 5)");
+
+                            t.HasCheckConstraint("ck_clinics_review_count", "review_count >= 0");
+
                             t.HasCheckConstraint("ck_clinics_verification_status", "verification_status IN ('Pending', 'Approved', 'Suspended', 'Rejected')");
                         });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Catalog.BranchService", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_branch_services_branches_clinic_id_branch_id");
+
+                    b.HasOne("OqTish.Domain.Catalog.Service", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "ServiceId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_branch_services_services_clinic_id_service_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Catalog.Service", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_services_clinics_clinic_id");
                 });
 
             modelBuilder.Entity("OqTish.Domain.Common.IdempotencyRecord", b =>
@@ -1204,6 +1518,71 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_telegram_link_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.Doctor", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_doctors_clinics_clinic_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_doctors_users_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.DoctorBranch", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_doctor_branches_branches_clinic_id_branch_id");
+
+                    b.HasOne("OqTish.Domain.Scheduling.Doctor", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_doctor_branches_doctors_clinic_id_doctor_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.DoctorService", b =>
+                {
+                    b.HasOne("OqTish.Domain.Scheduling.Doctor", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_doctor_services_doctors_clinic_id_doctor_id");
+
+                    b.HasOne("OqTish.Domain.Catalog.Service", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "ServiceId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_doctor_services_services_clinic_id_service_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Scheduling.WorkingHours", b =>
+                {
+                    b.HasOne("OqTish.Domain.Scheduling.DoctorBranch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "DoctorId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "DoctorId", "BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_working_hours_doctor_branches_clinic_id_doctor_id_branch_id");
                 });
 
             modelBuilder.Entity("OqTish.Domain.Staff.BranchAccess", b =>

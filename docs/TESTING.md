@@ -1,6 +1,6 @@
 # Testing Strategy and Required Test Catalogue
 
-Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today.
+Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2).
 
 ## 0. Current tests (Phase 2, verified 2026-10-18)
 
@@ -50,6 +50,20 @@ Status: Phase 2 harness in place. The catalogue below (§2–§6) is the require
 | Integration `CommonPortsTests` | runner commits on success and rolls back (incl. audit + outbox) on failure; 40001/40P01 retried 3× then `common.concurrency`; other errors not retried; classifier returns constraint names; row locks require a transaction, branch lock row exists and blocks a concurrent `FOR UPDATE` (55P03); outbox dedup; **idempotency replay / mismatch / 4 concurrent duplicates → one execution** |
 | Integration `MigrationTests` (+3) | latest migration Down → Up; audit log UPDATE/DELETE/TRUNCATE blocked even for the owner; composite FKs reject a cross-clinic branch grant; branch-lock trigger |
 | Integration `DatabaseRoleTests` (extended) | `oqtish_api`/`oqtish_worker` can INSERT/SELECT `audit.audit_log` but UPDATE/DELETE are denied (42501) |
+
+### 0.2 Added in BE1b (clinic console, catalogue, scheduling, public, admin) — verified 2026-10-18
+
+`dotnet test`: **194 passed** (ArchitectureTests 6, UnitTests 75, IntegrationTests 113; +28 integration tests in BE1b), 0 warnings.
+
+| Suite / class | Proves |
+|---|---|
+| Integration `ClinicProfileAndBranchTests` | registration → caller is ClinicOwner of a Pending clinic, **hidden publicly (404)**, audited; validation + 3-pending limit; profile read (membership) / edit (clinic-wide, receptionist & branch admin 403, other clinic 404); dashboard counts 0, `collected` only with finance permission, out-of-branch 403 / other clinic 404; branch list filtered by scope; create/update with **cross-clinic id substitution → 404**, out-of-branch 403, wrong role 403, validation (lat/lng pair, time zone); hours replace + overlap/format validation; clinic audit owner-only |
+| Integration `CatalogAndDoctorTests` | services: clinic-wide `catalog.manage`, unknown category 400, cross-clinic service/branch ids 404; offers: branch-scoped admin own branch 204 / other 403, price ≥ 0, > 2 decimals → `finance.amount_invalid`, duration 5..480, list offers filtered by scope; doctors: branch-scoped receptionist create/update per branch (403 outside), other-clinic ids 400/404, list filtered; **userId** needs `staff.manage`, must be a member (422), unique (409); **Doctor-own resolver** (`DoctorIdFor`); working hours: replace, **overlap across branches → 422**, unlinked branch 422, scoped edit keeps other branches, unlink cascades; DB: **exclusion constraint 23P01** (adjacent OK), composite FKs reject cross-clinic doctor_branches / branch_services (23503) |
+| Integration `StaffAndInvitationTests` | staff list scoped (branch admin sees only memberships inside its branches), receptionist 403, other clinic 404; **escalation attempts** (admin → ClinicAdmin/Owner, admin edits/removes owner, self-change, branch admin grants Clinic scope or foreign branch) → 403 `staff.cannot_grant_role`; allowed changes audited; **last owner** 422; **removal effective immediately** (next request 404); invitation by phone: replace, masked phone, 7-day expiry, **phone mismatch → 404**, accept creates Branches membership, already member 409, removed member reactivated; **expired → 422**, revoked → 404; invitation escalation rules; no phone in audit details, only HMAC stored |
+| Integration `PublicCatalogTests` | over the demo seed: only approved clinics; filters `q` (clinic + service name, case-insensitive), `serviceCategory`, `serviceId`, `district`; sort name/price/rating; **Haversine distance** order and value; pagination; validation (distance without coordinates, lat without lng, ranges, pageSize 101, unknown sort/category); detail with hours/offers, pending/unknown → 404, inactive branch/offer hidden; **suspended clinic hidden publicly and its staff → 404**, reinstate restores; facets |
+| Integration `AdminTests` | dashboard (any platform permission, patient 403); clinic verification with the **permission split** (verify vs suspend), invalid transitions 409, reason required, unknown 404, every action **audited**; **suspension disables memberships** (`/me` and console) and reinstate restores; TOTP rule → `auth.totp_setup_required` until enabled; user suspension → **sessions revoked, next request 401**, self 422, reinstate; admin audit filters (action prefix, clinic); **`create-platform-admin` CLI in Production**: weak passwords / argv password / missing phone → exit 1, success + idempotent re-run (password not reset, all grants, verified phone, audited), other account's phone → exit 3, admin can sign in |
+| Integration `DemoSeedTests` | **seed twice → identical row counts** (4 clinics, 5 branches, 30 opening hours, 24 services, 30 offers, 7 doctors, 6 memberships …); every demo staff login works with its documented password and has the expected role; demo doctor account resolves to its doctor record; receptionist is Branches-scoped |
+| Integration `EndpointAuthorizationTests` (unchanged) | covers every new endpoint automatically (auth metadata + anonymous 401) |
 
 Test infrastructure: `ApiFactory` (real `Program`, https client with `X-OqTish-Client`, log capture, per-test database cloned from a migrated template), `TestAuth` (`SignInAsPatientAsync` via the Fake SMS mailbox, `SignInAsStaffAsync` = real sign-in + membership inserted in the DB, `CreateClinicAsync`, `EnableTotpAsync`, `AssertProblemAsync`), `TelegramSigning`. Test hosts disable config reload-on-change (inotify limit).
 

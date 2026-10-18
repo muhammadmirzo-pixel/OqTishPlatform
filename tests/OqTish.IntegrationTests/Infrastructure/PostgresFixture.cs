@@ -19,7 +19,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     public const string Image = "postgres:18-alpine";
     private const string TemplateName = "oqtish_template";
 
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder(Image).Build();
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder(Image).WithCommand("-c", "max_connections=300").Build();
     private readonly SemaphoreSlim _cloneLock = new(1, 1);
     private bool _templateReady;
 

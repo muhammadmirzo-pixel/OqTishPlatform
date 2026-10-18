@@ -10,17 +10,10 @@ public interface IAccessService
 }
 
 /// <summary>
-/// Hook for Doctor-own semantics: maps the user to their doctor record per clinic. The Scheduling module
-/// (BE1b) replaces the default (which knows no doctors) with
-/// <c>services.Replace(ServiceDescriptor.Scoped&lt;IDoctorIdentityResolver, …&gt;())</c>.
+/// Hook for Doctor-own semantics: maps the user to their doctor record per clinic. Implemented by the
+/// Scheduling module (<c>DoctorIdentityResolver</c>: <c>scheduling.doctors.user_id</c>).
 /// </summary>
 public interface IDoctorIdentityResolver
 {
     Task<IReadOnlyDictionary<Guid, Guid>> GetDoctorIdsAsync(Guid userId, IReadOnlyCollection<Guid> clinicIds, CancellationToken cancellationToken);
-}
-
-internal sealed class NoDoctorIdentityResolver : IDoctorIdentityResolver
-{
-    public Task<IReadOnlyDictionary<Guid, Guid>> GetDoctorIdsAsync(Guid userId, IReadOnlyCollection<Guid> clinicIds, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyDictionary<Guid, Guid>>(new Dictionary<Guid, Guid>());
 }

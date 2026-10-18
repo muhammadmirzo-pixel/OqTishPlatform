@@ -121,7 +121,7 @@ Kengaytirish nuqtasi: `IAccountDeletionContributor.AnonymiseAsync(userId, ct)` �
 | `AccessScope.Check(permission, clinicId, branchId?)` | A'zolik yo'q / klinika suspend → 404 `common.not_found`; TOTP qoidasi → 403 `auth.totp_setup_required`; rolda ruxsat yo'q yoki filial Branches-scope'dan tashqarida → 403 `common.forbidden`. `branchId = null` bo'lsa Branches-scope a'zolik o'z filiallaridagi ruxsatlar uchun o'tadi (ClinicWideOnly'dan tashqari) |
 | `CheckClinicWide`, `CheckMember`, `CheckPlatform` | Klinika miqyosidagi amallar (Clinic-scope talab qilinadi), "har qanday a'zolik" o'qish endpointlari, platforma ruxsatlari |
 | `BranchIdsWith(permission, clinicId)` | Ruxsat bor filial id'lari — ro'yxat so'rovlarida SQL filtr uchun (`ids.Contains(x.BranchId)`), yuklagandan keyin filtrlash taqiqlangan |
-| `IsOwnOnly`, `DoctorIdFor(clinicId)` | Doctor-own semantikasi. `IDoctorIdentityResolver` standart holda hech kimni bilmaydi; Scheduling moduli (BE1b) uni `services.Replace(...)` bilan almashtiradi |
+| `IsOwnOnly`, `DoctorIdFor(clinicId)` | Doctor-own semantikasi. `IDoctorIdentityResolver` — BE1b dan boshlab `DoctorIdentityResolver` (`scheduling.doctors.user_id`, §2.5) |
 
 Konfiguratsiya: `Security:RequireTotpForPrivilegedRoles` (default `true`; faqat appsettings.Development.json'da `false`).
 
@@ -142,3 +142,146 @@ BE1a faqat sxema, entity va EF konfiguratsiyalarini yaratdi (endpointlar — BE1
 | `RateLimiting:*` | 300 / 10 / 20 per minute | |
 
 Docker Compose bu kalitlarni `.env`dan uzatadi: `OQTISH_OTP_PEPPER`, `OQTISH_SMS_PROVIDER`, `OQTISH_ESKIZ_*`, `OQTISH_TELEGRAM_*` (`.env.example`).
+
+---
+
+## 2. Klinika konsoli, katalog, jadval, ommaviy katalog va platforma admini (BE1b, 2026-10-18)
+
+Umumiy qoida (barcha handlerlar): marshrutdagi id faqat qidiruv kaliti. Handler resursni **marshrutdagi
+klinika ichida** yuklaydi; boshqa klinikaning id'si yoki a'zolik yo'qligi → 404 `common.not_found`;
+klinika ichida ruxsat yetmasa yoki filial Branches-scope'dan tashqarida bo'lsa → 403 `common.forbidden`
+(TOTP qoidasi → 403 `auth.totp_setup_required`). Ro'yxatlar SQL'da scope bo'yicha filtrlanadi.
+Har bir yozuvchi amal audit qatorini **o'sha tranzaksiyada** yozadi (`details` — faqat id va kodlar,
+telefon/ism yo'q). DTO shakllari: `docs/API.md` §2.1, §4.1, §5.1.
+
+### 2.1 Tenancy — klinika va filiallar
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `RegisterClinicHandler` | `POST /api/clinics` | user | `{ name, legalName?, description?, phone? }` → 201 `ClinicProfileDto` (Pending). Foydalanuvchi ClinicOwner (Clinic scope) bo'ladi. Bir foydalanuvchida 3 tadan ortiq Pending klinika → 422 `clinic.registration_limit` | klinika + a'zolik, audit `clinic.registered` |
+| `ClinicProfileHandler.GetAsync` | `GET /api/clinics/{id}` | har qanday a'zolik | → `ClinicProfileDto` (holat va `statusReason` bilan) | — |
+| `ClinicProfileHandler.UpdateAsync` | `PUT /api/clinics/{id}` | `clinic.profile.manage`, klinika miqyosida | profil maydonlari → 200 | audit `clinic.profile.updated` |
+| `ClinicDashboardQuery` | `GET /api/clinics/{id}/dashboard?branchId` | har qanday a'zolik; `branchId` scope ichida bo'lishi kerak | → `DashboardDto` (bugungi sana filial/klinika vaqt zonasida). `collected` faqat `finance.report.view` bilan | — |
+| `BranchHandlers.ListAsync` | `GET …/branches` | a'zolik (Branches-scope — faqat o'z filiallari) | → `BranchDto[]` (ish soatlari bilan) | — |
+| `BranchHandlers.CreateAsync` | `POST …/branches` | `branch.manage`, klinika miqyosida | nom, tuman, manzil, lat/lng (ikkalasi yoki hech biri), telefon, vaqt zonasi (`Asia/Tashkent` / `Asia/Samarkand`) → 201. Booking lock qatori trigger orqali yaratiladi | audit `branch.created` |
+| `BranchHandlers.UpdateAsync` | `PUT …/branches/{branchId}` | `branch.manage` shu filialda | → 200 `BranchDto` | audit `branch.updated` |
+| `BranchHandlers.SetHoursAsync` | `PUT …/branches/{branchId}/hours` | `branch.manage` shu filialda | `[{ weekday, open, close }]` (HH:mm, kesishmasiz) → 204; hammasini almashtiradi | audit `branch.hours.updated` |
+
+Kengaytirish nuqtasi: `IClinicDashboardContributor.ContributeAsync(ClinicDashboardContext, ClinicDashboardCounts, ct)` — BE2 (qabul sonlari) va BE3 (yig'ilgan summa) scoped servis sifatida ro'yxatdan o'tkazadi. Kontekstda `ClinicId`, ruxsat etilgan `BranchIds`, mahalliy sana, vaqt zonasi va `IncludeFinance` bor. Contributor bo'lmasa hamma son 0.
+
+### 2.2 Catalog — xizmatlar va filial narxlari
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `CatalogHandlers.ListAsync` | `GET …/services` | a'zolik | → `ServiceDto[]`; `offers` faqat chaqiruvchining filiallari bo'yicha | — |
+| `CatalogHandlers.CreateAsync` / `UpdateAsync` | `POST …/services`, `PUT …/services/{serviceId}` | `catalog.manage`, klinika miqyosida (xizmat butun klinikaga tegishli) | `{ name, category, isActive? }` → 201 / 200. `category` — `ServiceCategories` kalitlaridan biri | audit `catalog.service.created` / `catalog.service.updated` |
+| `CatalogHandlers.SetOfferAsync` | `PUT …/branches/{branchId}/services/{serviceId}` | `catalog.manage` shu filialda | `{ price: Money ≥ 0, priceKind: Fixed/From, durationMinutes 5..480, isActive? }` → 204 (yaratadi yoki yangilaydi) | audit `catalog.offer.updated` (narx, tur, davomiylik) |
+
+`ServiceCategories` — qat'iy kategoriya katalogi (kalit + o'zbekcha nom): `diagnostics`, `hygiene`, `therapy`, `surgery`, `implants`, `prosthetics`, `orthodontics`, `pediatric`, `whitening`, `periodontics`, `other`. UI kalit bo'yicha tarjima qiladi.
+
+### 2.3 Staff — xodimlar (a'zoliklar)
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `StaffHandlers.ListAsync` | `GET …/staff` | `staff.manage` | → `StaffMemberDto[]` (Removed'lardan tashqari). Branches-scope boshqaruvchi faqat o'z filiallari ichidagi Branches-scope a'zoliklarni ko'radi | — |
+| `StaffHandlers.UpdateAsync` | `PUT …/staff/{membershipId}` | `staff.manage` + `StaffRules` | `{ role, scope, branchIds }` → 200 `StaffMemberDto`. Eskalatsiya → 403 `staff.cannot_grant_role`; oxirgi egani pasaytirish → 422 `staff.last_owner` | filial grantlari almashtiriladi, audit `staff.membership.changed` (oldin/keyin) |
+| `StaffHandlers.RemoveAsync` | `DELETE …/staff/{membershipId}` | `staff.manage` (o'zini — har kim, chiqib ketish) | → 204; status Removed, **keyingi so'rovdan boshlab** kuchsiz (scope har so'rovda hisoblanadi). Oxirgi faol ega → 422 | audit `staff.membership.removed` |
+
+`StaffRules` (eskalatsiyaga qarshi): (1) rol — `Permissions.RolesManageableBy`: ega barcha rollarni, ClinicAdmin faqat Receptionist/Doctor/FinanceManager'ni boshqaradi; bu a'zolikning hozirgi va yangi roliga qo'llanadi; (2) scope — Branches-scope boshqaruvchi faqat o'z filiallari ichidagi Branches-scope grantlarni beradi/o'zgartiradi, Clinic scope bera olmaydi; (3) hech kim o'z a'zoligini o'zgartira olmaydi. Bir klinikadagi xodim o'zgarishlari advisory lock (`staff:{clinicId}`) bilan ketma-ket bajariladi — ikki parallel pasaytirish oxirgi ega qoidasini aylanib o'ta olmaydi.
+
+### 2.4 Staff — taklifnomalar (telefon orqali, OD-21)
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `ClinicInvitationHandlers.ListAsync` | `GET …/invitations` | `staff.manage` (scope bo'yicha filtr) | → ochiq `InvitationDto[]` (muddati o'tganlari ham, `expiresAt` bilan) | — |
+| `ClinicInvitationHandlers.CreateAsync` | `POST …/invitations` | `staff.manage` + `StaffRules` | `{ phone, role, scope, branchIds }` → 201. Telefon faqat HMAC (`Security:OtpPepper`, purpose `phone`) va maskalangan ko'rinishda saqlanadi. Shu telefonga ochiq taklif bo'lsa — bekor qilinib yangisi yaratiladi. Allaqachon a'zo → 409 `staff.already_member`. Muddat `Staff:InvitationTtlDays` (7). **SMS yuborilmaydi** (v1) | audit `staff.invitation.created` (telefonsiz) |
+| `ClinicInvitationHandlers.RevokeAsync` | `DELETE …/invitations/{id}` | `staff.manage` + `StaffRules` | → 204 | audit `staff.invitation.revoked` |
+| `MyInvitationHandlers.ListAsync` | `GET /api/me/invitations` | user | → chaqiruvchining **tasdiqlangan** telefoniga yo'llangan ochiq, muddati o'tmagan takliflar (`MyInvitationDto[]`, filial nomlari bilan). Telefon yo'q → `[]` | — |
+| `MyInvitationHandlers.AcceptAsync` | `POST /api/me/invitations/{id}/accept` | user | → 204. Telefon mos emas / bekor / qabul qilingan → 404 (enumeratsiya yo'q); muddat **DB vaqti** bilan shartli UPDATE'da tekshiriladi → 422 `staff.invitation_expired`; faol a'zo → 409. A'zolik yaratiladi (yoki Removed a'zolik qayta faollashtiriladi) va filial grantlari beriladi | audit `staff.invitation.accepted` |
+
+Konfiguratsiya: `Staff:InvitationTtlDays` (default 7).
+
+### 2.5 Scheduling — shifokorlar va ish soatlari
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `DoctorHandlers.ListAsync` | `GET …/doctors` | a'zolik (Branches-scope — o'z filiallariga bog'langan shifokorlar) | → `DoctorDto[]` (`branchIds`, `serviceIds`, `userId`) | — |
+| `DoctorHandlers.CreateAsync` / `UpdateAsync` | `POST …/doctors`, `PUT …/doctors/{doctorId}` | `schedule.manage` — o'zgarishdan oldingi va keyingi **har bir** filialda; `userId` o'zgarsa qo'shimcha `staff.manage` | `{ displayName, isActive?, branchIds?, serviceIds?, userId? }` → 201 / 200. Bog'lanishlar to'liq almashtiriladi. Boshqa klinika filial/xizmati → 400. `userId` klinikada a'zo bo'lishi shart (422 `schedule.doctor_user_invalid`), boshqa shifokorga bog'langan bo'lmasligi kerak (409 `schedule.doctor_user_taken`). Filialdan uzilsa — o'sha filialdagi ish soatlari o'chadi (cascade) | audit `schedule.doctor.created` / `schedule.doctor.updated` |
+| `WorkingHoursHandlers.GetAsync` | `GET …/doctors/{doctorId}/working-hours` | a'zolik | → `WorkingHoursEntry[]` (scope'dan tashqaridagi filiallar ko'rsatilmaydi) | — |
+| `WorkingHoursHandlers.SetAsync` | `PUT …/doctors/{doctorId}/working-hours` | `schedule.manage` | `[{ branchId, weekday, start, end }]` → 204. Faqat chaqiruvchi boshqaradigan filiallar yozuvlari almashtiriladi, boshqalari saqlanadi (ular uchun yozuv yuborilsa → 403). Bog'lanmagan filial → 422 `schedule.branch_not_linked`; bir hafta kunida barcha filiallar bo'ylab kesishish → 422 `schedule.hours_overlap` (DB'da `ex_working_hours_no_overlap` exclusion constraint ham bor) | audit `schedule.working_hours.updated` |
+| `DoctorIdentityResolver` (`IDoctorIdentityResolver`) | — | — | Doctor-own semantikasi: foydalanuvchining klinikadagi shifokor yozuvi = `scheduling.doctors.user_id`. `AccessScope.DoctorIdFor(clinicId)` shu qiymatni qaytaradi | — |
+
+### 2.6 Public — ommaviy katalog (anon)
+
+| Handler | Endpoint | Kirish → chiqish |
+|---|---|---|
+| `PublicCatalogQueries.SearchAsync` | `GET /api/public/clinics` | Filtrlar: `q` (klinika yoki xizmat nomi, registrga befarq), `serviceCategory`, `serviceId`, `district`, `lat`+`lng` (Haversine, SQL funksiya `tenancy.distance_km`, km), `availableWithinDays` (qabul qilinadi, filtr **BE2 dan keyin** qo'llanadi), `sort` (`rating`/`price`/`distance`/`name`), sahifalash. Faqat `Approved` klinikalar, faol filiallar va faol xizmatlar. `minPrice`, `distanceKm` mos keluvchi filial/takliflar bo'yicha. → `Page<ClinicCard>` |
+| `PublicCatalogQueries.DetailAsync` | `GET /api/public/clinics/{id}` | Tasdiqlanmagan / suspend → 404. → `ClinicDetail` (faol filiallar, ish soatlari, takliflar) |
+| `PublicCatalogQueries.FacetsAsync` | `GET /api/public/facets` | → tumanlar (faqat ommaviy filiallar), to'liq kategoriya katalogi, ommaviy xizmatlar (≤ 500) |
+
+Reyting: `tenancy.clinics.rating_average` / `review_count` — BE2 sharh moderatsiyasi `Clinic.SetRating(average, count, now)` orqali yangilaydi; hozircha `null` / `0`. `GeoFunctions.DistanceKm` faqat LINQ ichida (SQL'ga tarjima qilinadi), to'g'ridan-to'g'ri chaqirilmaydi.
+
+### 2.7 Audit va platforma admini
+
+| Handler | Endpoint | Ruxsat | Kirish → chiqish | Yon ta'sirlar |
+|---|---|---|---|---|
+| `AuditQueries.ClinicAsync` | `GET /api/clinics/{id}/audit` | `audit.view` (ega, klinika miqyosida) | → `Page<AuditEntryDto>`, yangisi birinchi | — |
+| `AuditQueries.PlatformAsync` | `GET /api/admin/audit?clinicId&action` | `platform.audit.view` | `action` aniq yoki `.` bilan tugaydigan prefiks → `Page<AuditEntryDto>` | — |
+| `AdminHandlers.DashboardAsync` | `GET /api/admin/dashboard` | istalgan platforma ruxsati | → holat bo'yicha klinikalar, faol/suspend foydalanuvchilar; `appointmentsToday`, `openReports` — `IAdminDashboardContributor` orqali (BE2), hozircha 0 | — |
+| `AdminHandlers.ClinicsAsync` | `GET /api/admin/clinics?status&q` | `platform.clinic.verify` | → `Page<AdminClinicDto>` (Pending birinchi) | — |
+| `AdminHandlers.ApproveAsync` / `RejectAsync` | `POST /api/admin/clinics/{id}/approve`, `/reject {reason}` | `platform.clinic.verify` | Pending/Rejected → Approved; Pending → Rejected (sabab majburiy) → 200 `AdminClinicDto` | audit `admin.clinic.approved` / `rejected` |
+| `AdminHandlers.SuspendAsync` / `ReinstateAsync` | `POST …/suspend {reason}`, `/reinstate` | `platform.account.suspend` | Approved → Suspended (ommadan yashiriladi, barcha a'zoliklar **darhol** ishlamaydi); Suspended → Approved. Noto'g'ri o'tish → 409 `admin.invalid_status_transition` | audit `admin.clinic.suspended` / `reinstated` |
+| `AdminHandlers.UsersAsync` | `GET /api/admin/users?q` | `platform.account.suspend` | ism / e-mail bo'yicha qidiruv yoki aniq telefon → `Page<AdminUserDto>` (telefon maskalangan) | — |
+| `AdminHandlers.SuspendUserAsync` / `ReinstateUserAsync` | `POST /api/admin/users/{id}/suspend {reason}`, `/reinstate` | `platform.account.suspend` | → 204. Suspend: security stamp almashadi va **barcha sessiyalar bekor qilinadi**; o'zini → 422 `admin.cannot_suspend_self` | audit `admin.user.suspended` / `reinstated` |
+
+### 2.8 Production bootstrap — `create-platform-admin`
+
+Birinchi production platforma adminini yaratishning yagona yo'li (har qanday muhitda ishlaydi):
+
+```bash
+# Parol argumentda HECH QACHON berilmaydi: muhit o'zgaruvchisi yoki stdin.
+OQTISH_ADMIN_PASSWORD='…' dotnet OqTish.Api.dll create-platform-admin --email admin@example.uz --phone +998901234567
+# yoki interaktiv (parol ekranda ko'rinmaydi):
+dotnet OqTish.Api.dll create-platform-admin --email admin@example.uz --phone +998901234567
+# Docker Compose ichida:
+docker compose run --rm -e OQTISH_ADMIN_PASSWORD api create-platform-admin --email admin@example.uz --phone +998901234567
+```
+
+| Komponent | Vazifasi |
+|---|---|
+| `PlatformAdminBootstrapCommand` (Api) | Argumentlarni o'qiydi (`--email`, `--phone`; `--password` rad etiladi), parolni `OQTISH_ADMIN_PASSWORD` yoki stdin'dan oladi, handlerni chaqiradi. Exit kodlari: 0 — bajarildi (qayta ishga tushirish ham 0), 1 — noto'g'ri kiritma / zaif parol, 3 — konflikt (telefon/e-mail boshqa akkauntniki, akkaunt suspend) |
+| `CreatePlatformAdminHandler` (Application) | Parol siyosati: ≥ 12 belgi, kichik/katta harf, raqam, belgidan kamida 3 turi, ≥ 6 xil belgi, e-mail nomini o'z ichiga olmaydi. Yangi akkaunt: e-mail+parol, tasdiqlangan telefon (operator kafolatlaydi), **barcha** platforma ruxsatlari. Mavjud akkaunt: parol o'zgarmaydi, yetishmagan telefon/grantlar qo'shiladi (idempotent). Hech qachon birlashtirmaydi. Audit `platform.admin.bootstrapped` (aktyor System) |
+
+Muhim: production'da `Security:RequireTotpForPrivilegedRoles=true` — admin birinchi kirgandan keyin `/me/totp/setup` + `/me/totp/enable` qilmaguncha platforma ruxsatlari 403 `auth.totp_setup_required` beradi.
+
+### 2.9 Demo ma'lumotlar (seed, faqat Development/Staging)
+
+`dotnet run --project src/OqTish.Api -- seed` yoki `POST /api/dev/seed` (Development). Idempotent: ikki marta ishga tushirish bir xil natija beradi (test bilan tasdiqlangan). Barcha nomlar "Demo" bilan boshlanadi, ma'lumotlar to'qima.
+
+| Contributor | Order | Nima yaratadi |
+|---|---|---|
+| `IdentitySeedContributor` | 100 | platforma admini `admin@oqtish.local` / `Admin123!demo` (dev), demo bemor `+998900000001` (BE1a) |
+| `TenancyDemoSeedContributor` | 200 | 3 ta tasdiqlangan klinika (Chilonzor — 2 filial, Yunusobod, Mirzo Ulug'bek) + 1 ta **Pending** klinika (Sergeli, admin tasdiqlash ekrani uchun); filiallar koordinatalari, ish soatlari Du–Ju 09:00–18:00, Sha 09:00–14:00; `Seed:DemoStaffAccounts=true` bo'lsa — xodim akkauntlari |
+| `CatalogSchedulingDemoSeedContributor` | 300 | xizmatlar (UZS narxlar, klinikaga qarab koeffitsient), filial takliflari, har klinikada shifokorlar (filial/xizmat bog'lanishlari), haftalik soatlar Du–Ju 09:00–13:00 va 14:00–18:00; demo shifokor akkaunti birinchi shifokorga bog'lanadi |
+
+Demo xodim akkauntlari (**faqat lokal ishlab chiqish uchun**; `Seed:DemoStaffAccounts` faqat `appsettings.Development.json`da `true`, Staging'da default o'chiq):
+
+| Rol | Klinika | E-mail | Parol | Telefon |
+|---|---|---|---|---|
+| ClinicOwner | Demo Tabassum Stomatologiya | `owner@demo.oqtish.local` | `Demo123!owner` | +998900000011 |
+| ClinicAdmin | Demo Tabassum Stomatologiya | `clinicadmin@demo.oqtish.local` | `Demo123!admin` | +998900000012 |
+| Receptionist (faqat "Demo Chilonzor filiali") | Demo Tabassum Stomatologiya | `reception@demo.oqtish.local` | `Demo123!reception` | +998900000013 |
+| Doctor ("Dr. Demo Aziza Karimova" yozuviga bog'langan) | Demo Tabassum Stomatologiya | `doctor@demo.oqtish.local` | `Demo123!doctor` | +998900000014 |
+| FinanceManager | Demo Tabassum Stomatologiya | `finance@demo.oqtish.local` | `Demo123!finance` | +998900000015 |
+| ClinicOwner (Pending klinika) | Demo Yangi Klinika (tekshiruvda) | `pending@demo.oqtish.local` | `Demo123!pending` | +998900000016 |
+| Platforma admini | — | `admin@oqtish.local` | `Admin123!demo` | — |
+
+Telefonlar tasdiqlangan holda yaratiladi, shuning uchun Fake SMS orqali OTP bilan ham kirish mumkin (`GET /api/dev/sms?phone=…`).
+
+### 2.10 Konfiguratsiya kalitlari (BE1b)
+
+| Kalit | Default | Izoh |
+|---|---|---|
+| `Staff:InvitationTtlDays` | 7 | Taklifnoma muddati |
+| `Seed:DemoStaffAccounts` | `false` | Development'da `true` — demo xodim loginlari |
+| `OQTISH_ADMIN_PASSWORD` (env, faqat CLI) | — | `create-platform-admin` paroli (sir; faylga yozilmaydi) |
