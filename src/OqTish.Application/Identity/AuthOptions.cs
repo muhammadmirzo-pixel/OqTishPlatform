@@ -11,6 +11,8 @@ public sealed class AuthOptions
 
     public PasswordOptions Password { get; set; } = new();
 
+    public TotpLockoutOptions Totp { get; set; } = new();
+
     /// <summary>Lifetime of a Telegram deep-link token.</summary>
     public int TelegramLinkTokenMinutes { get; set; } = 10;
 }
@@ -46,6 +48,9 @@ public sealed class SessionOptions
     /// <summary>A session unused for this long is dead even if not yet expired.</summary>
     public int IdleTimeoutDays { get; set; } = 14;
 
+    /// <summary>Hard cap from sign-in, regardless of activity (review R3).</summary>
+    public int AbsoluteLifetimeDays { get; set; } = 60;
+
     /// <summary><c>last_seen_at</c> is written at most this often per session.</summary>
     public int TouchIntervalSeconds { get; set; } = 300;
 
@@ -61,6 +66,14 @@ public sealed class PasswordOptions
 
     /// <summary>Consecutive failures before the account's password sign-in is locked.</summary>
     public int MaxFailedAttempts { get; set; } = 10;
+
+    public int LockoutMinutes { get; set; } = 15;
+}
+
+/// <summary>TOTP brute-force protection shared by every sign-in path (review R2).</summary>
+public sealed class TotpLockoutOptions
+{
+    public int MaxFailedAttempts { get; set; } = 5;
 
     public int LockoutMinutes { get; set; } = 15;
 }

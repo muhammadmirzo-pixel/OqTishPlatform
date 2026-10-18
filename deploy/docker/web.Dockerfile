@@ -17,5 +17,5 @@ COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.templa
 COPY --chmod=0755 deploy/nginx/40-write-config-json.sh /docker-entrypoint.d/40-write-config-json.sh
 # Static files stay root-owned (read-only for the nginx user).
 COPY --from=build /web/dist /usr/share/nginx/html
-ENV OQTISH_API_UPSTREAM=api:8080 OQTISH_WEB_LISTEN=8080 OQTISH_PUBLIC_API_BASE_URL=/api
+ENV OQTISH_API_UPSTREAM=api:8080 OQTISH_WEB_LISTEN=8080 OQTISH_TRUSTED_PROXY_CIDR=172.30.240.0/24 OQTISH_PUBLIC_API_BASE_URL=/api
 EXPOSE 8080

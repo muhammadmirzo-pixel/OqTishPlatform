@@ -82,6 +82,26 @@ public class PasswordAndTotpTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Wrong_totp_codes_lock_the_second_factor()
+    {
+        // Review R2: TOTP guesses are counted per user (not per IP), so even the correct code is refused
+        // once the limit is reached — on every sign-in path that calls TotpService.
+        await using var factory = await ApiFactory.CreateAsync(postgres, settings: new Dictionary<string, string?> { ["Auth:Totp:MaxFailedAttempts"] = "3" });
+        var (user, email) = await StaffWithPasswordAsync(factory);
+        var secret = await EnableTotpAsync(user.Client);
+        var wrong = TotpCode(secret, 1) == "000000" ? "111111" : "000000";
+
+        for (var i = 0; i < 3; i++)
+        {
+            var attempt = await factory.CreateApiClient().PostAsJsonAsync("/api/auth/password/login", new { email, password = Password, totpCode = wrong }, Ct);
+            await AssertProblemAsync(attempt, HttpStatusCode.Unauthorized, "auth.totp_invalid");
+        }
+
+        var correctButLocked = await factory.CreateApiClient().PostAsJsonAsync("/api/auth/password/login", new { email, password = Password, totpCode = TotpCode(secret, 1) }, Ct);
+        await AssertProblemAsync(correctButLocked, HttpStatusCode.TooManyRequests, "auth.totp_locked");
+    }
+
+    [Fact]
     public async Task Otp_sign_in_of_totp_account_requires_totp()
     {
         await using var factory = await ApiFactory.CreateAsync(postgres, settings: new Dictionary<string, string?> { ["Auth:Otp:ResendCooldownSeconds"] = "0" });

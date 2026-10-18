@@ -56,12 +56,13 @@ public sealed class SessionService(
                 from s in db.Sessions.AsNoTracking()
                 join u in db.Users.AsNoTracking() on s.UserId equals u.Id
                 where s.TokenHash == hash && s.RevokedAt == null
-                select new { s.Id, s.UserId, s.ExpiresAt, s.LastSeenAt, s.SecurityStamp, UserStamp = u.SecurityStamp, u.Status })
+                select new { s.Id, s.UserId, s.CreatedAt, s.ExpiresAt, s.LastSeenAt, s.SecurityStamp, UserStamp = u.SecurityStamp, u.Status })
             .FirstOrDefaultAsync(ct);
 
         if (row is null
             || row.Status != UserStatus.Active
             || row.ExpiresAt <= now
+            || row.CreatedAt + TimeSpan.FromDays(Options.AbsoluteLifetimeDays) <= now
             || row.LastSeenAt + TimeSpan.FromDays(Options.IdleTimeoutDays) <= now
             || !SecureTokens.FixedTimeEquals(row.SecurityStamp, row.UserStamp))
         {
@@ -73,7 +74,11 @@ public sealed class SessionService(
             return new ValidatedSession(row.Id, row.UserId, row.ExpiresAt, Renewed: false);
         }
 
-        var expires = now + TimeSpan.FromDays(Options.SlidingLifetimeDays);
+        // Sliding renewal never extends past the absolute cap (review R3): a stolen cookie that keeps
+        // being used still dies AbsoluteLifetimeDays after sign-in.
+        var sliding = now + TimeSpan.FromDays(Options.SlidingLifetimeDays);
+        var absolute = row.CreatedAt + TimeSpan.FromDays(Options.AbsoluteLifetimeDays);
+        var expires = sliding < absolute ? sliding : absolute;
         await db.Sessions
             .Where(s => s.Id == row.Id && s.RevokedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSeenAt, now).SetProperty(x => x.ExpiresAt, expires), ct);

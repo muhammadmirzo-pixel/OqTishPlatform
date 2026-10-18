@@ -355,6 +355,14 @@ public sealed class StaffAppointmentHandlers(
                 await locks.LockBranchAsync(target.BranchId, token);
                 await locks.LockAsync<Appointment>(target.Id, token);
                 var current = await db.Appointments.AsNoTracking().FirstAsync(a => a.Id == target.Id, token);
+
+                // Re-check doctor-own under the lock (review R4): a reschedule committed between the
+                // pre-check and the lock may have reassigned the appointment to another doctor.
+                if (scope.IsOwnOnly(permission, current.ClinicId) && (current.DoctorId is null || current.DoctorId != scope.DoctorIdFor(current.ClinicId)))
+                {
+                    return CommonErrors.NotFound;
+                }
+
                 var now = await clock.NowAsync(token);
                 return await action(current, now, scope, token);
             }, ct);

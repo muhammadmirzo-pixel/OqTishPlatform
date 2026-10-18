@@ -111,6 +111,8 @@ services:
     image: oqtish/web:local
     environment:
       OQTISH_PUBLIC_API_BASE_URL: ${OQTISH_PUBLIC_API_BASE_URL:-/api}
+      # Networks allowed to set X-Forwarded-For (outer proxy reaches nginx via the backend network gateway).
+      OQTISH_TRUSTED_PROXY_CIDR: ${OQTISH_BACKEND_SUBNET:-172.30.240.0/24}
     ports:
       - "${OQTISH_HTTP_BIND:-127.0.0.1}:${OQTISH_HTTP_PORT:-8080}:8080"
     depends_on:

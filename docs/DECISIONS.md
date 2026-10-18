@@ -232,3 +232,22 @@ Implementation choices under the delegation (§4). **Revisit before launch.**
 | BE4-12 | **Retention** (nightly 03:30 Asia/Tashkent and once at Worker start; `Retention:*`): OTP challenges > 24 h; sessions ended (revoked / expired / idle-dead) > 30 days; Sent/Skipped/Cancelled outbox rows > 30 days and **Failed > 90 days** (kept longer for investigation) with their attempts; link tokens > 24 h past expiry; dev capture > 7 days. Pending/Processing rows, audit and ledger are never touched. |
 | BE4-13 | **Admin:** the list never shows payloads or texts; retry = Failed → Pending with attempts reset to 0, due now, audited `admin.notification.retried`; other statuses → 409 `admin.invalid_status_transition` (existing code reused). |
 | BE4-14 | Templates live in code (`NotificationTemplates`, uz/ru/en), not in the database; `appointment.completed.patient` is a Telegram-only thank-you with the review hint. Still no `payment.*` intents (BE3-12). |
+
+## 6. Mustaqil tekshiruv natijalari (2026-10-19)
+
+Birlashgan tekshiruv (xavfsizlik, bir vaqtdagi so'rovlar, moliya, release) 10 ta topilma berdi. Har birining holati:
+
+| Id | Daraja | Topilma | Qaror / holat |
+|---|---|---|---|
+| R1 | High | Tashqi TLS proksi ortida barcha mijozlar bitta IP bo'lib ko'rinardi, IP bo'yicha limitlar butun platforma uchun umumiy bo'lib qolardi | ✅ Tuzatildi: nginx `set_real_ip_from` (127.0.0.1 + backend tarmog'i, `OQTISH_TRUSTED_PROXY_CIDR`), `real_ip_recursive on`, API'ga faqat bitta tekshirilgan `X-Forwarded-For` qiymati uzatiladi, `X-Forwarded-Proto` ishonchli proksidan olinadi. Qo'lda tekshirildi: proksi bergan IP qabul qilinadi, soxta chap qism e'tiborga olinmaydi |
+| R2 | Medium | Telegram/OTP orqali kirishda TOTP kodini cheksiz taxmin qilish mumkin edi | ✅ Tuzatildi: `TotpService` foydalanuvchi bo'yicha xato urinishlarni atomar hisoblaydi (barcha kirish yo'llari uchun), 5 ta xatodan keyin 15 daqiqaga bloklaydi, javob 429 `auth.totp_locked`. Test: `Wrong_totp_codes_lock_the_second_factor`. Migratsiya `ReviewHardening` |
+| R3 | Medium | Sessiyaning mutlaq muddati yo'q edi (faol foydalanilsa abadiy yashardi) | ✅ Tuzatildi: `Auth:Session:AbsoluteLifetimeDays` (default 60 kun); sliding uzaytirish shu chegaradan oshmaydi |
+| R4 | Low | Shifokor "o'zimniki" tekshiruvi qulfdan oldin bajarilardi | ✅ Tuzatildi: qulf olingach qayta tekshiriladi |
+| R5 | Low | Yangi telefon/Telegram ulashda qo'shimcha tasdiq va eski kanalga xabar yo'q | ⏸ Ma'lum xavf sifatida qoldirildi: hisoblar hech qachon birlashtirilmaydi, ulash audit qilinadi. Keyingi versiyada: "yaqinda kirgan bo'lish" yoki TOTP talabi + eski kanalga xabar |
+| R6 | Low | Parol xatolari hisoblagichi parallel so'rovlarda yo'qolishi va bloklash cheksiz uzayishi mumkin edi | ✅ Tuzatildi: atomar UPDATE; bloklangan paytdagi urinishlar hisoblanmaydi va blokni uzaytirmaydi |
+| R7 | Low | Bir buxgalteriya qatori ikki hisob-kitobga tushishi | ✅ Muammo emas: `ix_settlement_items_ledger_line_id` allaqachon UNIQUE (migratsiyada tasdiqlandi) |
+| R8 | Low | Komissiya qoidasini o'tgan sanadan boshlash mumkin | ✅ Ataylab ruxsat etilgan: mavjud shartnomani tizimga kiritishda kerak (oxirgi oy hisob-kitobi testi buni talab qiladi). Yaratish audit qilinadi, o'tgan yozuvlar qayta hisoblanmaydi |
+| R9 | Low | Data Protection kalitlari bazada shifrlanmagan | 📋 Serverga chiqarish qadami (DEPLOYMENT.md): sertifikat/KMS bilan `ProtectKeysWith…` va zaxira nusxalarni shifrlash |
+| R10 | Info | Production'da TOTP talabi o'chirilsa, faqat ogohlantirish chiqardi | ✅ Tuzatildi: Production'da ishga tushish rad etiladi |
+
+Tekshirilgan va muammo topilmagan qismlar: klinikalar va filiallar orasidagi ajratish (IDOR), qabul tizimidagi qulflar tartibi va GiST cheklovi, buxgalteriya daftarining o'zgarmasligi va idempotentligi, Production uchun himoya tekshiruvlari, repoda sirlar yo'qligi.

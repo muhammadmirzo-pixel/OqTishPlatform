@@ -1,12 +1,27 @@
 # Rendered by the nginx image entrypoint (envsubst) into /etc/nginx/conf.d/default.conf.
 # TLS is terminated by the outer proxy in deployed environments (docs/DEPLOYMENT.md, Phase 8).
 
+# Original scheme from a trusted outer TLS proxy; requests that reach nginx directly keep $scheme.
+map $http_x_forwarded_proto $oqtish_forwarded_proto {
+    default $scheme;
+    https   https;
+}
+
 upstream oqtish_api {
     server ${OQTISH_API_UPSTREAM};
 }
 
 server {
     listen ${OQTISH_WEB_LISTEN};
+
+    # Real client IP (review R1). Only the host (an outer TLS proxy on this machine) and the compose
+    # backend network are trusted to set X-Forwarded-For; real_ip_recursive skips those hops, so a
+    # client-supplied header cannot spoof the address. The API then receives exactly one value and
+    # per-IP rate limits apply per real client instead of platform-wide.
+    set_real_ip_from 127.0.0.1;
+    set_real_ip_from ${OQTISH_TRUSTED_PROXY_CIDR};
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
     server_name _;
     server_tokens off;
     client_max_body_size 1m;
@@ -18,20 +33,20 @@ server {
     location /api/ {
         proxy_pass http://oqtish_api;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $oqtish_forwarded_proto;
         proxy_http_version 1.1;
     }
 
     location /health/ {
         proxy_pass http://oqtish_api;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
     }
 
     # Only served by the API in Development; returns 404 in Production.
     location ~ ^/(openapi|swagger)/ {
         proxy_pass http://oqtish_api;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
     }
 
     # Written at container start by 40-write-config-json.sh; the web root itself stays read-only.

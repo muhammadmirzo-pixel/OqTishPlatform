@@ -16,6 +16,8 @@ public static class AuthErrors
     /// <summary>Same code as <see cref="TotpInvalid"/> but 400: used by /me endpoints so the SPA does not treat it as signed out.</summary>
     public static readonly Error TotpInvalidForSignedIn = Error.Validation("auth.totp_invalid", "The TOTP code is invalid.");
 
+    public static readonly Error TotpLocked = Error.RateLimited("auth.totp_locked", "Too many wrong TOTP codes. Try again later.");
+
     public static readonly Error TotpSetupRequired = Error.Forbidden("auth.totp_setup_required", "Enable two-factor authentication (TOTP) to use this role.");
 
     public static readonly Error TotpAlreadyEnabled = Error.Conflict("auth.totp_already_enabled", "TOTP is already enabled.");

@@ -1670,9 +1670,17 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("enabled_at");
 
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_attempts");
+
                     b.Property<long?>("LastUsedStep")
                         .HasColumnType("bigint")
                         .HasColumnName("last_used_step");
+
+                    b.Property<DateTimeOffset?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
 
                     b.Property<string>("ProtectedSecret")
                         .IsRequired()

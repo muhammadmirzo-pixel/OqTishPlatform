@@ -80,6 +80,12 @@ if (PlatformAdminBootstrapCommand.IsRequested(args))
 
 if (!app.Environment.IsDevelopment() && !app.Services.GetRequiredService<IOptions<SecurityOptions>>().Value.RequireTotpForPrivilegedRoles)
 {
+    // Review R10: Production must never run privileged roles without a second factor.
+    if (app.Environment.IsProduction())
+    {
+        throw new InvalidOperationException("Security:RequireTotpForPrivilegedRoles must be true in Production.");
+    }
+
     StartupLog.TotpRuleDisabled(app.Logger, app.Environment.EnvironmentName);
 }
 

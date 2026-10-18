@@ -538,6 +538,7 @@ identity — full unlinking stays `DELETE /me/telegram`. `/help` → command lis
 | `auth.account_suspended` | 403 | Suspended user |
 | `auth.telegram_invalid` | 401 | Bad or stale `initData` / widget hash |
 | `auth.totp_already_enabled` / `auth.totp_not_enabled` | 409 | TOTP state conflict (BE1a) |
+| `auth.totp_locked` | 429 | Too many wrong TOTP codes for this user on any sign-in path; the factor is locked for `Auth:Totp:LockoutMinutes` (default 15) — review R2 |
 | `auth.current_password_invalid` | 400 | Wrong current password on `POST /me/password` (BE1a) |
 | `auth.phone_verification_required` | 422 | First password needs a verified phone (BE1a) |
 | `auth.last_identity` | 422 | Cannot unlink the only sign-in method (BE1a) |

@@ -52,6 +52,7 @@ const uz = {
   'err.review.not_eligible': "Bu qabul uchun sharh qoldirib bo'lmaydi.",
   'err.review.already_exists': 'Bu qabul uchun sharh allaqachon qoldirilgan.',
 
+  'err.auth.totp_locked': "Juda ko'p noto'g'ri TOTP kodi. 15 daqiqadan keyin qayta urinib ko'ring.",
   'err.auth.totp_already_enabled': 'TOTP allaqachon yoqilgan.',
   'err.auth.totp_not_enabled': 'TOTP yoqilmagan yoki sozlash boshlanmagan. Avval «TOTP ni sozlash» ni bosing.',
   'err.auth.current_password_invalid': "Joriy parol noto'g'ri.",
@@ -128,6 +129,7 @@ const ru: Record<keyof typeof uz, string> = {
   'err.review.not_eligible': 'Для этой записи нельзя оставить отзыв.',
   'err.review.already_exists': 'Отзыв для этой записи уже оставлен.',
 
+  'err.auth.totp_locked': 'Слишком много неверных кодов TOTP. Повторите через 15 минут.',
   'err.auth.totp_already_enabled': 'TOTP уже включена.',
   'err.auth.totp_not_enabled': 'TOTP не включена или настройка не начата. Сначала нажмите «Настроить TOTP».',
   'err.auth.current_password_invalid': 'Текущий пароль неверен.',
@@ -204,6 +206,7 @@ const en: Record<keyof typeof uz, string> = {
   'err.review.not_eligible': 'A review cannot be left for this appointment.',
   'err.review.already_exists': 'A review was already left for this appointment.',
 
+  'err.auth.totp_locked': 'Too many wrong TOTP codes. Try again in 15 minutes.',
   'err.auth.totp_already_enabled': 'TOTP is already enabled.',
   'err.auth.totp_not_enabled': 'TOTP is not enabled or setup was not started. Press "Set up TOTP" first.',
   'err.auth.current_password_invalid': 'The current password is wrong.',

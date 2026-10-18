@@ -49,7 +49,14 @@ public sealed class PasswordLoginHandler(
 
         var now = clock.GetUtcNow();
         var (valid, needsRehash) = passwords.Verify(credential.PasswordHash, command.Password);
-        if (credential.IsLockedOut(now) || !valid)
+        if (credential.IsLockedOut(now))
+        {
+            // Attempts during an active lockout neither count nor extend it (review R6), so an attacker
+            // cannot keep a known e-mail locked forever.
+            return AuthErrors.InvalidCredentials;
+        }
+
+        if (!valid)
         {
             return await FailAsync(credential, identity.UserId, "password", ct);
         }
@@ -63,7 +70,9 @@ public sealed class PasswordLoginHandler(
         var second = await totp.RequireSecondFactorAsync(user.Id, command.TotpCode, ct);
         if (!second.IsSuccess)
         {
-            return second.Error.Code == AuthErrors.TotpRequired.Code ? second.Error : await FailAsync(credential, user.Id, "totp", ct);
+            return second.Error.Code == AuthErrors.TotpRequired.Code || second.Error.Code == AuthErrors.TotpLocked.Code
+                ? second.Error
+                : await FailAsync(credential, user.Id, "totp", ct);
         }
 
         return await transactions.RunAsync<SignInOutcome>(async token =>
@@ -78,10 +87,20 @@ public sealed class PasswordLoginHandler(
         }, ct);
     }
 
+    /// <summary>
+    /// Counts a failure with one atomic UPDATE (review R6): parallel bursts cannot exceed
+    /// MaxFailedAttempts, and the lock is only set when the account is not already locked.
+    /// </summary>
     private async Task<Error> FailAsync(PasswordCredential credential, Guid userId, string factor, CancellationToken ct)
     {
         var p = options.Value.Password;
-        credential.RegisterFailure(clock.GetUtcNow(), p.MaxFailedAttempts, TimeSpan.FromMinutes(p.LockoutMinutes));
+        var now = clock.GetUtcNow();
+        var lockUntil = now.AddMinutes(p.LockoutMinutes);
+        await db.PasswordCredentials
+            .Where(c => c.UserId == credential.UserId && (c.LockedUntil == null || c.LockedUntil <= now))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.LockedUntil, c => c.FailedAttempts + 1 >= p.MaxFailedAttempts ? lockUntil : c.LockedUntil)
+                .SetProperty(c => c.FailedAttempts, c => c.FailedAttempts + 1 >= p.MaxFailedAttempts ? 0 : c.FailedAttempts + 1), ct);
         audit.Record(new AuditEvent("auth.password.login_failed", TargetType: "user", TargetId: userId.ToString(), Details: new { factor }, ActorUserIdOverride: userId));
         await db.SaveChangesAsync(ct);
         return factor == "totp" ? AuthErrors.TotpInvalid : AuthErrors.InvalidCredentials;

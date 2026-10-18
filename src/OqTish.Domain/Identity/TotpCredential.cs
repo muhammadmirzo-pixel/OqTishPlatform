@@ -21,6 +21,12 @@ public sealed class TotpCredential
 
     public long? LastUsedStep { get; private set; }
 
+    /// <summary>Consecutive wrong codes across all sign-in paths (review R2). Updated atomically in SQL.</summary>
+    public int FailedAttempts { get; private set; }
+
+    /// <summary>While in the future, every code is refused without being checked.</summary>
+    public DateTimeOffset? LockedUntil { get; private set; }
+
     public bool IsEnabled => EnabledAt is not null;
 
     public static TotpCredential CreatePending(Guid userId, string protectedSecret, DateTimeOffset now) => new()

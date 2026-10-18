@@ -24,6 +24,7 @@ export const errorCodes = [
   'auth.account_suspended',
   'auth.telegram_invalid',
   'auth.totp_already_enabled',
+  'auth.totp_locked',
   'auth.totp_not_enabled',
   'auth.current_password_invalid',
   'auth.phone_verification_required',
