@@ -98,3 +98,44 @@ masked/protected GitLab variables, and secret detection runs in CI. `.env.exampl
 ## 7. Tests
 
 `TESTING.md` §2. Each negative test substitutes ids directly in HTTP requests.
+
+## 8. Definitive role → permission map (implemented in `Application/Staff/Permissions.cs`)
+
+This table supersedes the proposal in §2.2 where they differ (decisions of 2026-10-18, DECISIONS.md §4).
+Scope: the permission applies clinic-wide for `Clinic`-scoped memberships, or only on assigned
+branches for `Branches`-scoped memberships.
+
+| Permission | Owner | ClinicAdmin | Receptionist | Doctor | FinanceManager |
+|---|---|---|---|---|---|
+| `clinic.profile.manage` | ✓ | ✓ | | | |
+| `branch.manage` | ✓ | ✓ | | | |
+| `staff.manage` | ✓ (any role) | ✓ (not Owner/Admin roles) | | | |
+| `catalog.manage` | ✓ | ✓ | | | |
+| `schedule.manage` | ✓ | ✓ | ✓ | | |
+| `schedule.own_timeoff` | | | | ✓ (own doctor record only) | |
+| `appointment.view` | ✓ | ✓ | ✓ | own assigned only | ✓ (read-only) |
+| `appointment.triage` (confirm/reject/reschedule/eligible doctors) | ✓ | ✓ | ✓ | | |
+| `appointment.cancel` | ✓ | ✓ | ✓ | | |
+| `appointment.outcome` (complete/no-show) | ✓ | ✓ | ✓ | own assigned only | |
+| `appointment.create_walkin` | ✓ | ✓ | ✓ | | |
+| `payment.record` | ✓ | | ✓ | | ✓ |
+| `payment.refund` | ✓ | | | | ✓ |
+| `finance.report.view` | ✓ | | | | ✓ |
+| `finance.settlement.view` | ✓ | | | | ✓ |
+| `audit.view` | ✓ | | | | |
+
+Platform permissions (explicit grants only, each audited): `platform.clinic.verify`,
+`platform.account.suspend`, `platform.reports.handle`, `platform.finance.settle`,
+`platform.tenant-data.read`, `platform.audit.view`.
+
+**Second factor:** a user must have TOTP enabled before any of the following take effect:
+- ClinicOwner and FinanceManager memberships;
+- any platform permission.
+
+Until then those endpoints answer 403 `auth.totp_setup_required`. The setting
+`Security:RequireTotpForPrivilegedRoles` is `true` by default and `false` only in
+`appsettings.Development.json`, so local testing works without an authenticator app. Startup logs a
+warning if it is `false` outside Development.
+
+**Suspension:** a suspended user, clinic or branch makes every affected permission evaluate to "no
+membership" immediately, because the scope is computed per request.

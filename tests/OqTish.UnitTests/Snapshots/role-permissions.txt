@@ -1,0 +1,52 @@
+ClinicOwner [totp]
+  appointment.cancel
+  appointment.create_walkin
+  appointment.outcome
+  appointment.triage
+  appointment.view
+  audit.view
+  branch.manage
+  catalog.manage
+  clinic.profile.manage
+  finance.report.view
+  finance.settlement.view
+  payment.record
+  payment.refund
+  schedule.manage
+  staff.manage
+ClinicAdmin
+  appointment.cancel
+  appointment.create_walkin
+  appointment.outcome
+  appointment.triage
+  appointment.view
+  branch.manage
+  catalog.manage
+  clinic.profile.manage
+  schedule.manage
+  staff.manage
+Receptionist
+  appointment.cancel
+  appointment.create_walkin
+  appointment.outcome
+  appointment.triage
+  appointment.view
+  payment.record
+  schedule.manage
+Doctor
+  appointment.outcome (own)
+  appointment.view (own)
+  schedule.own_timeoff (own)
+FinanceManager [totp]
+  appointment.view
+  finance.report.view
+  finance.settlement.view
+  payment.record
+  payment.refund
+clinic-wide-only: audit.view, clinic.profile.manage, finance.settlement.view
+platform: platform.clinic.verify, platform.account.suspend, platform.reports.handle, platform.finance.settle, platform.tenant-data.read, platform.audit.view
+manages ClinicOwner: ClinicOwner, ClinicAdmin, Receptionist, Doctor, FinanceManager
+manages ClinicAdmin: Receptionist, Doctor, FinanceManager
+manages Receptionist: 
+manages Doctor: 
+manages FinanceManager: 

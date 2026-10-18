@@ -44,6 +44,16 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${OQTISH_ENVIRONMENT:-Production}
       ConnectionStrings__Main: "Host=postgres;Port=5432;Database=oqtish;Username=oqtish_api;Password=${OQTISH_DB_API_PASSWORD:?set in .env}"
+      # Identity / SMS / Telegram (secrets come from .env; empty = unset, Production refuses missing/unsafe values)
+      Security__OtpPepper: ${OQTISH_OTP_PEPPER:-}
+      Sms__Provider: ${OQTISH_SMS_PROVIDER:-}
+      Sms__Eskiz__Email: ${OQTISH_ESKIZ_EMAIL:-}
+      Sms__Eskiz__Password: ${OQTISH_ESKIZ_PASSWORD:-}
+      Sms__Eskiz__From: ${OQTISH_ESKIZ_FROM:-4546}
+      Telegram__Enabled: ${OQTISH_TELEGRAM_ENABLED:-false}
+      Telegram__BotToken: ${OQTISH_TELEGRAM_BOT_TOKEN:-}
+      Telegram__BotUsername: ${OQTISH_TELEGRAM_BOT_USERNAME:-}
+      Telegram__MiniAppUrl: ${OQTISH_TELEGRAM_MINIAPP_URL:-}
       ForwardedHeaders__KnownNetworks__0: ${OQTISH_BACKEND_SUBNET:-172.30.240.0/24}
     depends_on:
       migrate:
@@ -67,6 +77,16 @@ services:
     environment:
       DOTNET_ENVIRONMENT: ${OQTISH_ENVIRONMENT:-Production}
       ConnectionStrings__Main: "Host=postgres;Port=5432;Database=oqtish;Username=oqtish_worker;Password=${OQTISH_DB_WORKER_PASSWORD:?set in .env}"
+      # Identity / SMS / Telegram (secrets come from .env; empty = unset, Production refuses missing/unsafe values)
+      Security__OtpPepper: ${OQTISH_OTP_PEPPER:-}
+      Sms__Provider: ${OQTISH_SMS_PROVIDER:-}
+      Sms__Eskiz__Email: ${OQTISH_ESKIZ_EMAIL:-}
+      Sms__Eskiz__Password: ${OQTISH_ESKIZ_PASSWORD:-}
+      Sms__Eskiz__From: ${OQTISH_ESKIZ_FROM:-4546}
+      Telegram__Enabled: ${OQTISH_TELEGRAM_ENABLED:-false}
+      Telegram__BotToken: ${OQTISH_TELEGRAM_BOT_TOKEN:-}
+      Telegram__BotUsername: ${OQTISH_TELEGRAM_BOT_USERNAME:-}
+      Telegram__MiniAppUrl: ${OQTISH_TELEGRAM_MINIAPP_URL:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

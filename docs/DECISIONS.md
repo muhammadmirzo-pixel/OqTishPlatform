@@ -19,14 +19,19 @@
 | ADR-013 | No EF Core `EnableRetryOnFailure` | Execution strategies reject explicit transactions and replay lock-taking work; retries are explicit (ADR-005) |
 | ADR-014 | Migrations are applied by a one-shot EF bundle container (`migrate`) as the schema-owner role; API/Worker never migrate | Least privilege; deterministic startup; readiness reports pending migrations |
 | ADR-015 | Built-in JSON console logging (no Serilog) and built-in validation/OpenAPI | Avoids extra dependencies until a requirement needs them |
+| ADR-016 | **Auth = opaque cookie + server-side sessions + Identity `PasswordHasher` only** (BE1a, 2026-10-18). The `__Host-oqtish` cookie (HttpOnly, Secure, SameSite=Lax) carries a 256-bit random token; `identity.sessions` stores only its SHA-256. A custom authentication handler validates the session in the DB on **every** request (revoked / expired / 14-day idle / security-stamp mismatch / user not Active → 401). Passwords use ASP.NET Core Identity's `PasswordHasher<T>` (PBKDF2) from `Microsoft.Extensions.Identity.Core`; the full Identity user store (`AspNetUsers`, `UserManager`, Identity cookie) is **not** used | Revocation, logout-all and suspension take effect on the next request (no stale encrypted tickets). The Identity store's schema (one email/username per user, claims/roles/tokens tables) does not fit phone-first + Telegram identities with `UNIQUE(kind, identifier)` and per-clinic memberships; we would use 10% of it and fight the rest. Data Protection is used only to encrypt TOTP secrets, with its key ring in `identity.data_protection_keys` |
+| ADR-017 | TOTP-enabled accounts must present a TOTP code on **every** sign-in method (password, phone OTP, Telegram) via an optional `totpCode` field; privileged permissions (ClinicOwner, FinanceManager, platform) require TOTP *enabled* (SECURITY.md §8). Enabling TOTP revokes the user's other sessions | One consistent rule; no "weaker" sign-in path bypasses the second factor, and every live session of a TOTP account was established with it |
+| ADR-018 | OTP SMS is sent directly after commit (not via the outbox) | The code has a 5-minute TTL and the user is waiting; the outbox poll adds latency. A send failure is logged without the phone and the 202 response is unchanged (no enumeration). ARCHITECTURE.md §2's "OTP via outbox" is superseded |
 
 ### 1.1 Pinned versions (Phase 2, 2026-10-18)
 
 | Component | Version |
 |---|---|
 | .NET SDK / runtime | 10.0.401 / 10.0.12 |
-| Microsoft.* packages (EF Core Design, Identity EF, OpenApi, HealthChecks EF, Hosting, Mvc.Testing) | 10.0.12 (matches installed runtime) |
+| Microsoft.* packages (EF Core Design, OpenApi, HealthChecks EF, Hosting, Mvc.Testing) | 10.0.12 (matches installed runtime) |
 | Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 |
+| Microsoft.Extensions.Identity.Core, Microsoft.AspNetCore.DataProtection.EntityFrameworkCore, Microsoft.EntityFrameworkCore (Application) | 10.0.12 (BE1a) |
+| System.Security.Cryptography.Xml (transitive pin via Data Protection) | 10.0.13 — 10.0.12 has CVE-2026-96958 / GHSA-r955-8q5j-3h83 (NuGet audit fails the build) |
 | EFCore.NamingConventions (snake_case) | 10.0.1 |
 | Swashbuckle.AspNetCore.SwaggerUI | 10.2.3 |
 | xunit.v3 | 4.0.1 |
@@ -77,3 +82,61 @@
 | OD-18 | Retention and self-deletion | Phase 8 | Legal input. Anonymise rather than delete where finance references exist |
 | OD-19 (partly decided 2026-10-18) | Matrix cells in SECURITY.md. Decided: Receptionist may record payments (not refunds), book walk-ins, manage branch doctor schedules, mark Completed/NoShow; Doctor may mark own appointments Completed/NoShow. Still open: ClinicAdmin finance rights, FinanceManager appointment visibility, Doctor own time off | Phase 3 | Admin: no finance by default; FinanceManager: read-only appointment+amount view; Doctor: request time off, approved by admin |
 | OD-F1…F11 | Accounting rules | Phase 5 | FINANCIAL_RULES.md §10 |
+
+## 4. Decisions taken under delegation (2026-10-18)
+
+On 2026-10-18 the business owner delegated all remaining open decisions to the implementer ("decide
+them yourself in the best way"). Each is chosen to be safe and reversible. Every item is configurable
+or isolated so the owner can change it later without data migration pain. **Revisit before launch.**
+
+| Id | Decision |
+|---|---|
+| OD-02 | Capacity = doctors only. No chair/room resources in v1. |
+| OD-03 | 30-minute expiry counts in real time, 24/7 (`Booking:PendingTtlMinutes` = 30). Minimum lead time **60 min** (`Booking:MinLeadMinutes`), maximum horizon **30 days** (`Booking:HorizonDays`). Slot grid **15 min** (`Booking:SlotStepMinutes`). |
+| OD-04 | A patient can cancel a Pending request at any time, and a Confirmed appointment until **2 h before start** (`Booking:PatientCancelCutoffMinutes` = 120). After that only the clinic can cancel. |
+| OD-05 | Reschedule is clinic-initiated only: it moves a Confirmed appointment (same service) to a new time/doctor atomically and notifies the patient. Patient-side reschedule = cancel + new request. |
+| OD-06 | No free-text field from patients on appointments (avoids medical data). Reviews have text (max 1000 chars) and are moderated. |
+| OD-07 | Max **3** active (Pending) requests per patient (`Booking:MaxPendingPerPatient`). |
+| OD-08 | Walk-in / phone booking by staff creates a **Confirmed** appointment directly (doctor chosen by staff) with contact name + phone and **no patient account** (`patient_user_id` NULL). No automatic linking to accounts by phone. |
+| OD-09 | SMS: provider-neutral `ISmsSender`. `Fake` (Development/tests only — startup refuses it in Production) and `Eskiz` adapter (Eskiz.uz HTTP API). The Eskiz adapter is **not verified against the live service** until credentials exist. |
+| OD-10 | Telegram: personal chats only. Staff messages contain clinic/branch/service/time and request number, **never** patient phone. Patient messages contain clinic/branch/service/time/status. |
+| OD-11 | Fallback when Telegram is unavailable or not linked: SMS for Confirmed, Rejected, CancelledByClinic, Rescheduled; everything is always visible in "My appointments". Reminders: Telegram only (24 h and 2 h before). |
+| OD-12 | Hosting: must be in Uzbekistan (localisation law). Deployment docs assume a generic Linux host with Docker; provider choice and legal sign-off remain with the owner. |
+| OD-13 | RLS: not enabled in v1. Defence in depth comes from composite tenant FKs + least-privilege roles + the authorization test suite. Recorded as a hardening item. |
+| OD-14 | Cross-tenant access → 404; in-tenant permission missing → 403. |
+| OD-15 | UI languages: uz (Latin), ru, en — decided by owner. |
+| OD-16 | Distance: branch latitude/longitude + Haversine in SQL; no PostGIS, no map SDK (map = external link). |
+| OD-17 | "Search by availability": filter "has a free slot within the next 7 days" for a chosen service. |
+| OD-18 | Retention: OTP challenges deleted after 24 h; revoked/expired sessions after 30 days; delivered outbox rows after 30 days; audit log and ledger are kept (no deletion). Patient self-deletion = anonymisation of profile and contact fields (appointments/ledger rows stay, de-identified). |
+| OD-19 | ClinicAdmin: no finance rights by default. FinanceManager: read-only appointment view (branch scope) for payment context. Doctor: may add/remove **own** time off (not overlapping active appointments); may mark own appointments Completed/NoShow. |
+| OD-20 | Clinic onboarding: any signed-in user may register a clinic; it starts `Pending` verification with the user as ClinicOwner; it is hidden from public search until a platform admin approves it. |
+| OD-21 | Staff invitations are addressed to a **phone number**; the invitee accepts after signing in with that verified phone. Staff may also use email+password (+TOTP) once set. |
+| OD-22 | Staff password recovery: one-time code to the staff member's verified phone; generic responses (no account enumeration). |
+| OD-23 | CSRF: cookie `SameSite=Lax` + required custom header `X-OqTish-Client` on every non-GET API request (browsers cannot send it cross-site without a CORS preflight, and CORS is closed). |
+| OD-24 | Abuse reports: patients can report a clinic or a review; platform admins resolve them. |
+| OD-F1 | Commission basis is **configured per clinic contract** by a platform admin with a contract reference. Supported bases: `CollectedPayment` (% of net collected), `CompletedService` (% of charged amount), `ConfirmedAppointment` (fixed fee), `NewPatient` (fixed fee for a patient's first completed visit at that clinic). **No default rule exists**; without an active rule commission is zero and reports say so. The development seed contains one clearly labelled demo rule. |
+| OD-F2 | Applicable rule = the rule whose effective range contains the **basis event time** (payment time / completion time / confirmation time). |
+| OD-F3 | Refunds reverse commission **proportionally** for `CollectedPayment` and `CompletedService`; fixed-fee bases are not reversed by refunds. Reversals post in the refund's period. |
+| OD-F4 | Clinic revenue recognised at ServiceCompletion (accrual); cash recorded at payment time. |
+| OD-F5 | 2 decimal places, `MidpointRounding.AwayFromZero`, rounded per ledger line. |
+| OD-F6 | A month is locked when its settlement is Finalized; later postings for that clinic land in the current open period. |
+| OD-F7 | The platform collects **no** patient money in v1 (all payments are recorded by clinics). Settlement = clinic owes platform its commission. |
+| OD-F8 | The quoted price is not binding. At completion staff enter the charged amount (pre-filled with the quoted price), any value ≥ 0. |
+| OD-F9 | Amounts are gross; VAT/tax invoicing is out of scope for v1 (documented gap, needs an accountant). |
+| OD-F10 | Settlements are monthly per clinic. Payment terms are informational text on the settlement. |
+| OD-F11 | No no-show fee in v1. |
+
+## 5. Decisions taken in BE1a (identity, common infrastructure) — 2026-10-18
+
+| Id | Decision |
+|---|---|
+| BE1a-1 | `Security:OtpPepper` keys every HMAC (OTP codes, phone/e-mail/IP lookups, invitation phone hash) with purpose prefixes. Outside Development it is required (≥ 32 chars, not the public dev value) or startup fails. Rotating it invalidates outstanding OTPs and pending invitations only. |
+| BE1a-2 | OTP limits are per **identifier** (the phone; for password reset the e-mail) across purposes: one code per 60 s, 3 per 15 min, plus 10 per 15 min per client IP, enforced under a transaction advisory lock. Every verify submission counts as an attempt (5 per challenge). |
+| BE1a-3 | Password reset for an unknown e-mail creates a **decoy challenge** (no SMS, never verifiable) so responses, rate limits and attempt counting are identical to a real account. |
+| BE1a-4 | First password (`POST /me/password`) requires a verified phone and an `email` (new optional field) used as the login name. The e-mail is not verified (no e-mail channel in v1); it is never used for recovery, which goes through the verified phone (OD-22). |
+| BE1a-5 | Account linking never merges: a phone/Telegram id owned by another account → 409 `auth.identity_in_use` plus a committed `identity.link_conflict` audit row for support. `identity.account_link_requests` (DATABASE.md proposal) is therefore not created. |
+| BE1a-6 | Telegram unlink is refused (`auth.last_identity`) when Telegram is the account's only sign-in method. |
+| BE1a-7 | Self-deletion (OD-18) is blocked while the user has a non-removed membership or an active platform grant; otherwise it anonymises in one transaction and calls every registered `IAccountDeletionContributor` (later modules de-identify appointments etc.). |
+| BE1a-8 | `Branches`-scoped memberships never hold the clinic-wide permissions `clinic.profile.manage`, `audit.view`, `finance.settlement.view`; `AccessScope.CheckClinicWide` exists for actions about the whole clinic (e.g. creating a branch). Pending/Rejected clinics keep their memberships active (owners must be able to finish onboarding); only Suspended clinics disable them. |
+| BE1a-9 | On plain-HTTP Development the cookie is named `oqtish-dev` (browsers reject `__Host-` cookies without Secure); over HTTPS, or when `Auth:Session:RequireSecureCookie` is true (default), it is `__Host-oqtish`. |
+| BE1a-10 | `auth.totp_invalid` is 401 on sign-in endpoints but **400** on `/me/totp/*`, and a wrong current password is 400 `auth.current_password_invalid`, so the SPA never mistakes a signed-in user's typo for a lost session. |

@@ -9,5 +9,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/OqTish.ArchitectureTests/OqTish.ArchitectureTests.csproj" />
     <Project Path="tests/OqTish.IntegrationTests/OqTish.IntegrationTests.csproj" />
+    <Project Path="tests/OqTish.UnitTests/OqTish.UnitTests.csproj" />
   </Folder>
 </Solution>

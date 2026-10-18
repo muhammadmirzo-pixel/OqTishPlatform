@@ -1,6 +1,6 @@
 # Database Design
 
-Status: **Phase 1 proposal**. There are no migrations yet.
+Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1).
 
 PostgreSQL 18 with the `btree_gist` and `citext` extensions. All timestamps are `timestamptz` (UTC).
 Money is `numeric(19,2)` with a `currency char(3)` (v1: UZS). Keys are UUID v7. Schemas: `identity`,
@@ -116,7 +116,37 @@ journal entry to balance to 0.
 - `reviews` (appointment_id UNIQUE, rating 1–5, text, moderation_status)
 - `audit_log` (actor, action, clinic_id, branch_id, target, correlation_id, scrubbed details)
 
-## 3. DB roles (least privilege) — implemented in `deploy/postgres/init/01-create-roles.sh`
+## 2.1 Implemented — migration `CoreIdentityTenancy` (BE1a, 2026-10-18)
+
+All ids `uuid` (v7, app-generated), enums stored as `text` with a `CHECK (col IN (…))` constraint, times `timestamptz`.
+
+| Table | Key columns / constraints |
+|---|---|
+| `identity.users` | id, display_name, status (Active/Suspended/Deleted), security_stamp, status_reason, created_at, updated_at, deleted_at. ix(status) |
+| `identity.auth_identities` | user_id → users (cascade), kind (Phone/Telegram/EmailPassword), normalized_identifier (E.164 / Telegram id / lower-case e-mail), verified_at, last_used_at. **UNIQUE(kind, normalized_identifier)**, UNIQUE(user_id, kind) |
+| `identity.password_credentials` | user_id PK → users, password_hash (Identity V3 format), failed_attempts ≥ 0, locked_until |
+| `identity.otp_challenges` | purpose (SignIn/LinkPhone/PasswordReset), identifier_hash (HMAC), phone (null for decoys), user_id null → users, code_hash (HMAC), ip_hash, expires_at > created_at, attempts ≤ max_attempts, consumed_at. ix(identifier_hash, created_at), ix(ip_hash, created_at), ix(created_at) for retention |
+| `identity.sessions` | user_id → users, **token_hash UNIQUE** (SHA-256 of the cookie token), security_stamp, auth_method, created_at, last_seen_at, expires_at, revoked_at, revoked_reason, ip_hash, user_agent(256). ix(user_id, revoked_at) |
+| `identity.totp_credentials` | user_id PK, protected_secret (Data Protection), enabled_at (null = pending setup), last_used_step (replay guard) |
+| `identity.patient_profiles` | user_id PK, full_name(100), contact_phone, is_anonymised. No medical fields |
+| `identity.data_protection_keys` | ASP.NET Data Protection key ring (id, friendly_name, xml) |
+| `tenancy.clinics` | name, legal_name, description, phone, verification_status (Pending/Approved/Suspended/Rejected), status_reason, created_by_user_id → users (set null) |
+| `tenancy.branches` | clinic_id → clinics, name, district, address, latitude/longitude numeric(9,6) (range checks, both or neither), phone, time_zone default `Asia/Tashkent`, is_active. **UNIQUE(clinic_id, id)** (`ak_branches_clinic_id_id`) |
+| `tenancy.branch_opening_hours` | (clinic_id, branch_id) → branches cascade, weekday 1–7, opens < closes, UNIQUE(branch_id, weekday, opens) |
+| `tenancy.branch_booking_locks` | branch_id PK, (clinic_id, branch_id) → branches cascade. **Row created by trigger `trg_branches_booking_lock` on branch insert** — never insert manually |
+| `staff.clinic_memberships` | clinic_id → clinics, user_id → users, role, scope (Clinic/Branches), status (Active/Suspended/Removed). **UNIQUE(clinic_id, user_id)**, UNIQUE(clinic_id, id) |
+| `staff.branch_access` | PK(membership_id, branch_id); (clinic_id, membership_id) → memberships and (clinic_id, branch_id) → branches, both composite + cascade (cross-clinic grants are impossible, tested) |
+| `staff.staff_invitations` | clinic_id → clinics (cascade), phone_hash (HMAC of E.164), phone_masked, role, scope, branch_ids uuid[] (non-empty when scope = Branches), invited_by_user_id, expires_at > created_at, accepted_at, accepted_by_user_id, revoked_at. Partial ix(phone_hash) WHERE open |
+| `staff.platform_admin_grants` | user_id, permission, granted_by/revoked_by user ids, granted_at, revoked_at. UNIQUE(user_id, permission) WHERE revoked_at IS NULL |
+| `notify.outbox_messages` | type, **dedup_key UNIQUE**, payload jsonb, created_at, not_before, status (Pending/Processing/Sent/Failed/Cancelled), attempts ≥ 0, next_attempt_at, last_error(500), sent_at. Partial ix(next_attempt_at) WHERE status = 'Pending' |
+| `notify.telegram_link_tokens` | user_id → users, token_hash UNIQUE (SHA-256), expires_at, used_at |
+| `notify.telegram_links` | user_id PK → users, telegram_user_id UNIQUE, chat_id, linked_at |
+| `audit.audit_log` | occurred_at (default now()), actor_kind (User/System/Anonymous), actor_user_id, action, clinic_id, branch_id, target_type, target_id, correlation_id, ip_hash, details jsonb. No FKs. **Append-only:** trigger `trg_audit_log_append_only` (UPDATE/DELETE) and `trg_audit_log_no_truncate` raise 42501 for every role; `REVOKE UPDATE, DELETE, TRUNCATE … FROM oqtish_app` when that role exists |
+| `common.idempotency_keys` | PK(user_id, key ≤ 64), request_hash (SHA-256 of the request JSON), status (InProgress/Completed), response_json jsonb, created_at, completed_at |
+
+Not created (by decision): `identity.account_link_requests` (conflicts are audited instead, DECISIONS.md BE1a-5).
+
+ — implemented in `deploy/postgres/init/01-create-roles.sh`
 
 | Role | Login | Rights |
 |---|---|---|

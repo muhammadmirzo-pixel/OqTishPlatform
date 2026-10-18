@@ -1,5 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- EF Core (LINQ + DbSet only) is allowed here; Npgsql, ASP.NET Core and Infrastructure are not (ArchitectureTests). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\OqTish.Domain\OqTish.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="OqTish.UnitTests" />
+    <InternalsVisibleTo Include="OqTish.IntegrationTests" />
   </ItemGroup>
 </Project>

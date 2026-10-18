@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OqTish.Domain\OqTish.Domain.csproj" />
+    <ProjectReference Include="..\..\src\OqTish.Application\OqTish.Application.csproj" />
+    <ProjectReference Include="..\..\src\OqTish.Infrastructure\OqTish.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Snapshots\*.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

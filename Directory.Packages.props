@@ -10,9 +10,13 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftPackagesVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftPackagesVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftPackagesVersion)" />
-    <!-- Identity -->
-    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="$(MicrosoftPackagesVersion)" />
+    <!-- Identity: only the password hasher (no Identity user store, see ADR-016) + Data Protection key ring in the DB -->
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="$(MicrosoftPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="$(MicrosoftPackagesVersion)" />
+    <!-- Transitive (via Data Protection) security pin: 10.0.12 has CVE-2026-96958 (GHSA-r955-8q5j-3h83); 10.0.13 is the patched release. -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.13" />
     <!-- API -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(MicrosoftPackagesVersion)" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.3" />

@@ -1,25 +1,51 @@
-using System.Net;
-using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using OqTish.Api.Auth;
+using OqTish.Api.Common;
+using OqTish.Api.Endpoints;
 using OqTish.Api.Health;
+using OqTish.Api.Seeding;
+using OqTish.Application.Common;
+using OqTish.Application.Common.Json;
+using OqTish.Application.Common.Security;
 using OqTish.Infrastructure;
 using OqTish.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
-// Errors: RFC 7807 ProblemDetails everywhere. Stack traces never leave the process outside Development.
+// Request context from HttpContext (replaces the system default registered by Infrastructure).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<HttpRequestContext>();
+builder.Services.Replace(ServiceDescriptor.Scoped<IRequestContext>(sp => sp.GetRequiredService<HttpRequestContext>()));
+builder.Services.Replace(ServiceDescriptor.Scoped<ICurrentUser>(sp => sp.GetRequiredService<HttpRequestContext>()));
+
+// Errors: RFC 7807 ProblemDetails everywhere, always with `code` and `traceId`. Stack traces never leave the process.
 builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = ctx =>
-        ctx.ProblemDetails.Extensions["traceId"] = ctx.HttpContext.TraceIdentifier);
-
-builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    {
+        ctx.ProblemDetails.Extensions["traceId"] = ctx.HttpContext.TraceIdentifier;
+        if (!ctx.ProblemDetails.Extensions.ContainsKey("code"))
+        {
+            ctx.ProblemDetails.Extensions["code"] = ProblemResults.DefaultCode(ctx.ProblemDetails.Status ?? 500);
+        }
+    });
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true);
+builder.Services.Configure<JsonOptions>(options => JsonDefaults.Configure(options.SerializerOptions));
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1024 * 1024);
 
 builder.Services.AddOpenApi();
+
+// Authentication: server-side session cookie validated against the DB on every request (ADR-016).
+builder.Services.AddSingleton<SessionCookie>();
+builder.Services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, null);
+builder.Services.AddAuthorization();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<OqTishDbContext>("database", tags: ["ready"])
@@ -35,36 +61,52 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     }
 });
 
-// Baseline per-client limiter. Strict named policies (OTP, login, booking) are added with those endpoints.
-var globalPermit = builder.Configuration.GetValue("RateLimiting:GlobalPermitPerMinute", 300);
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            http.Connection.RemoteIpAddress?.ToString() ?? IPAddress.None.ToString(),
-            _ => new FixedWindowRateLimiterOptions { PermitLimit = globalPermit, Window = TimeSpan.FromMinutes(1) }));
-});
+builder.Services.AddOqTishRateLimiting(builder.Configuration);
 
 var app = builder.Build();
+
+if (SeedCommand.IsRequested(args))
+{
+    return await SeedCommand.RunAsync(app.Services, app.Environment, app.Logger, CancellationToken.None);
+}
+
+if (!app.Environment.IsDevelopment() && !app.Services.GetRequiredService<IOptions<SecurityOptions>>().Value.RequireTotpForPrivilegedRoles)
+{
+    StartupLog.TotpRuleDisabled(app.Logger, app.Environment.EnvironmentName);
+}
 
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseMiddleware<ClientHeaderMiddleware>();
 app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "OqTish API v1"));
 }
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).DisableRateLimiting();
-app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).DisableRateLimiting();
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).DisableRateLimiting().AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).DisableRateLimiting().AllowAnonymous();
+
+app.MapAuthEndpoints();
+app.MapMeEndpoints();
+app.MapTelegramEndpoints();
+app.MapDevEndpoints(app.Environment);
 
 await app.RunAsync();
+return 0;
 
 /// <summary>Exposed for WebApplicationFactory in integration tests.</summary>
 public partial class Program
 {
+}
+
+internal static partial class StartupLog
+{
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Security:RequireTotpForPrivilegedRoles is false in {Environment}: owners, finance managers and platform admins can act without TOTP")]
+    public static partial void TotpRuleDisabled(ILogger logger, string environment);
 }

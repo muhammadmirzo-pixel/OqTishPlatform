@@ -50,6 +50,15 @@ public sealed class DatabaseRoleTests : IAsyncLifetime
             await AssertDeniedAsync(user, password, "CREATE SCHEMA sneaky", ct);
             await AssertDeniedAsync(user, password, "DROP TABLE probe.items", ct);
             await AssertDeniedAsync(user, password, "ALTER TABLE probe.items ADD COLUMN x int", ct);
+
+            // Append-only audit log: INSERT/SELECT allowed, UPDATE/DELETE revoked from oqtish_app.
+            await ExecAsync(user, password, "INSERT INTO audit.audit_log (id, occurred_at, actor_kind, action) VALUES (gen_random_uuid(), now(), 'System', 'role.test')", ct);
+            await ExecAsync(user, password, "SELECT count(*) FROM audit.audit_log", ct);
+            await AssertDeniedAsync(user, password, "UPDATE audit.audit_log SET action = 'x'", ct);
+            await AssertDeniedAsync(user, password, "DELETE FROM audit.audit_log", ct);
+
+            // Ordinary module tables get DML (default privileges), including the branch-lock trigger path.
+            await ExecAsync(user, password, "SELECT count(*) FROM identity.sessions", ct);
         }
     }
 

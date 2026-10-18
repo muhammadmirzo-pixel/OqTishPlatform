@@ -1,6 +1,4 @@
 using System.Net;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using OqTish.IntegrationTests.Infrastructure;
 
 namespace OqTish.IntegrationTests.Api;
@@ -62,10 +60,6 @@ public class HealthEndpointTests(PostgresFixture postgres)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(string connectionString, string environment = "Development") =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment(environment);
-            builder.UseSetting("ConnectionStrings:Main", connectionString);
-        });
+    private static ApiFactory CreateFactory(string connectionString, string environment = "Development") =>
+        new(connectionString, environment);
 }

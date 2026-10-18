@@ -1,0 +1,26 @@
+namespace OqTish.Application.Staff;
+
+/// <summary>Computes the caller's <see cref="AccessScope"/> from the database, once per request (cached in the DI scope).</summary>
+public interface IAccessService
+{
+    Task<AccessScope> GetScopeAsync(CancellationToken cancellationToken);
+
+    /// <summary>Scope for an explicit user (no caching). Used by GET /me, the Worker and tests.</summary>
+    Task<AccessScope> GetScopeForUserAsync(Guid userId, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Hook for Doctor-own semantics: maps the user to their doctor record per clinic. The Scheduling module
+/// (BE1b) replaces the default (which knows no doctors) with
+/// <c>services.Replace(ServiceDescriptor.Scoped&lt;IDoctorIdentityResolver, …&gt;())</c>.
+/// </summary>
+public interface IDoctorIdentityResolver
+{
+    Task<IReadOnlyDictionary<Guid, Guid>> GetDoctorIdsAsync(Guid userId, IReadOnlyCollection<Guid> clinicIds, CancellationToken cancellationToken);
+}
+
+internal sealed class NoDoctorIdentityResolver : IDoctorIdentityResolver
+{
+    public Task<IReadOnlyDictionary<Guid, Guid>> GetDoctorIdsAsync(Guid userId, IReadOnlyCollection<Guid> clinicIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, Guid>>(new Dictionary<Guid, Guid>());
+}

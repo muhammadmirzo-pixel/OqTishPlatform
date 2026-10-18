@@ -22,11 +22,42 @@ Status: Phase 2 harness in place. The catalogue below (§2–§6) is the require
 | web (Vitest) | `config.test.ts` (2) | runtime config + fallbacks |
 | web (Vitest) | `App.test.tsx` (2) | readiness indicator: ready / unavailable |
 
+### 0.1 Added in BE1a (identity, common, tenancy schema) — verified 2026-10-18
+
+`dotnet test`: **166 passed** (ArchitectureTests 6, UnitTests 75, IntegrationTests 85).
+
+| Suite / class | Proves |
+|---|---|
+| Architecture `LayerDependencyTests` | Domain references only the BCL; Application may use EF Core (core assemblies only) but not Npgsql, ASP.NET Core, Identity, Relational or Infrastructure; no float/double in members **or method signatures**; `Money` is decimal-backed |
+| Unit `MoneyTests`, `PageRequestTests` | rounding (2 dp, AwayFromZero), currency guards, JSON `{ amount: "x.xx", currency }`, strict parsing (≤ 2 decimals, no exponent, UZS only → `MoneyFormatException`), paging bounds |
+| Unit `PhoneNumberTests` | Uzbek normalisation (accepted/rejected forms), masking |
+| Unit `TotpTests` | **RFC 6238 SHA-1 test vectors**, ±1 step window, replay of used/older steps rejected, base32 (RFC 4648), otpauth URI |
+| Unit `TelegramLoginVerifierTests` | Mini App initData valid / tampered / other bot / stale (>24 h) / garbage; Login Widget valid / tampered / stale / wrong key derivation |
+| Unit `EskizSmsSenderTests` | Eskiz login + send form fields (fake HttpMessageHandler), token cached, refresh once on 401, errors → `SmsDeliveryException` (**not verified against live Eskiz**) |
+| Unit `StartupGuardsTests` | Fake SMS refused in Production; missing/short/dev pepper refused outside Development; Eskiz needs credentials |
+| Unit `PermissionsSnapshotTests` | role → permission map equals `Snapshots/role-permissions.txt` (SECURITY.md §8) |
+| Unit `AccessScopeTests` | not-found / forbidden / branch scope / clinic-wide-only / TOTP block / doctor own-only / platform grants |
+| Integration `OtpSignInTests` | happy path (patient + session + audit), `__Host-oqtish` cookie attributes, account reuse, wrong / expired / 6th attempt / reuse of code, resend cooldown + Retry-After, 3-per-phone and per-IP DB limits, ASP.NET limiter burst, **identical responses for known/unknown numbers**, SMS failure invisible, phone validation |
+| Integration `PasswordAndTotpTests` | password login, identical wrong/unknown answers, lockout, **TOTP required / invalid / valid / replay**, OTP sign-in requires TOTP, enabling TOTP revokes other sessions, secret encrypted at rest, password change rules, e-mail conflict, password reset (decoy vs real, revokes sessions) |
+| Integration `SessionTests` | logout, logout-all, list/revoke own sessions (other user's → 404), **suspended user → 401 on the next request**, suspended user cannot sign in, DB-revoked and 14-day-idle sessions rejected |
+| Integration `AccountLinkingTests` | **phone owned by another account → 409 `auth.identity_in_use`, no merge, audit row**; LinkPhone challenge bound to its account; Telegram deep-link token consumed once (`ConsumeTelegramLinkTokenAsync`), conflict, unlink, last-identity guard |
+| Integration `TelegramSignInTests` | Mini App sign-in creates one patient; tampered / stale / other-bot initData → 401; widget hash valid / tampered |
+| Integration `MeAndAccountTests` | profile, self-deletion (anonymised, signed out, phone reusable, staff blocked), effective permissions in `/me`, seed idempotent + admin login, seed command refused in Production |
+| Integration `LogRedactionTests` (S16) | captured logs (all levels) of OTP, password, Telegram, link and logout flows contain no phone, code, cookie, password, initData/hash, bot token or link token |
+| Integration `AccessServiceTests` | **cross-clinic → NotFound, out-of-branch → Forbidden, suspended clinic / membership / user → NotFound**, clinic vs branch scope, doctor own-only, **TOTP rule** (blocked → `auth.totp_setup_required`, `/me` shows empty permissions, allowed after enabling) |
+| Integration `SecurityPipelineTests` | **CSRF header missing/unknown → 403** (before auth; GET exempt; `tg-miniapp` accepted), **`/api/dev/*` → 404 in Production**, dev SMS mailbox in Development, **Production refuses Fake SMS / missing pepper at startup**, malformed JSON → `common.validation`, Telegram config/disabled |
+| Integration `EndpointAuthorizationTests` (S17) | every endpoint has AllowAnonymous or an authorization requirement (EndpointDataSource reflection; checker proven to flag a bare endpoint); **every protected endpoint answers 401 to an anonymous caller**; forged cookie → 401 |
+| Integration `CommonPortsTests` | runner commits on success and rolls back (incl. audit + outbox) on failure; 40001/40P01 retried 3× then `common.concurrency`; other errors not retried; classifier returns constraint names; row locks require a transaction, branch lock row exists and blocks a concurrent `FOR UPDATE` (55P03); outbox dedup; **idempotency replay / mismatch / 4 concurrent duplicates → one execution** |
+| Integration `MigrationTests` (+3) | latest migration Down → Up; audit log UPDATE/DELETE/TRUNCATE blocked even for the owner; composite FKs reject a cross-clinic branch grant; branch-lock trigger |
+| Integration `DatabaseRoleTests` (extended) | `oqtish_api`/`oqtish_worker` can INSERT/SELECT `audit.audit_log` but UPDATE/DELETE are denied (42501) |
+
+Test infrastructure: `ApiFactory` (real `Program`, https client with `X-OqTish-Client`, log capture, per-test database cloned from a migrated template), `TestAuth` (`SignInAsPatientAsync` via the Fake SMS mailbox, `SignInAsStaffAsync` = real sign-in + membership inserted in the DB, `CreateClinicAsync`, `EnableTotpAsync`, `AssertProblemAsync`), `TelegramSigning`. Test hosts disable config reload-on-change (inotify limit).
+
 Commands (from the repository root):
 
 ```bash
 export DOCKER_HOST=unix:///var/run/docker.sock   # only if Docker Desktop is installed but not running
-dotnet test                                      # 13 tests; starts postgres:18-alpine via Testcontainers
+dotnet test                                      # 166 tests; starts postgres:18-alpine via Testcontainers
 cd web && npm run lint && npm run typecheck && npm test && npm run build
 ```
 

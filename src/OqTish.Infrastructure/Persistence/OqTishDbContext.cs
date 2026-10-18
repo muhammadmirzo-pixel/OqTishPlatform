@@ -1,13 +1,64 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using OqTish.Application.Common;
+using OqTish.Domain.Audit;
+using OqTish.Domain.Common;
+using OqTish.Domain.Identity;
+using OqTish.Domain.Notifications;
+using OqTish.Domain.Staff;
+using OqTish.Domain.Tenancy;
 
 namespace OqTish.Infrastructure.Persistence;
 
 /// <summary>
 /// Single DbContext for the modular monolith (ADR-002). Each module maps its tables into its own
 /// PostgreSQL schema; cross-module writes share one transaction (booking + outbox + ledger).
+/// Also stores the ASP.NET Data Protection key ring (<c>identity.data_protection_keys</c>).
 /// </summary>
-public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) : DbContext(options)
+public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) : DbContext(options), IOqTishDb, IDataProtectionKeyContext
 {
+    public DbSet<User> Users => Set<User>();
+
+    public DbSet<AuthIdentity> AuthIdentities => Set<AuthIdentity>();
+
+    public DbSet<PasswordCredential> PasswordCredentials => Set<PasswordCredential>();
+
+    public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+
+    public DbSet<Session> Sessions => Set<Session>();
+
+    public DbSet<TotpCredential> TotpCredentials => Set<TotpCredential>();
+
+    public DbSet<PatientProfile> PatientProfiles => Set<PatientProfile>();
+
+    public DbSet<Clinic> Clinics => Set<Clinic>();
+
+    public DbSet<Branch> Branches => Set<Branch>();
+
+    public DbSet<BranchOpeningHours> BranchOpeningHours => Set<BranchOpeningHours>();
+
+    public DbSet<BranchBookingLock> BranchBookingLocks => Set<BranchBookingLock>();
+
+    public DbSet<ClinicMembership> ClinicMemberships => Set<ClinicMembership>();
+
+    public DbSet<BranchAccess> BranchAccess => Set<BranchAccess>();
+
+    public DbSet<StaffInvitation> StaffInvitations => Set<StaffInvitation>();
+
+    public DbSet<PlatformAdminGrant> PlatformAdminGrants => Set<PlatformAdminGrant>();
+
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    public DbSet<TelegramLinkToken> TelegramLinkTokens => Set<TelegramLinkToken>();
+
+    public DbSet<TelegramChatLink> TelegramChatLinks => Set<TelegramChatLink>();
+
+    public DbSet<AuditLogEntry> AuditLog => Set<AuditLogEntry>();
+
+    public DbSet<IdempotencyRecord> IdempotencyKeys => Set<IdempotencyRecord>();
+
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
