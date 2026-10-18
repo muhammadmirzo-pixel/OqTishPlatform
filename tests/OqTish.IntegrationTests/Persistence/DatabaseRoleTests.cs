@@ -63,6 +63,16 @@ public sealed class DatabaseRoleTests : IAsyncLifetime
             await AssertDeniedAsync(user, password, "DELETE FROM booking.appointment_status_history", ct);
             await ExecAsync(user, password, "SELECT id FROM booking.appointments FOR UPDATE", ct);
 
+            // Finance ledger (BE3, L1): append-only for the app roles; commission rules can be ended but never deleted.
+            await ExecAsync(user, password, "SELECT count(*) FROM finance.ledger_lines", ct);
+            await ExecAsync(user, password, "SELECT count(*) FROM finance.journal_entries", ct);
+            await AssertDeniedAsync(user, password, "UPDATE finance.ledger_lines SET amount = 1", ct);
+            await AssertDeniedAsync(user, password, "DELETE FROM finance.ledger_lines", ct);
+            await AssertDeniedAsync(user, password, "UPDATE finance.journal_entries SET description = 'x'", ct);
+            await AssertDeniedAsync(user, password, "DELETE FROM finance.journal_entries", ct);
+            await AssertDeniedAsync(user, password, "DELETE FROM finance.commission_rules", ct);
+            await ExecAsync(user, password, "UPDATE finance.daily_financial_summaries SET visits = visits", ct);
+
             // Ordinary module tables get DML (default privileges), including the branch-lock trigger path.
             await ExecAsync(user, password, "SELECT count(*) FROM identity.sessions", ct);
         }

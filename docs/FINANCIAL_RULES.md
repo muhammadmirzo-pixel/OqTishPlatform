@@ -120,3 +120,37 @@ Settlements are clinic-scoped (owner/finance) or platform-scoped. Every write is
 | OD-F9 | VAT/tax on commission | Invoice/settlement amounts. Needs an accountant |
 | OD-F10 | Settlement frequency and terms | Scheduling and overdue logic |
 | OD-F11 | NoShow fee? | A new charge type |
+
+## 11. Implementation specifics (BE3, 2026-10-18)
+
+Records how the model above is implemented. It adds no contract term. Decisions: DECISIONS.md §5.3 (BE3-1…14).
+
+### 11.1 Account map (signed: debit +, credit −)
+
+| Event (source_event_key) | Lines |
+|---|---|
+| Completion C > 0 (`completion:{id}:revenue`) | PatientReceivable +C (Patient) · ClinicServiceRevenue −C (Clinic) |
+| Payment P (`payment:{id}:recorded`) | ClinicCollected{Cash\|Card\|Transfer} +P (Clinic) · PatientReceivable −P (Patient) |
+| Refund R of payment p (`payment:{p}:refund:{r}`) | ClinicRefundsPaid −R · PatientReceivable +min(R, credit) · ClinicServiceRevenue +(R − that) |
+| Payment marked failed (`payment:{id}:failed`) | exact negation of the payment entry (`reverses_entry_id`) |
+| Commission X (`payment:{id}:commission`, `completion:{id}:commission`, `appointment:{id}:confirmed:commission`, `clinic:{c}:new-patient:{u}`) | PlatformCommissionReceivable +X · PlatformCommissionRevenue −X (Platform; rule id, rate, basis snapshot on both) |
+| Commission reversal (`…:refund:{r}:commission`, `…:refund:{r}:completion-commission`, `payment:{id}:failed:commission`) | negation of the share being reversed, original snapshot |
+| Settlement paid A (`settlement:{id}:paid`, no branch) | SettlementClearing +A · PlatformCommissionReceivable −A |
+
+Worked example (F1–F3, 10 % CollectedPayment): completion 500 000 → Receivable +500 000 / Revenue −500 000; cash
+200 000 → Cash +200 000 / Receivable −200 000, commission +20 000; cash 300 000 → … commission +30 000; refund
+100 000 of the 300 000 payment (credit 0) → RefundsPaid −100 000 / Revenue +100 000, commission reversal
+round(30 000 × 100 000 / 300 000) = −10 000. Balances: Receivable 0, Revenue −400 000, Cash 500 000, RefundsPaid
+−100 000, commission net 40 000.
+
+### 11.2 Rules in code
+
+- Rounding: once per line, `Money.Round()` (2 dp, AwayFromZero); reversals are cumulative so a full refund reverses exactly.
+- Rule selection: `effective_from ≤ t < effective_to` at the basis event time (payment `recorded_at`, completion time,
+  confirmation time; all database time). No rule → no commission line (reports flag `commissionRuleConfigured: false`).
+- Reporting day: branch-local date of the event; period lock redirects into the next open month (BE3-6).
+- Settlement obligation: Σ unsettled PlatformCommissionReceivable lines of Commission/CommissionReversal entries
+  posted in the month (OD-F7: no platform-collected funds in v1).
+- Reconciliation: `LedgerTotals` is the one definition of the figures; the cache is compared per (branch, day) with exact
+  decimal equality.
+- Open (needs an accountant): VAT/tax (OD-F9) and settlement terms beyond informational text.

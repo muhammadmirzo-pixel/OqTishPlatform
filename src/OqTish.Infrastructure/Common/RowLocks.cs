@@ -44,6 +44,13 @@ internal sealed class RowLocks(OqTishDbContext db) : IRowLocks
         await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", cancellationToken);
     }
 
+    public async Task AdvisoryLockSharedAsync(string key, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(key);
+        EnsureTransaction();
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock_shared(hashtextextended({key}, 0))", cancellationToken);
+    }
+
     private void EnsureTransaction()
     {
         if (db.Database.CurrentTransaction is null)

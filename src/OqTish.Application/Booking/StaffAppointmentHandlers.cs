@@ -38,6 +38,7 @@ public sealed class StaffAppointmentHandlers(
     BookingNotifier notifier,
     AppointmentReader reader,
     IAppointmentCompletedHandler completed,
+    IAppointmentConfirmedHandler confirmed,
     IOptions<BookingOptions> options)
 {
     private readonly BookingOptions _options = options.Value;
@@ -86,6 +87,13 @@ public sealed class StaffAppointmentHandlers(
             if (rows != 1)
             {
                 return BookingErrors.Expired;
+            }
+
+            var hook = await confirmed.OnConfirmedAsync(
+                new AppointmentConfirmedContext(a.Id, a.ClinicId, a.BranchId, a.ServiceId, doctorId, a.PatientUserId, now, currentUser.RequiredUserId), token);
+            if (!hook.IsSuccess)
+            {
+                return hook.Error;
             }
 
             return await FinishAsync(a, AppointmentStatus.Pending, AppointmentStatus.Confirmed, null, BookingEvent.Confirmed, "booking.appointment.confirmed", now, scope,

@@ -5,6 +5,7 @@ using OqTish.Application.Audit;
 using OqTish.Application.Booking;
 using OqTish.Application.Catalog;
 using OqTish.Application.Common.Seeding;
+using OqTish.Application.Finance;
 using OqTish.Application.Identity;
 using OqTish.Application.Identity.Handlers;
 using OqTish.Application.Public;
@@ -52,9 +53,24 @@ public static class DependencyInjection
         services.AddScoped<ExpirePendingAppointmentsHandler>();
         services.AddScoped<TimeOffHandlers>();
         services.TryAddScoped<IAppointmentCompletedHandler, NoOpAppointmentCompletedHandler>();
+        services.TryAddScoped<IAppointmentConfirmedHandler, NoOpAppointmentConfirmedHandler>();
         services.AddScoped<IClinicDashboardContributor, BookingDashboardContributor>();
         services.AddScoped<IAdminDashboardContributor, BookingAdminDashboardContributor>();
         services.AddScoped<IAccountDeletionContributor, BookingAccountDeletionContributor>();
+
+        // Finance (BE3): replaces the booking no-op hooks.
+        services.AddScoped<PeriodLock>();
+        services.AddScoped<LedgerPoster>();
+        services.AddScoped<LedgerTotals>();
+        services.AddScoped<FinanceAccess>();
+        services.Replace(ServiceDescriptor.Scoped<IAppointmentCompletedHandler, FinanceCompletionHandler>());
+        services.Replace(ServiceDescriptor.Scoped<IAppointmentConfirmedHandler, FinanceConfirmationHandler>());
+        services.AddScoped<PaymentHandlers>();
+        services.AddScoped<FinanceReportQueries>();
+        services.AddScoped<CommissionRuleHandlers>();
+        services.AddScoped<SettlementHandlers>();
+        services.AddScoped<RebuildDailySummariesHandler>();
+        services.AddScoped<IClinicDashboardContributor, FinanceDashboardContributor>();
 
         // Reviews / reports (BE2)
         services.AddScoped<ReviewHandlers>();
@@ -98,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<ISeedContributor, TenancyDemoSeedContributor>();
         services.AddScoped<ISeedContributor, CatalogSchedulingDemoSeedContributor>();
         services.AddScoped<ISeedContributor, BookingDemoSeedContributor>();
+        services.AddScoped<ISeedContributor, FinanceDemoSeedContributor>();
 
         return services;
     }

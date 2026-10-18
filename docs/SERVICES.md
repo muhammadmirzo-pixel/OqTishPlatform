@@ -508,3 +508,119 @@ o'tkazib yuboriladi (yangi Pending'larni UI orqali yarating).
 | `Booking:SweeperIntervalSeconds` / `SweeperBatchSize` | 30 / 100 | Worker sweeper |
 | `Booking:SearchDefaultAvailabilityDays` | 7 | `nextFreeSlot` ufqi |
 | `RateLimiting:BookingPermitPerHour` | 10 | `POST /api/appointments`, sessiya bo'yicha |
+
+## 4. Finance — to'lovlar, ledger, komissiya, hisob-kitoblar (BE3, 2026-10-18)
+
+Bu bo'lim BE3 moliya modulini tavsiflaydi: har bir handler, ledger hisoblari xaritasi (ishlangan misol bilan),
+komissiya oqimi, hisob-kitob (settlement) oqimi va kechki rekonsilyatsiya ishi. DTO va xato kodlari: `docs/API.md`
+§4.3, §5.4, §9. Jadvallar: `docs/DATABASE.md` §2.4. Qoidalar: `docs/FINANCIAL_RULES.md` §11. Qarorlar:
+`docs/DECISIONS.md` §5.3 (BE3-1 … BE3-14).
+
+### 4.1 Umumiy qoidalar
+
+- **Ledger — yagona haqiqat manbai.** `finance.journal_entries` + `finance.ledger_lines` faqat qo'shiladi (trigger +
+  REVOKE). Har bir yozuv ≥ 2 qatordan iborat va valyuta bo'yicha yig'indisi 0 (commit paytida deferred trigger
+  tekshiradi). Belgi: debet = musbat, kredit = manfiy. Tuzatish — yangi teskari yozuv (`reverses_entry_id`), eskisi
+  o'zgarmaydi.
+- **Idempotentlik:** har bir yozuvning `source_event_key` i UNIQUE; `LedgerPoster` bir xil hodisani ikki marta
+  yozmaydi. HTTP darajasida to'lov va qaytarish uchun `Idempotency-Key` **majburiy** (BE3-7).
+- **Bitta tranzaksiya:** to'lov qatori, allokatsiya, ledger yozuvlari va audit bir tranzaksiyada. Qulf tartibi:
+  idempotency kaliti qatori → (filial →) appointment qatori → payment qatori → klinika davr advisory qulfi (shared).
+- **Pul:** faqat `Money`; yaxlitlash har bir hisoblangan qatorda bir marta (`Money.Round()`, 2 xona, AwayFromZero).
+- **Hisobot kuni:** voqea vaqtining filial-mahalliy sanasi (`posting_date_local`, Asia/Tashkent standart). Yopilgan
+  (Finalized/Paid) oyga tushadigan yozuv keyingi ochiq oyning 1-kuniga ko'chiriladi (`PeriodLock`, BE3-6).
+- **Vaqt:** barcha voqea vaqtlari ma'lumotlar bazasi vaqti (`IDbClock`).
+
+### 4.2 Handlerlar
+
+| Handler | Endpoint | Ruxsat | Mazmuni | Yon ta'sirlar |
+|---|---|---|---|---|
+| `PaymentHandlers.RecordAsync` | `POST /api/clinics/{c}/appointments/{id}/payments` + `Idempotency-Key` | `payment.record` qabul filialida (Owner, Receptionist, FinanceManager) | faqat Confirmed/Completed qabul (422 `finance.appointment_not_payable`), summa > 0; `status: 'Failed'` — ledger'siz rad etilgan urinish (F10) | appointment qulfi → `payments` + `payment_allocations` → `LedgerPoster.PostPaymentAsync` (pul yozuvi + CollectedPayment komissiyasi) → audit `finance.payment.recorded` |
+| `PaymentHandlers.FailAsync` | `POST …/payments/{id}/fail { reason }` | `payment.record` | yozilgan, qaytarishsiz kiruvchi to'lov → Failed (karta qaytdi yoki xato summa, F11) | to'lov va uning komissiyasining aniq teskari yozuvlari joriy ochiq davrda; audit `finance.payment.failed` |
+| `PaymentHandlers.RefundAsync` | `POST …/payments/{id}/refund { amount, reason }` + `Idempotency-Key` | `payment.refund` (Owner, FinanceManager) | Σ qaytarishlar ≤ to'lov summasi (422 `finance.refund_exceeds_paid`, hech narsa yozilmaydi) | `payments` (Refund) → `PostRefundAsync` (avval bemor krediti, qolgani narx kamaytirish) + proporsional komissiya qaytarish → audit `finance.payment.refunded` |
+| `PaymentHandlers.ListAsync` | `GET …/payments?branchId&appointmentId&from&to&page` | `payment.record` yoki `finance.report.view` | SQL'da scope filtri; `[from, to)` UTC `recordedAt` bo'yicha | — |
+| `PaymentHandlers.BalanceAsync` | `GET …/appointments/{id}/balance` | xuddi shunday | charged / paid / refunded / outstanding (ledger'dagi bemor qarzi; manfiy = kredit) | — |
+| `FinanceCompletionHandler` (`IAppointmentCompletedHandler`) | `POST …/complete` ichida | booking tekshiradi | `ServiceCompletion` + daromad yozuvi + CompletedService va NewPatient komissiyasi | audit `finance.service_completion.created` |
+| `FinanceConfirmationHandler` (`IAppointmentConfirmedHandler`, yangi hook) | `POST …/confirm` ichida | booking tekshiradi | ConfirmedAppointment qat'iy to'lovi (qoida bo'lsa). Walk-in'larga yo'q | — |
+| `FinanceReportQueries.DailyAsync` | `GET …/reports/daily?branchId&from&to` | `finance.report.view` yoki `platform.finance.settle` | mahalliy sanalar, inclusive, ≤ 92 kun; har kun uchun qator; ledger'dan | — |
+| `FinanceReportQueries.MonthlyAsync` | `GET …/reports/monthly?year&month&branchId` | xuddi shunday | oy jami + `reconciled`, `commissionRuleConfigured`, `locked` | — |
+| `SettlementHandlers.ClinicListAsync` | `GET …/settlements` | `finance.settlement.view` (butun klinika) yoki platforma | klinika hisob-kitoblari | — |
+| `CommissionRuleHandlers.List/Create/EndAsync` | `GET/POST /api/admin/clinics/{c}/commission-rules`, `POST …/{ruleId}/end` | `platform.finance.settle` | kesishmaslik (advisory qulf + exclusion → 409 `finance.rule_overlap`); faqat qisqartirish, o'tmishga emas | audit `finance.commission_rule.created/ended` |
+| `SettlementHandlers.AdminList/Create/Finalize/MarkPaid/VoidAsync` | `/api/admin/settlements…` | `platform.finance.settle` | §4.5 | audit `finance.settlement.*` |
+| `RebuildDailySummariesHandler.RunAsync` | Worker | tizim | §4.6 | audit `finance.summary.mismatch` |
+| `FinanceDashboardContributor` | `GET …/dashboard` | `finance.report.view` bo'lsa | bugungi **sof** yig'ilgan summa | — |
+| `FinanceDemoSeedContributor` (order 500) | seed | faqat `Seed:DemoFinance=true` | `DEMO-0001` qoidasi, demo yakunlashlar va to'lovlar | — |
+
+Yordamchi servislar: `LedgerPoster` (ledger'ga yozuvchi yagona servis), `LedgerTotals` (ko'rsatkichlarning yagona
+ta'rifi: hisobotlar, dashboard va rekonsilyatsiya uchun), `PeriodLock` (davr qulfi), `FinanceAccess` (ruxsat
+yordamchilari), `FinanceTime` (hisobot kuni, oy oralig'i, stavka formati).
+
+### 4.3 Ledger hisoblari xaritasi va ishlangan misol
+
+| Hodisa (`source_event_key`) | Qatorlar |
+|---|---|
+| Yakunlash C > 0 (`completion:{id}:revenue`) | PatientReceivable +C · ClinicServiceRevenue −C |
+| To'lov P (`payment:{id}:recorded`) | ClinicCollected{Cash/Card/Transfer} +P · PatientReceivable −P |
+| Qaytarish R (`payment:{p}:refund:{r}`) | ClinicRefundsPaid −R · PatientReceivable +min(R, kredit) · ClinicServiceRevenue +qolgan |
+| To'lov Failed (`payment:{id}:failed`) | to'lov yozuvining aniq teskarisi |
+| Komissiya X | PlatformCommissionReceivable +X · PlatformCommissionRevenue −X (qoida id, stavka, baza snapshot) |
+| Komissiya qaytarish | qaytarilayotgan ulushning teskarisi, asl snapshot bilan |
+| Hisob-kitob to'landi A (`settlement:{id}:paid`) | SettlementClearing +A · PlatformCommissionReceivable −A |
+
+**Misol (F1–F3, CollectedPayment 10 %):**
+
+1. Yakunlash, 500 000.00: Receivable +500 000, Revenue −500 000.
+2. Naqd 200 000.00: Cash +200 000, Receivable −200 000; komissiya +20 000 (stavka 0.1000).
+3. Naqd 300 000.00: Cash +300 000, Receivable −300 000 → qarz 0; komissiya +30 000.
+4. 300 000 lik to'lovdan 100 000.00 qaytarish: kredit 0, demak hammasi narx kamaytirish → RefundsPaid −100 000,
+   Revenue +100 000; komissiya qaytarish round(30 000 × 100 000 / 300 000) = −10 000.
+5. Natija: Receivable 0, sof daromad 400 000, yig'ilgan 500 000, qaytarilgan 100 000 (sof 400 000), komissiya 40 000.
+
+Oldindan to'lov: Confirmed qabulga 200 000 to'lansa, Receivable −200 000 (bemor krediti, `outstanding` = −200 000);
+150 000 bilan yakunlansa −50 000; 80 000 qaytarishda 50 000 kredit qaytadi, 30 000 narx kamaytiriladi.
+
+### 4.4 Komissiya oqimi
+
+1. Platforma admini shartnoma bo'yicha qoida kiritadi (basis, stavka yoki qat'iy summa, amal oralig'i,
+   shartnoma raqami). **Standart qoida yo'q**: qoidasiz klinikada komissiya 0, hisobotda `commissionRuleConfigured: false`.
+2. Qoida **basis voqeasi vaqti** bo'yicha tanlanadi: to'lov vaqti (CollectedPayment), yakunlash vaqti
+   (CompletedService, NewPatient), tasdiqlash vaqti (ConfirmedAppointment).
+3. Foizli: `round(baza × stavka)`; qat'iy: summa o'zi. Qator qoidaning id'si, stavka va baza summasini saqlaydi.
+4. Qaytarish: CollectedPayment — shu to'lovning jami qaytarishlariga proporsional; CompletedService — qabulning
+   jami narx kamaytirishlariga proporsional; jamlanma formula: `round(asl × jami / baza) − avval qaytarilgan`.
+   Qat'iy to'lovlar qaytarilmaydi. Failed to'lovda uning komissiyasi to'liq qaytariladi.
+5. NewPatient — bemor akkauntining klinikadagi birinchi yakunlangan tashrifi (advisory qulf ostida, bir marta).
+6. Qoida faqat o'zidan keyingi yozuvlarga ta'sir qiladi; tugatish faqat kelajakka (BE3-5).
+
+### 4.5 Hisob-kitob (settlement) oqimi
+
+1. `POST /admin/settlements { clinicId, year, month }` — oy (Asia/Tashkent) tugagan bo'lishi kerak. Tranzaksiya:
+   klinika qatori `FOR UPDATE` → davr advisory qulfi (exclusive) → shu oy uchun bekor qilinmagan hisob-kitob bormi
+   (409 `finance.settlement_exists`) → oyning hali hisoblanmagan komissiya qatorlari (`PlatformCommissionReceivable`,
+   Commission/CommissionReversal yozuvlari) `settlement_items` ga, `amountDue` = Σ. Parallel yaratishda ikkinchisi
+   409 oladi; `UNIQUE(clinic_id, period_start) WHERE status <> 'Voided'` va `ledger_line_id UNIQUE` zaxira kafolat.
+2. `finalize` — Draft → Finalized: draftdan keyin kelgan qatorlarni qo'shadi va oyni **qulflaydi**.
+3. `mark-paid { paidAt, reference }` — Finalized → Paid; ledger'ga SettlementClearing / Receivable yozuvi.
+4. `void { reason }` — faqat Draft → Voided, qatorlar bo'shatiladi. Finalized/Paid → 409 `finance.period_locked`.
+5. Postinglar davr qulfini shared rejimda oladi: posting yo yakunlashdan oldin commit bo'lib hisob-kitobga
+   tushadi, yo oy qulflanganini ko'rib keyingi oyga ko'chadi — yopilgan oyda hisoblanmagan qator qolmaydi.
+
+### 4.6 Rekonsilyatsiya ishi (Worker `FinanceSummaryService`)
+
+- Ishga tushganda va har kuni `Finance:SummaryRunAtLocalTime` (02:00, Asia/Tashkent) da
+  `RebuildDailySummariesHandler` ni chaqiradi; oyna — oxirgi `Finance:SummaryWindowDays` (35) kun.
+- Har bir (filial, kun) uchun ko'rsatkichlar `LedgerTotals` orqali ledger'dan qayta hisoblanadi va
+  `daily_financial_summaries` ga yoziladi (watermark = eng katta `journal_entries.sequence`).
+- Saqlangan qator ledger'dan farq qilsa — **mismatch**: ustiga yoziladi, audit `finance.summary.mismatch` (id, sana,
+  ikkala qiymat), Worker warning log yozadi (faqat filial id va sana, shaxsiy ma'lumotsiz).
+- Bitta tranzaksiya, advisory qulf bilan ketma-ketlashtirilgan; xato bo'lsa faqat exception turi log qilinadi.
+- Oylik hisobotdagi `reconciled` — kesh va ledger har bir kun bo'yicha aniq teng bo'lsa `true`.
+
+### 4.7 Konfiguratsiya kalitlari (BE3)
+
+| Kalit | Default | Izoh |
+|---|---|---|
+| `Finance:SummaryRunAtLocalTime` | `02:00` | kechki rekonsilyatsiya vaqti (Asia/Tashkent) |
+| `Finance:SummaryWindowDays` | 35 | qayta hisoblanadigan oyna (kun) |
+| `Finance:DailyReportMaxDays` | 92 | kunlik hisobotning eng uzun oralig'i |
+| `Seed:DemoFinance` | false (Development'da true) | demo komissiya qoidasi va demo to'lovlar |

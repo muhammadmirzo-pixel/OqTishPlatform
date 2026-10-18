@@ -18,6 +18,7 @@ internal static class Schemas
     public const string Booking = "booking";
     public const string Reviews = "reviews";
     public const string Reports = "reports";
+    public const string Finance = "finance";
 }
 
 internal sealed class UserConfiguration : IEntityTypeConfiguration<User>

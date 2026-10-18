@@ -3,6 +3,7 @@ using OqTish.Domain.Audit;
 using OqTish.Domain.Booking;
 using OqTish.Domain.Catalog;
 using OqTish.Domain.Common;
+using OqTish.Domain.Finance;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Notifications;
 using OqTish.Domain.Reviews;
@@ -78,6 +79,25 @@ public interface IOqTishDb
     DbSet<Review> Reviews { get; }
 
     DbSet<AbuseReport> AbuseReports { get; }
+
+    // finance (BE3)
+    DbSet<ServiceCompletion> ServiceCompletions { get; }
+
+    DbSet<Payment> Payments { get; }
+
+    DbSet<PaymentAllocation> PaymentAllocations { get; }
+
+    DbSet<CommissionRule> CommissionRules { get; }
+
+    DbSet<JournalEntry> JournalEntries { get; }
+
+    DbSet<LedgerLine> LedgerLines { get; }
+
+    DbSet<Settlement> Settlements { get; }
+
+    DbSet<SettlementItem> SettlementItems { get; }
+
+    DbSet<DailyFinancialSummary> DailyFinancialSummaries { get; }
 
     // notify
     DbSet<OutboxMessage> OutboxMessages { get; }

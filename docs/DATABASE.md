@@ -1,6 +1,6 @@
 # Database Design
 
-Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2), `Booking` (§2.3).
+Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2), `Booking` (§2.3), `Finance` (§2.4).
 
 PostgreSQL 18 with the `btree_gist` and `citext` extensions. All timestamps are `timestamptz` (UTC).
 Money is `numeric(19,2)` with a `currency char(3)` (v1: UZS). Keys are UUID v7. Schemas: `identity`,
@@ -184,6 +184,31 @@ Notes:
 - `Down` drops the triggers, the trigger function and the exclusion constraint before the tables; the latest
   migration Down → Up test covers it.
 
+## 2.4 Implemented — migration `Finance` (BE3, 2026-10-18)
+
+Schema `finance`. Money `numeric(19,2)` + `currency char(3)` (CHECK 'UZS'), rates `numeric(7,4)`, reporting days `date`
+(branch-local). Every table carries `clinic_id`; child → parent FKs are composite `(clinic_id, x_id)` → `UNIQUE(clinic_id, id)`
+alternate keys, all RESTRICT.
+
+| Table / object | Key columns / constraints |
+|---|---|
+| `service_completions` | id, clinic_id, branch_id, **appointment_id UNIQUE**, service_id, doctor_id, patient_user_id (null for walk-ins), charged_amount **≥ 0**, currency, completed_by_user_id, completed_at, posting_date_local. FKs (clinic, appointment) → appointments, (clinic, branch) → branches. ix(clinic_id, patient_user_id) (NewPatient), ix(branch_id, posting_date_local) |
+| `payments` | id, clinic_id, branch_id, appointment_id, direction (In/Refund), method (Cash/Card/Transfer), amount **> 0**, currency, status (Recorded/Failed), collected_by (Clinic/Platform; v1 always Clinic), refund_of_payment_id, idempotency_key(64), external_ref(100), reason(500), recorded_by_user_id, recorded_at, failure_reason, failed_by_user_id, failed_at. **`ux_payments_clinic_idempotency_key` UNIQUE(clinic_id, idempotency_key) WHERE NOT NULL**. CHECKs: `(direction = 'Refund') = (refund_of_payment_id IS NOT NULL)`, refunds are Recorded, `(status = 'Failed') = (failed_at IS NOT NULL)`. FKs (clinic, appointment), (clinic, branch), (clinic, refund_of_payment_id) → payments. ix(clinic_id, branch_id, recorded_at), ix(appointment_id), ix(refund_of_payment_id). Not append-only: only `status` Recorded → Failed changes |
+| `payment_allocations` | id, clinic_id, payment_id, appointment_id, service_completion_id (null for prepayments), amount > 0. FKs composite to payments, appointments, service_completions. v1: one per incoming payment |
+| `commission_rules` | id, clinic_id, basis (4 values, **no default**), rate numeric(7,4), fixed_fee, currency, rounding (`AwayFromZero`), effective_from, effective_to, contract_reference(200), approved_by_user_id, created_at, ended_at, ended_by_user_id. CHECK rate ∈ (0,1] and no fee for percentage bases / fee > 0 and no rate for fixed bases; `effective_to > effective_from`. **`effective tstzrange GENERATED ALWAYS AS (tstzrange(effective_from, effective_to, '[)')) STORED` + `ex_commission_rules_no_overlap EXCLUDE USING gist (clinic_id WITH =, basis WITH =, effective WITH &&)`** (raw SQL). Trigger `trg_commission_rules_only_end`: an UPDATE may only set/shorten `effective_to` (+ ended_*) → else 42501 / 23514; DELETE → 42501; TRUNCATE → 42501; `REVOKE DELETE, TRUNCATE … FROM oqtish_app` |
+| `journal_entries` | id, clinic_id, branch_id (null for clinic-level entries), entry_type (7 values), **source_event_key UNIQUE**(200), posting_date_local, occurred_at, created_at, reverses_entry_id, appointment_id, payment_id, service_completion_id, settlement_id, created_by_user_id, description, **sequence bigint GENERATED ALWAYS AS IDENTITY UNIQUE** (watermark). Composite FKs to branches, journal_entries (reversal), appointments, payments, service_completions, settlements. ix(clinic_id, branch_id, posting_date_local), ix(clinic_id, entry_type, posting_date_local), ix(appointment_id), ix(payment_id), ix(reverses_entry_id) |
+| `ledger_lines` | id, journal_entry_id, clinic_id, account (11 values, FINANCIAL_RULES §3 + `ClinicCollectedTransfer`), party (Clinic/Patient/Platform), amount **≠ 0** (signed: debit +, credit −), currency, commission_rule_id, rate_snapshot numeric(7,4), basis_amount_snapshot. CHECK snapshots only with a rule. FKs (clinic, journal_entry) → journal_entries, (clinic, commission_rule) → commission_rules. ix(journal_entry_id), ix(clinic_id, account) |
+| append-only | `trg_journal_entries_append_only` / `trg_ledger_lines_append_only` (UPDATE/DELETE) and `…_no_truncate` raise 42501 for **every** role; `REVOKE UPDATE, DELETE, TRUNCATE … FROM oqtish_app` |
+| balance | **Deferred constraint triggers** `trg_journal_entries_balanced` (AFTER INSERT on entries) and `trg_ledger_lines_balanced` (AFTER INSERT on lines), `DEFERRABLE INITIALLY DEFERRED`: at commit each entry must have ≥ 2 lines and Σ amount = 0 per currency, else 23514 |
+| `settlements` | id, clinic_id, period_start (1st of month), period_end (exclusive, CHECK = start + 1 month), status (Draft/Finalized/Paid/Voided), amount_due, currency, payment_terms, created_by/at, finalized_at/by, paid_at, paid_reference, paid_recorded_by, voided_at, void_reason, voided_by, updated_at. **`ux_settlements_clinic_period_active` UNIQUE(clinic_id, period_start) WHERE status <> 'Voided'**. CHECKs on the status ↔ timestamp fields |
+| `settlement_items` | id, clinic_id, settlement_id, **ledger_line_id UNIQUE** (`ix_settlement_items_ledger_line_id`), amount. Composite FKs to settlements and ledger_lines. Deleted when a Draft is voided (released) |
+| `daily_financial_summaries` | **PK(branch_id, local_date)**, clinic_id, currency, visits ≥ 0, charged, collected, refunded, prior_period_refunded, commission, ledger_watermark, computed_at. FK (clinic, branch) → branches. Rebuildable cache (never the source of truth) |
+
+Notes:
+- `Down` drops the triggers, the three functions and the exclusion constraint before the tables; the latest-migration
+  Down → Up test covers it. The `finance` schema itself stays (EnsureSchema is idempotent).
+- The app role keeps INSERT/SELECT on the ledger (postings) and UPDATE on payments/settlements/summaries/rules (end only).
+
 ## 3. Database roles — implemented in `deploy/postgres/init/01-create-roles.sh`
 
 | Role | Login | Rights |
@@ -196,7 +221,8 @@ Notes:
 
 `PUBLIC` has no database or `public`-schema CREATE rights. Append-only tables revoke UPDATE/DELETE
 from `oqtish_app` in their own migrations (`audit.audit_log` in CoreIdentityTenancy,
-`booking.appointment_status_history` in Booking; tested in `DatabaseRoleTests`). The init script runs only when the data volume is empty;
+`booking.appointment_status_history` in Booking, `finance.journal_entries`/`ledger_lines` (+ DELETE/TRUNCATE on
+`commission_rules`) in Finance; tested in `DatabaseRoleTests`). The init script runs only when the data volume is empty;
 changing roles on an existing database requires a migration or a reviewed SQL script.
 
 ## 4. RLS (defense in depth, Phase 8, OD-13)

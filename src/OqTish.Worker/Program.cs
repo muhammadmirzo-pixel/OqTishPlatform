@@ -8,6 +8,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 // Must stay first: hosted services start in registration order.
 builder.Services.AddHostedService<DatabaseReadinessGate>();
 builder.Services.AddHostedService<ExpirySweeperService>();
+builder.Services.AddHostedService<FinanceSummaryService>();
 
 var host = builder.Build();
 await host.RunAsync();

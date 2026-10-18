@@ -105,6 +105,7 @@ app.MapClinicEndpoints();
 app.MapBookingEndpoints();
 app.MapPublicEndpoints();
 app.MapAdminEndpoints();
+app.MapFinanceEndpoints();
 app.MapDevEndpoints(app.Environment);
 
 await app.RunAsync();

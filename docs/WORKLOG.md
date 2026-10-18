@@ -66,3 +66,4 @@ Resume automatically after any interruption without waiting for a new command.
 - 2026-10-18 ~13:45: FE-INT-1 finished (93/93 verified), committed 4259eab. Remaining FE contract gaps: FRONTEND.md §9.2 (booking/finance/telegram shapes → reconcile after BE2–BE4).
 - 2026-10-18 ~14:30: session limit hit during BE2 (implementation + tests done, docs pending). 17:34: limit reset, BE2 resumed.
 - 2026-10-18 ~18:20: owner resumed work: docs in Uzbek; tests only at the very end; wants a full local-run guide. BE2 committed 22cd1d3. Next: BE3 (finance), then BE4 (notifications/Telegram), sequentially.
+- 2026-10-18 ~20:00: session limit hit during BE3 (writing HTTP authz tests). 22:34: limit reset, BE3 resumed.

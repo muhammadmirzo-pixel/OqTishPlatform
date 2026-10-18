@@ -6,6 +6,7 @@ using OqTish.Domain.Audit;
 using OqTish.Domain.Booking;
 using OqTish.Domain.Catalog;
 using OqTish.Domain.Common;
+using OqTish.Domain.Finance;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Notifications;
 using OqTish.Domain.Reviews;
@@ -73,6 +74,24 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
     public DbSet<Review> Reviews => Set<Review>();
 
     public DbSet<AbuseReport> AbuseReports => Set<AbuseReport>();
+
+    public DbSet<ServiceCompletion> ServiceCompletions => Set<ServiceCompletion>();
+
+    public DbSet<Payment> Payments => Set<Payment>();
+
+    public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
+
+    public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+
+    public DbSet<LedgerLine> LedgerLines => Set<LedgerLine>();
+
+    public DbSet<Settlement> Settlements => Set<Settlement>();
+
+    public DbSet<SettlementItem> SettlementItems => Set<SettlementItem>();
+
+    public DbSet<DailyFinancialSummary> DailyFinancialSummaries => Set<DailyFinancialSummary>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.Configure<OqTish.Application.Staff.StaffOptions>(configuration.GetSection(OqTish.Application.Staff.StaffOptions.SectionName));
         services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
         services.Configure<OqTish.Application.Booking.BookingOptions>(configuration.GetSection(OqTish.Application.Booking.BookingOptions.SectionName));
+        services.Configure<OqTish.Application.Finance.FinanceOptions>(configuration.GetSection(OqTish.Application.Finance.FinanceOptions.SectionName));
 
         // Common ports
         services.AddSingleton<IDbErrorClassifier, DbErrorClassifier>();

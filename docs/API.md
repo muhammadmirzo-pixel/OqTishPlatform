@@ -235,7 +235,7 @@ Completed, ≤ 30 days, no review yet; `hasReview`: a review exists (FRONTEND.md
 Implemented in BE1b: clinic registration/profile, dashboard (counts are 0 until BE2/BE3 register
 contributors), branches + hours, services + branch offers, staff + invitations (+ `/me/invitations`),
 doctors + links + working hours, clinic audit. BE2: time off, appointments, calendar, walk-ins, dashboard
-appointment counts (§4.2). Payments, reports, settlements: BE3.
+appointment counts (§4.2). BE3: payments, balance, refunds, reports, settlements, dashboard `collected` (§4.3).
 
 Authorization pattern everywhere: the resource is loaded by id **within the route clinic**; another
 clinic's id → 404 `common.not_found`; no membership → 404; in-tenant without permission or outside a
@@ -324,6 +324,45 @@ type TimeOffDto = { id: string; startsAt: string; endsAt: string; reason: string
 | `GET …/dashboard` (BE2 counts) | `pending` = Pending requests waiting now (any date); `confirmed`/`completed`/`noShow` = appointments starting today (branch/clinic time). Doctor role: own appointments only |
 | `PUT …/doctors/{doctorId}` (BE2 rule) | Removing a branch or service link that appointments or time blocks reference → 409 `schedule.link_in_use` (deactivate the doctor instead) |
 
+### 4.3 Finance in the console (BE3, 2026-10-18)
+
+Every handler loads the appointment/payment **within the route clinic** (other clinic → 404) and checks the
+permission on **its** branch (no membership → 404; role or branch scope lacking → 403). Money is `Money`
+(`{ amount: "1500000.00", currency: "UZS" }`, > 2 decimals → 400 `finance.amount_invalid`). Writes run in one
+transaction with the ledger postings and the audit row (FINANCIAL_RULES §11).
+
+```ts
+type PaymentDto = { id; appointmentId; branchId; direction: 'In'|'Refund'; method: 'Cash'|'Card'|'Transfer'; amount: Money
+  status: 'Recorded'|'Failed'; externalRef: string|null; refundOfPaymentId: string|null; recordedAt: string
+  contactName: string|null; serviceName: string|null
+  refunded: Money; refundable: Money; reason: string|null; failureReason: string|null; failedAt: string|null }   // last 5 additive
+type Balance = { charged: Money; paid: Money; refunded: Money; outstanding: Money }  // outstanding < 0 = patient credit
+type DailyReportRow = { date: 'YYYY-MM-DD'; branchId: string|null; visits: number; charged: Money; collected: Money
+  refunded: Money; commission: Money; priorPeriodRefunded: Money }                                            // last additive
+type MonthlyReport = { year; month; branchId: string|null; visits; charged; collected; refunded; commission; priorPeriodRefunded: Money
+  reconciled: boolean; commissionRuleConfigured: boolean; locked: boolean }                                   // branchId, priorPeriodRefunded, locked additive
+type SettlementDto = { id; clinicId; clinicName; year; month; status: 'Draft'|'Finalized'|'Paid'|'Voided'; amountDue: Money
+  createdAt; finalizedAt; paidAt; paidReference; voidReason
+  periodStart: 'YYYY-MM-DD'; periodEnd: 'YYYY-MM-DD' /* exclusive */; itemCount: number; commissionRuleConfigured: boolean; paymentTerms: string|null } // last 5 additive
+```
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `POST …/appointments/{id}/payments` `{ amount, method, externalRef?, status? }` + **`Idempotency-Key` (required)** | `payment.record` (Owner, Receptionist, FinanceManager) on the appointment's branch. Appointment must be **Confirmed or Completed** (else 422 `finance.appointment_not_payable`); amount > 0; `externalRef` ≤ 100. Overpayment/prepayment is allowed (patient credit). **Additive** `status: 'Failed'` records a declined attempt with **no ledger effect** (F10). → **201** `PaymentDto`; replay → same 201 body; same key + other body → 422 `common.idempotency_mismatch`; the key is also UNIQUE per clinic (another user's key → 422). Missing key → 400 `common.validation` (`errors["Idempotency-Key"]`) |
+| `POST …/payments/{paymentId}/fail` `{ reason 1–500 }` | `payment.record`. Recorded incoming payment without refunds → Failed; reversal entries (payment + its commission) in the current open period, originals untouched (F11 correction = fail + new payment). Wrong state (already failed, a refund, has refunds) → 409 `finance.invalid_payment_state` → 200 `PaymentDto` |
+| `POST …/payments/{paymentId}/refund` `{ amount, reason 1–500 }` + **`Idempotency-Key` (required)** | `payment.refund` (Owner, FinanceManager — **not** Receptionist). Recorded incoming payment only (409 `finance.invalid_payment_state`); Σ refunds ≤ payment amount (422 `finance.refund_exceeds_paid`, nothing written). Same method as the original. → **201** `PaymentDto` (`direction: 'Refund'`) |
+| `GET …/payments?branchId&appointmentId&from&to&page&pageSize` | `payment.record` **or** `finance.report.view`; rows of the caller's branches only (SQL). **`appointmentId` filter added** (FRONTEND §9.2-2). `from`/`to` = UTC instants, half-open `[from, to)` on `recordedAt`; `from ≥ to` → 400. Branch/appointment outside scope → 403, other clinic's → 404. `Page<PaymentDto>` newest first |
+| `GET …/appointments/{id}/balance` | `payment.record` or `finance.report.view` → `Balance`. `charged` = amount entered at completion (0 before), `paid` = recorded incoming payments, `refunded` = refunds, `outstanding` = ledger PatientReceivable of the appointment (negative = credit) |
+| `GET …/reports/daily?branchId&from&to` | `finance.report.view` (Owner, FinanceManager; Branches-scoped managers: their branches) **or platform admin with `platform.finance.settle`**. `from`/`to` = **branch-local dates `YYYY-MM-DD`, inclusive**, ≤ 92 days (`Finance:DailyReportMaxDays`). One row per day (zero rows included), summed over the scope's branches (`branchId: null`) or one branch. Computed from the ledger, not the cache |
+| `GET …/reports/monthly?year&month&branchId` | Same rights. Totals of the branch-local month; `reconciled` = cached daily summaries equal the ledger for every (branch, day) of the month (false until the nightly job covered it); `commissionRuleConfigured` = a rule overlaps the month (F14 flag); `locked` = Finalized/Paid settlement |
+| `GET …/settlements` | `finance.settlement.view` (clinic-wide: Owner, Clinic-scoped FinanceManager) or `platform.finance.settle` → `SettlementDto[]` (unpaginated, ≤ 500, newest period first, Voided included) |
+| `GET …/dashboard` (BE3 field) | `collected` = today's **net** collected (payments − failed reversals − refunds) of the dashboard's branches, from the ledger; only with `finance.report.view`, else `null` |
+
+Figures: `charged` = gross revenue at completion; `collected` = money in net of failed-payment reversals; `refunded` =
+money returned; `priorPeriodRefunded` = refunds of payments posted in an earlier month (F9); `commission` = net
+platform commission (accruals − reversals). A refund first returns the patient's credit on the appointment; the rest is
+a price reduction (contra-revenue) — see FINANCIAL_RULES §11.
+
 ## 5. Platform admin — `/api/admin` (platform permissions, TOTP required)
 
 | Method & path | Permission | Purpose |
@@ -343,8 +382,8 @@ type TimeOffDto = { id: string; startsAt: string; endsAt: string; reason: string
 ### 5.1 Implementation notes and DTOs (BE1b, 2026-10-18)
 
 Implemented: dashboard, clinics (list/approve/reject/suspend/reinstate), users (list/suspend/reinstate),
-audit; BE2: reports, reviews, break-glass appointment read (§5.3). Commission rules, settlements and
-notifications come later.
+audit; BE2: reports, reviews, break-glass appointment read (§5.3); BE3: commission rules and settlements (§5.4).
+Notifications come later.
 Every platform check answers 403 `common.forbidden` without the grant and 403 `auth.totp_setup_required`
 while TOTP is not enabled (`Security:RequireTotpForPrivilegedRoles`). Permission split (as the UI
 assumed): approve/reject = `platform.clinic.verify`; suspend/reinstate = `platform.account.suspend`.
@@ -393,6 +432,29 @@ type AbuseReportDto = { id; targetType: 'Clinic'|'Review'; targetId; targetLabel
 | `GET /admin/reports?status&page&pageSize` | `platform.reports.handle` → `Page<AbuseReportDto>`, Open first |
 | `POST /admin/reports/{id}/resolve { resolution 1–1000 }` | → 204; already resolved → 409 `admin.invalid_status_transition`. Audited |
 | `GET /admin/clinics/{id}/appointments?branchId&status&from&to&doctorId&page&pageSize` + `X-Access-Reason` | `platform.tenant-data.read` (403 first). The header is **percent-encoded UTF-8** (`encodeURIComponent`) and decoded by the server; after trimming 15–300 characters, no control characters, else 400 `common.validation` (`errors["X-Access-Reason"]`). Unknown clinic → 404. → `Page<AppointmentDto>` (all branches, full contact data, `canCancel: false`). Every successful read writes audit `platform.tenant_data.read` with the decoded reason, the filters and the row count |
+
+### 5.4 Commission rules and settlements (BE3, 2026-10-18)
+
+All need `platform.finance.settle` (403 `common.forbidden` without it, 403 `auth.totp_setup_required` while TOTP is
+not enabled). Every write is audited (`finance.commission_rule.*`, `finance.settlement.*`).
+
+```ts
+type CommissionRuleDto = { id; clinicId; basis: 'CollectedPayment'|'CompletedService'|'ConfirmedAppointment'|'NewPatient'
+  rate: string|null /* "0.0750" = 7.5 %, 4 decimals */; fixedFee: Money|null; effectiveFrom: string; effectiveTo: string|null
+  contractReference: string; rounding: 'AwayFromZero'; approvedByUserId: string; createdAt: string; endedAt: string|null } // clinicId, rounding, approvedByUserId, endedAt additive
+```
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `GET /admin/clinics/{id}/commission-rules` | → `CommissionRuleDto[]` by basis, start. Unknown clinic → 404 |
+| `POST /admin/clinics/{id}/commission-rules` `{ basis, rate?, fixedFee?, effectiveFrom, effectiveTo?, contractReference 1–200 }` | Percentage bases (`CollectedPayment`, `CompletedService`) need `rate`: a **fraction string** in (0, 1] with ≤ 4 decimals, digits and `.` only (`"0.075"`, `"0.0750"`; `"7.5"`, `"1e-2"`, `"-0.1"` → 400); no `fixedFee`. Fixed-fee bases (`ConfirmedAppointment`, `NewPatient`) need `fixedFee > 0`, no `rate`. `effectiveTo > effectiveFrom`. Range `[from, to)` overlapping a rule of the same clinic + basis → **409 `finance.rule_overlap`** (adjacent ranges allowed). The approver is the caller. → **201** |
+| `POST /admin/clinics/{id}/commission-rules/{ruleId}/end` `{ effectiveTo }` | Only shortens: after the start, not later than the current end, **not in the past** (database time; postings already made with the rule are immutable) → 400 `common.validation` otherwise. → **200** `CommissionRuleDto` (UI treats it as void) |
+| `GET /admin/settlements?clinicId&status` | → `SettlementDto[]`, unpaginated (≤ 500), newest period first |
+| `POST /admin/settlements` `{ clinicId, year 2020–2100, month 1–12, paymentTerms? ≤ 500 }` | The month (Asia/Tashkent) must have ended (400 `common.validation` on `month`). Creates a **Draft** with every unsettled commission line of the clinic posted in the month (`amountDue` may be 0 → see `commissionRuleConfigured`). A non-voided settlement for the month exists → **409 `finance.settlement_exists`** (also under concurrency). Unknown clinic → 404. → **201** |
+| `POST /admin/settlements/{id}/finalize` | Draft → Finalized; adds lines of the month posted since the draft, then **locks the month** → 200 `SettlementDto` |
+| `POST /admin/settlements/{id}/mark-paid` `{ paidAt, reference 1–200 }` | Finalized → Paid (`paidAt` not later than now + 1 day); posts Dr SettlementClearing / Cr PlatformCommissionReceivable → 200 |
+| `POST /admin/settlements/{id}/void` `{ reason 1–500 }` | Draft → Voided, items released. Finalized/Paid → **409 `finance.period_locked`** → 200 |
+| | Other wrong transitions → 409 `finance.invalid_settlement_state`; unknown id → 404 |
 
 ## 6. Telegram
 
@@ -469,9 +531,12 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 | `schedule.link_in_use` | 409 | A doctor's branch/service link is referenced by appointments or time blocks and cannot be removed (BE2) |
 | `admin.invalid_status_transition` | 409 | Clinic/account not in a state allowing the action (BE1b) |
 | `admin.cannot_suspend_self` | 422 | A platform admin cannot suspend their own account (BE1b) |
-| `finance.refund_exceeds_paid` | 422 | Refund too large |
+| `finance.refund_exceeds_paid` | 422 | Refund larger than the payment's net paid amount |
 | `finance.amount_invalid` | 400 | Amount ≤ 0 or > 2 decimals |
-| `finance.period_locked` | 409 | Posting into a finalized month (redirected) |
+| `finance.period_locked` | 409 | The month is locked by a Finalized/Paid settlement (void refused). Postings dated into a locked month are not errors: they are redirected to the next open month (BE3) |
+| `finance.appointment_not_payable` | 422 | Payment for an appointment that is not Confirmed/Completed (BE3) |
+| `finance.invalid_payment_state` | 409 | Fail/refund on a payment that is not a recorded incoming payment (or fail with refunds) (BE3) |
+| `finance.invalid_settlement_state` | 409 | Settlement transition not allowed from its status (BE3) |
 | `finance.settlement_exists` | 409 | Settlement already exists for the period |
 | `finance.rule_overlap` | 409 | Commission rule overlaps an existing one |
 | `review.not_eligible` / `review.already_exists` | 422 / 409 | Review rules |

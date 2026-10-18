@@ -25,4 +25,11 @@ public interface IRowLocks
 
     /// <summary>Transaction-scoped advisory lock on an arbitrary key (e.g. "otp:&lt;identifier hash&gt;").</summary>
     Task AdvisoryLockAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Transaction-scoped <b>shared</b> advisory lock on the same key space as <see cref="AdvisoryLockAsync"/>:
+    /// many holders at once, but excluded by an exclusive holder (finance: postings share the clinic's period
+    /// lock, settlement creation/finalization takes it exclusively).
+    /// </summary>
+    Task AdvisoryLockSharedAsync(string key, CancellationToken cancellationToken);
 }

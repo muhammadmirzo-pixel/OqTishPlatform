@@ -27,6 +27,13 @@ public sealed class SeedOptions
     /// never creates guessable logins unless explicitly enabled.
     /// </summary>
     public bool DemoStaffAccounts { get; set; }
+
+    /// <summary>
+    /// BE3: a clearly labelled demo commission rule (10 % of collected payments, contract reference "DEMO-…") for
+    /// the first demo clinic plus demo payments for its seeded completed visits. Default false; true only in
+    /// appsettings.Development.json — a demo contract term must never appear outside local development.
+    /// </summary>
+    public bool DemoFinance { get; set; }
 }
 
 /// <summary>

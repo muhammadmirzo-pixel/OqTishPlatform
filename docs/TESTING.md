@@ -1,6 +1,6 @@
 # Testing Strategy and Required Test Catalogue
 
-Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2, BE2 §0.3).
+Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2, BE2 §0.3, BE3 §0.4 — written, not yet executed).
 
 ## 0. Current tests (Phase 2, verified 2026-10-18)
 
@@ -124,6 +124,39 @@ cd web && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
 Not yet automated: R1 (clean `docker compose up`) and R5 (OpenAPI diff) — R1 was verified manually in Phase 2 (see IMPLEMENTATION_PLAN.md §4); the GitLab pipeline has not run yet (no remote).
+
+### 0.4 Added in BE3 (finance) — written 2026-10-18, **not yet executed**
+
+Owner rule for BE3: compile only (`dotnet build`, 0 warnings); the suites below are written and compile but will be
+run once in the final test stage. Results are therefore unknown until then.
+
+| Id | Test (class) | Proves |
+|---|---|---|
+| F1 F2 F3 | `F1_F2_F3_two_payments_a_partial_refund_and_ten_percent_of_collected` (FinanceLedgerTests) | receivable 300 000.00 → 0.00, collected 500 000.00; net 400 000.00; commission lines +20 000.00, +30 000.00, −10 000.00 = 40 000.00, rate 0.1000 and the rule on each; balance 500000/500000/100000/0 |
+| F4 | `F4_same_idempotency_key_sequentially…`, `F4_concurrent_duplicates_with_one_idempotency_key…` (Concurrency, 50×), `F4_the_same_key_used_by_another_user…` | 1 payment, 1 payment entry, 1 commission entry; replay returns the original; other body → 422; missing key → 400; per-clinic UNIQUE backstop |
+| F5 F6 | `F5_F6_rounding_happens_once_per_line…` + unit `FinanceRulesTests` | 25 000.00; 3 × 0.02 = 0.06 (not 0.05) |
+| F7 | `F7_the_rule_is_selected_by_the_payment_time…` | 8 000.00 with the 8 % rule snapshotted, posting date 2026-03-15; completion dated 2026-03-14 |
+| F8 | `F8_the_reporting_day_is_the_branch_local_date` + unit | 18:30Z → 2026-03-31, 19:30Z → 2026-04-01 |
+| F9 | `F9_an_april_refund_of_a_march_payment…` | March totals unchanged; April refunded = priorPeriodRefunded = 30 000.00 |
+| F10 | `F10_a_failed_payment_is_stored_as_failed_with_no_ledger_lines` | status Failed, 0 entries, no allocation, paid 0.00 |
+| F11 | `F11_a_mistyped_cash_payment_is_corrected…` | original entry untouched, reversal −30 000 (`reverses_entry_id`), new 300 000, commission +3 000/−3 000/+30 000, audit row, second fail → 409 |
+| F12 | `F12_two_admins_create_the_same_monthly_settlement_concurrently_201_and_409` (Concurrency, 50×) | exactly one 201 + one `finance.settlement_exists`, 1 settlement, each line in one settlement |
+| F13 | `F13_daily_summaries_of_march_sum_exactly_to_the_ledger_of_march` | Σ cache = `LedgerTotals` = raw SQL Σ per account, exact |
+| F14 | `F14_a_clinic_without_a_rule…` | 10 paid visits → commission 0.00, `commissionRuleConfigured: false`, settlement amount 0.00 flagged |
+| F15 | `F15_a_refund_larger_than_the_net_paid_amount…` | 422 `finance.refund_exceeds_paid`, row counts (payments, entries, lines, audit) unchanged |
+| L1 | `FinanceSchemaTests.L1_…` + `DatabaseRoleTests` (extended) | UPDATE/DELETE/TRUNCATE on entries/lines → 42501 for the owner (trigger) and the app roles (REVOKE); rules cannot be deleted |
+| L2 | `FinanceSchemaTests.L2_…` + `FinanceInvariants.AssertAsync` after every finance test | unbalanced / single-line / zero-line entries rejected at commit (23514); every entry balances, refunds ≤ payment, failed payments net 0, settlement items are commission lines of their month |
+| L3 | `L3_rebuilding_the_summaries_equals_the_stored…` | second rebuild writes nothing; tampered row → 1 mismatch, overwritten, audit `finance.summary.mismatch`; monthly `reconciled` true → false → true |
+| — | `Completed_service_new_patient_and_confirmed_appointment_bases…` | all four bases; NewPatient once per patient; walk-in → no confirm fee; price concession reverses CompletedService proportionally (−2 000.00) |
+| — | `Prepayment_before_completion_is_patient_credit…` | outstanding −200 000 → −50 000 after completion; refund returns credit first, rest reduces revenue |
+| — | `Period_lock_redirects_postings…`, `Settlement_lifecycle…` | redirect to next open month, locked month never restated, void Finalized → 409 `finance.period_locked`, void releases items, paid posts clearing, current month → 400 |
+| — | `Concurrent_refunds_of_one_payment_never_exceed…` (50×), `Finalize_racing_a_posting_into_the_same_month…` (50×) | exactly 3 of 5 refunds; never an unsettled commission line in a finalized month |
+| — | `FinanceApiTests` (HTTP, real sign-in) | authorization for **every** finance endpoint: Receptionist records (own branch; other branch 403) but cannot refund or view reports/settlements; Doctor and ClinicAdmin 403; FinanceManager all; Branches-scoped finance manager limited; other clinic 404; platform settle grant vs none; contract shapes (string money, enums, rate "0.0750"), validation, dashboard `collected` |
+| — | `FinanceSchemaTests` | exclusion constraint 23P01 (adjacent/other basis allowed), rule "only end" trigger, settlement unique active month (voided allowed), item line UNIQUE, period CHECK, composite FK 23503, amount CHECK |
+| — | `FinanceSeedAndWorkerTests` | finance seed idempotent, balanced, rule labelled `DEMO-`; Worker job writes the cache; next-run delay in Asia/Tashkent |
+| — | `EndpointAuthorizationTests` (unchanged) | covers the 16 new endpoints automatically |
+
+Helpers: `FinanceWorld` / `FinanceCalls` (Finance/FinanceKit.cs) on top of `BookingHost`, `BookingWorld`, `Race`.
 
 ## 1. Layers
 

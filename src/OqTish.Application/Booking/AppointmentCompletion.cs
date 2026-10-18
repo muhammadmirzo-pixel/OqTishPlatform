@@ -35,3 +35,31 @@ internal sealed class NoOpAppointmentCompletedHandler : IAppointmentCompletedHan
 {
     public Task<Result> OnCompletedAsync(AppointmentCompletedContext context, CancellationToken cancellationToken) => Task.FromResult(Result.Success);
 }
+
+/// <summary>Facts about a staff confirmation (Pending → Confirmed), passed to <see cref="IAppointmentConfirmedHandler"/>.</summary>
+public sealed record AppointmentConfirmedContext(
+    Guid AppointmentId,
+    Guid ClinicId,
+    Guid BranchId,
+    Guid ServiceId,
+    Guid DoctorId,
+    Guid? PatientUserId,
+    DateTimeOffset ConfirmedAt,
+    Guid ActorUserId);
+
+/// <summary>
+/// Hook for Finance (BE3, ConfirmedAppointment commission basis): invoked by <c>POST …/appointments/{id}/confirm</c>
+/// <b>inside the confirm transaction</b>, after the conditional UPDATE to Confirmed succeeded, before history,
+/// notifications and commit. A failure result rolls the confirmation back. Same rules as
+/// <see cref="IAppointmentCompletedHandler"/> (same scoped <c>IOqTishDb</c>, no own transaction). Walk-ins are
+/// created Confirmed without this hook (they are not platform-originated bookings). Default: no-op.
+/// </summary>
+public interface IAppointmentConfirmedHandler
+{
+    Task<Result> OnConfirmedAsync(AppointmentConfirmedContext context, CancellationToken cancellationToken);
+}
+
+internal sealed class NoOpAppointmentConfirmedHandler : IAppointmentConfirmedHandler
+{
+    public Task<Result> OnConfirmedAsync(AppointmentConfirmedContext context, CancellationToken cancellationToken) => Task.FromResult(Result.Success);
+}

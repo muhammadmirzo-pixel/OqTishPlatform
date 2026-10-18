@@ -520,6 +520,864 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Finance.CommissionRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApprovedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by_user_id");
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("basis");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<string>("ContractReference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("contract_reference");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_from");
+
+                    b.Property<DateTimeOffset?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_to");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<Guid?>("EndedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ended_by_user_id");
+
+                    b.Property<decimal?>("FixedFee")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("fixed_fee");
+
+                    b.Property<decimal?>("Rate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)")
+                        .HasColumnName("rate");
+
+                    b.Property<string>("Rounding")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("rounding");
+
+                    b.HasKey("Id")
+                        .HasName("pk_commission_rules");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_commission_rules_clinic_id_id");
+
+                    b.HasIndex("ApprovedByUserId")
+                        .HasDatabaseName("ix_commission_rules_approved_by_user_id");
+
+                    b.HasIndex("EndedByUserId")
+                        .HasDatabaseName("ix_commission_rules_ended_by_user_id");
+
+                    b.HasIndex("ClinicId", "Basis", "EffectiveFrom")
+                        .HasDatabaseName("ix_commission_rules_clinic_id_basis_effective_from");
+
+                    b.ToTable("commission_rules", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_commission_rules_amount_by_basis", "(basis IN ('CollectedPayment', 'CompletedService') AND rate IS NOT NULL AND rate > 0 AND rate <= 1 AND fixed_fee IS NULL) OR (basis IN ('ConfirmedAppointment', 'NewPatient') AND fixed_fee IS NOT NULL AND fixed_fee > 0 AND rate IS NULL)");
+
+                            t.HasCheckConstraint("ck_commission_rules_basis", "basis IN ('CollectedPayment', 'CompletedService', 'ConfirmedAppointment', 'NewPatient')");
+
+                            t.HasCheckConstraint("ck_commission_rules_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_commission_rules_range", "effective_to IS NULL OR effective_to > effective_from");
+
+                            t.HasCheckConstraint("ck_commission_rules_rounding", "rounding IN ('AwayFromZero')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.DailyFinancialSummary", b =>
+                {
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("date")
+                        .HasColumnName("local_date");
+
+                    b.Property<decimal>("Charged")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("charged");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<decimal>("Collected")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("collected");
+
+                    b.Property<decimal>("Commission")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("commission");
+
+                    b.Property<DateTimeOffset>("ComputedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("computed_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<long>("LedgerWatermark")
+                        .HasColumnType("bigint")
+                        .HasColumnName("ledger_watermark");
+
+                    b.Property<decimal>("PriorPeriodRefunded")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("prior_period_refunded");
+
+                    b.Property<decimal>("Refunded")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("refunded");
+
+                    b.Property<int>("Visits")
+                        .HasColumnType("integer")
+                        .HasColumnName("visits");
+
+                    b.HasKey("BranchId", "LocalDate")
+                        .HasName("pk_daily_financial_summaries");
+
+                    b.HasIndex("ClinicId", "BranchId")
+                        .HasDatabaseName("ix_daily_financial_summaries_clinic_id_branch_id");
+
+                    b.HasIndex("ClinicId", "LocalDate")
+                        .HasDatabaseName("ix_daily_financial_summaries_clinic_id_local_date");
+
+                    b.ToTable("daily_financial_summaries", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_daily_financial_summaries_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_daily_financial_summaries_visits", "visits >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.JournalEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("entry_type");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
+
+                    b.Property<DateOnly>("PostingDateLocal")
+                        .HasColumnType("date")
+                        .HasColumnName("posting_date_local");
+
+                    b.Property<Guid?>("ReversesEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reverses_entry_id");
+
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("sequence");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Sequence"));
+
+                    b.Property<Guid?>("ServiceCompletionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_completion_id");
+
+                    b.Property<Guid?>("SettlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("settlement_id");
+
+                    b.Property<string>("SourceEventKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("source_event_key");
+
+                    b.HasKey("Id")
+                        .HasName("pk_journal_entries");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_journal_entries_clinic_id_id");
+
+                    b.HasIndex("AppointmentId")
+                        .HasDatabaseName("ix_journal_entries_appointment_id");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_journal_entries_created_by_user_id");
+
+                    b.HasIndex("PaymentId")
+                        .HasDatabaseName("ix_journal_entries_payment_id");
+
+                    b.HasIndex("ReversesEntryId")
+                        .HasDatabaseName("ix_journal_entries_reverses_entry_id");
+
+                    b.HasIndex("Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("ix_journal_entries_sequence");
+
+                    b.HasIndex("SourceEventKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_journal_entries_source_event_key");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_appointment_id");
+
+                    b.HasIndex("ClinicId", "PaymentId")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_payment_id");
+
+                    b.HasIndex("ClinicId", "ReversesEntryId")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_reverses_entry_id");
+
+                    b.HasIndex("ClinicId", "ServiceCompletionId")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_service_completion_id");
+
+                    b.HasIndex("ClinicId", "SettlementId")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_settlement_id");
+
+                    b.HasIndex("ClinicId", "BranchId", "PostingDateLocal")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_branch_id_posting_date_local");
+
+                    b.HasIndex("ClinicId", "EntryType", "PostingDateLocal")
+                        .HasDatabaseName("ix_journal_entries_clinic_id_entry_type_posting_date_local");
+
+                    b.ToTable("journal_entries", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_journal_entries_entry_type", "entry_type IN ('ServiceCompleted', 'PaymentRecorded', 'PaymentRefunded', 'PaymentReversed', 'Commission', 'CommissionReversal', 'SettlementPaid')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.LedgerLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Account")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("account");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<decimal?>("BasisAmountSnapshot")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("basis_amount_snapshot");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<Guid?>("CommissionRuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("commission_rule_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("journal_entry_id");
+
+                    b.Property<string>("Party")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("party");
+
+                    b.Property<decimal?>("RateSnapshot")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)")
+                        .HasColumnName("rate_snapshot");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ledger_lines");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_ledger_lines_clinic_id_id");
+
+                    b.HasIndex("JournalEntryId")
+                        .HasDatabaseName("ix_ledger_lines_journal_entry_id");
+
+                    b.HasIndex("ClinicId", "Account")
+                        .HasDatabaseName("ix_ledger_lines_clinic_id_account");
+
+                    b.HasIndex("ClinicId", "CommissionRuleId")
+                        .HasDatabaseName("ix_ledger_lines_clinic_id_commission_rule_id");
+
+                    b.HasIndex("ClinicId", "JournalEntryId")
+                        .HasDatabaseName("ix_ledger_lines_clinic_id_journal_entry_id");
+
+                    b.ToTable("ledger_lines", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_ledger_lines_account", "account IN ('PatientReceivable', 'ClinicCollectedCash', 'ClinicCollectedCard', 'ClinicCollectedTransfer', 'ClinicServiceRevenue', 'ClinicRefundsPaid', 'PlatformCommissionReceivable', 'PlatformCommissionRevenue', 'PlatformCollectedFunds', 'PlatformPayableToClinic', 'SettlementClearing')");
+
+                            t.HasCheckConstraint("ck_ledger_lines_amount_nonzero", "amount <> 0");
+
+                            t.HasCheckConstraint("ck_ledger_lines_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_ledger_lines_party", "party IN ('Clinic', 'Patient', 'Platform')");
+
+                            t.HasCheckConstraint("ck_ledger_lines_rule_snapshot", "commission_rule_id IS NOT NULL OR (rate_snapshot IS NULL AND basis_amount_snapshot IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<string>("CollectedBy")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("collected_by");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("direction");
+
+                    b.Property<string>("ExternalRef")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("external_ref");
+
+                    b.Property<DateTimeOffset?>("FailedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("failed_at");
+
+                    b.Property<Guid?>("FailedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("failed_by_user_id");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("method");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by_user_id");
+
+                    b.Property<Guid?>("RefundOfPaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("refund_of_payment_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_payments");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_payments_clinic_id_id");
+
+                    b.HasIndex("AppointmentId")
+                        .HasDatabaseName("ix_payments_appointment_id");
+
+                    b.HasIndex("FailedByUserId")
+                        .HasDatabaseName("ix_payments_failed_by_user_id");
+
+                    b.HasIndex("RecordedByUserId")
+                        .HasDatabaseName("ix_payments_recorded_by_user_id");
+
+                    b.HasIndex("RefundOfPaymentId")
+                        .HasDatabaseName("ix_payments_refund_of_payment_id");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_payments_clinic_id_appointment_id");
+
+                    b.HasIndex("ClinicId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payments_clinic_idempotency_key")
+                        .HasFilter("idempotency_key IS NOT NULL");
+
+                    b.HasIndex("ClinicId", "RefundOfPaymentId")
+                        .HasDatabaseName("ix_payments_clinic_id_refund_of_payment_id");
+
+                    b.HasIndex("ClinicId", "BranchId", "RecordedAt")
+                        .HasDatabaseName("ix_payments_clinic_id_branch_id_recorded_at");
+
+                    b.ToTable("payments", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_payments_amount_positive", "amount > 0");
+
+                            t.HasCheckConstraint("ck_payments_collected_by", "collected_by IN ('Clinic', 'Platform')");
+
+                            t.HasCheckConstraint("ck_payments_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_payments_direction", "direction IN ('In', 'Refund')");
+
+                            t.HasCheckConstraint("ck_payments_failed_fields", "(status = 'Failed') = (failed_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_payments_method", "method IN ('Cash', 'Card', 'Transfer')");
+
+                            t.HasCheckConstraint("ck_payments_refund_link", "(direction = 'Refund') = (refund_of_payment_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_payments_refund_recorded", "direction <> 'Refund' OR status = 'Recorded'");
+
+                            t.HasCheckConstraint("ck_payments_status", "status IN ('Recorded', 'Failed')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.PaymentAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
+
+                    b.Property<Guid?>("ServiceCompletionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_completion_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_payment_allocations");
+
+                    b.HasIndex("AppointmentId")
+                        .HasDatabaseName("ix_payment_allocations_appointment_id");
+
+                    b.HasIndex("PaymentId")
+                        .HasDatabaseName("ix_payment_allocations_payment_id");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_payment_allocations_clinic_id_appointment_id");
+
+                    b.HasIndex("ClinicId", "PaymentId")
+                        .HasDatabaseName("ix_payment_allocations_clinic_id_payment_id");
+
+                    b.HasIndex("ClinicId", "ServiceCompletionId")
+                        .HasDatabaseName("ix_payment_allocations_clinic_id_service_completion_id");
+
+                    b.ToTable("payment_allocations", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_payment_allocations_amount_positive", "amount > 0");
+
+                            t.HasCheckConstraint("ck_payment_allocations_currency", "currency IN ('UZS')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.ServiceCompletion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<decimal>("ChargedAmount")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("charged_amount");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid>("CompletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_by_user_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("doctor_id");
+
+                    b.Property<Guid?>("PatientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_user_id");
+
+                    b.Property<DateOnly>("PostingDateLocal")
+                        .HasColumnType("date")
+                        .HasColumnName("posting_date_local");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_completions");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_service_completions_clinic_id_id");
+
+                    b.HasIndex("AppointmentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_completions_appointment_id");
+
+                    b.HasIndex("CompletedByUserId")
+                        .HasDatabaseName("ix_service_completions_completed_by_user_id");
+
+                    b.HasIndex("PatientUserId")
+                        .HasDatabaseName("ix_service_completions_patient_user_id");
+
+                    b.HasIndex("BranchId", "PostingDateLocal")
+                        .HasDatabaseName("ix_service_completions_branch_id_posting_date_local");
+
+                    b.HasIndex("ClinicId", "AppointmentId")
+                        .HasDatabaseName("ix_service_completions_clinic_id_appointment_id");
+
+                    b.HasIndex("ClinicId", "BranchId")
+                        .HasDatabaseName("ix_service_completions_clinic_id_branch_id");
+
+                    b.HasIndex("ClinicId", "PatientUserId")
+                        .HasDatabaseName("ix_service_completions_clinic_id_patient_user_id");
+
+                    b.ToTable("service_completions", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_service_completions_charged_amount", "charged_amount >= 0");
+
+                            t.HasCheckConstraint("ck_service_completions_currency", "currency IN ('UZS')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.Settlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AmountDue")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("amount_due");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset?>("FinalizedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finalized_at");
+
+                    b.Property<Guid?>("FinalizedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("finalized_by_user_id");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<Guid?>("PaidRecordedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("paid_recorded_by_user_id");
+
+                    b.Property<string>("PaidReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("paid_reference");
+
+                    b.Property<string>("PaymentTerms")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("payment_terms");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date")
+                        .HasColumnName("period_start");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("void_reason");
+
+                    b.Property<DateTimeOffset?>("VoidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("voided_at");
+
+                    b.Property<Guid?>("VoidedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("voided_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_settlements");
+
+                    b.HasAlternateKey("ClinicId", "Id")
+                        .HasName("ak_settlements_clinic_id_id");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_settlements_created_by_user_id");
+
+                    b.HasIndex("ClinicId", "PeriodStart")
+                        .IsUnique()
+                        .HasDatabaseName("ux_settlements_clinic_period_active")
+                        .HasFilter("status <> 'Voided'");
+
+                    b.HasIndex("Status", "PeriodStart")
+                        .HasDatabaseName("ix_settlements_status_period_start");
+
+                    b.ToTable("settlements", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_settlements_currency", "currency IN ('UZS')");
+
+                            t.HasCheckConstraint("ck_settlements_finalized_fields", "status NOT IN ('Finalized', 'Paid') OR finalized_at IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_settlements_paid_fields", "(status = 'Paid') = (paid_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_settlements_period_month", "extract(day from period_start) = 1 AND period_end = (period_start + interval '1 month')::date");
+
+                            t.HasCheckConstraint("ck_settlements_status", "status IN ('Draft', 'Finalized', 'Paid', 'Voided')");
+
+                            t.HasCheckConstraint("ck_settlements_voided_fields", "(status = 'Voided') = (voided_at IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.SettlementItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 2)
+                        .HasColumnType("numeric(19,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clinic_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("LedgerLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_line_id");
+
+                    b.Property<Guid>("SettlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("settlement_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_settlement_items");
+
+                    b.HasIndex("LedgerLineId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_settlement_items_ledger_line_id");
+
+                    b.HasIndex("SettlementId")
+                        .HasDatabaseName("ix_settlement_items_settlement_id");
+
+                    b.HasIndex("ClinicId", "LedgerLineId")
+                        .HasDatabaseName("ix_settlement_items_clinic_id_ledger_line_id");
+
+                    b.HasIndex("ClinicId", "SettlementId")
+                        .HasDatabaseName("ix_settlement_items_clinic_id_settlement_id");
+
+                    b.ToTable("settlement_items", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_settlement_items_currency", "currency IN ('UZS')");
+                        });
+                });
+
             modelBuilder.Entity("OqTish.Domain.Identity.AuthIdentity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1975,6 +2833,249 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_idempotency_keys_users_user_id");
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Finance.CommissionRule", b =>
+                {
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_commission_rules_users_approved_by_user_id");
+
+                    b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_commission_rules_clinics_clinic_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("EndedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_commission_rules_users_ended_by_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.DailyFinancialSummary", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_daily_financial_summaries_branches_clinic_id_branch_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.JournalEntry", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_journal_entries_clinics_clinic_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_users_created_by_user_id");
+
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_appointments_clinic_id_appointment_id");
+
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_branches_clinic_id_branch_id");
+
+                    b.HasOne("OqTish.Domain.Finance.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "PaymentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_payments_clinic_id_payment_id");
+
+                    b.HasOne("OqTish.Domain.Finance.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "ReversesEntryId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_journal_entries_clinic_id_reverses_entry_id");
+
+                    b.HasOne("OqTish.Domain.Finance.ServiceCompletion", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "ServiceCompletionId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_service_completions_clinic_id_service_compl");
+
+                    b.HasOne("OqTish.Domain.Finance.Settlement", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "SettlementId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_journal_entries_settlements_clinic_id_settlement_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.LedgerLine", b =>
+                {
+                    b.HasOne("OqTish.Domain.Finance.CommissionRule", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "CommissionRuleId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ledger_lines_commission_rules_clinic_id_commission_rule_id");
+
+                    b.HasOne("OqTish.Domain.Finance.JournalEntry", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("ClinicId", "JournalEntryId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ledger_lines_journal_entries_clinic_id_journal_entry_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.Payment", b =>
+                {
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("FailedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_payments_users_failed_by_user_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_payments_users_recorded_by_user_id");
+
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_payments_appointments_clinic_id_appointment_id");
+
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_payments_branches_clinic_id_branch_id");
+
+                    b.HasOne("OqTish.Domain.Finance.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "RefundOfPaymentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_payments_payments_clinic_id_refund_of_payment_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.PaymentAllocation", b =>
+                {
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_payment_allocations_appointments_clinic_id_appointment_id");
+
+                    b.HasOne("OqTish.Domain.Finance.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "PaymentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_payment_allocations_payments_clinic_id_payment_id");
+
+                    b.HasOne("OqTish.Domain.Finance.ServiceCompletion", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "ServiceCompletionId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_payment_allocations_service_completions_clinic_id_service_c");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.ServiceCompletion", b =>
+                {
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_completions_users_completed_by_user_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("PatientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_service_completions_users_patient_user_id");
+
+                    b.HasOne("OqTish.Domain.Booking.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "AppointmentId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_completions_appointments_clinic_id_appointment_id");
+
+                    b.HasOne("OqTish.Domain.Tenancy.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "BranchId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_completions_branches_clinic_id_branch_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.Settlement", b =>
+                {
+                    b.HasOne("OqTish.Domain.Tenancy.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_settlements_clinics_clinic_id");
+
+                    b.HasOne("OqTish.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_settlements_users_created_by_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.SettlementItem", b =>
+                {
+                    b.HasOne("OqTish.Domain.Finance.LedgerLine", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "LedgerLineId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_settlement_items_ledger_lines_clinic_id_ledger_line_id");
+
+                    b.HasOne("OqTish.Domain.Finance.Settlement", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId", "SettlementId")
+                        .HasPrincipalKey("ClinicId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_settlement_items_settlements_clinic_id_settlement_id");
+                });
+
             modelBuilder.Entity("OqTish.Domain.Identity.AuthIdentity", b =>
                 {
                     b.HasOne("OqTish.Domain.Identity.User", null)
@@ -2307,6 +3408,11 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_clinics_users_created_by_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Finance.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }
