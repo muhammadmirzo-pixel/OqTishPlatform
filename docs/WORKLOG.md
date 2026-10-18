@@ -17,15 +17,19 @@ Resume automatically after any interruption without waiting for a new command.
 | FE | Complete frontend: patient site, clinic console, admin, Telegram Mini App (patient + staff), i18n uz/ru/en, nginx CSP for /tg; docs/FRONTEND.md | frontend agent | ✅ committed 6d9000d (79 tests; contract gaps listed in FRONTEND.md §9 for INT) |
 | BE1a | Common infra (Result/ProblemDetails, CSRF header, Money, tx runner, row locks, audit, outbox write side, idempotency), identity/auth (OTP, password+TOTP, sessions, phone link, Telegram initData/widget, telegram link tokens), SMS Fake + Eskiz, tenancy+staff schema, access service + permissions, seed mechanism; docs/SERVICES.md started | backend agent | ✅ committed f09c450 (166 tests) |
 | BE1b | Endpoints: clinics (register/profile), branches + hours, services + branch prices, staff + invitations (by phone) + `/me/invitations`, doctors + links + working hours, public catalogue (search/facets/clinic detail without availability), admin clinics/users verification + suspension, audit endpoints, **production bootstrap CLI `create-platform-admin`**, seed contributors (demo clinics/branches/services/doctors/staff) | backend agent | ✅ committed 6855dff (194 tests) |
-| BE2 | Booking: time blocks + exclusion constraint, availability, create Pending (provisional hold, idempotency, limits), confirm/reject/cancel/reschedule/complete/no-show, walk-in, time off, calendar, expiry sweeper (Worker), patient endpoints, reviews + abuse reports, concurrency tests B1–B18 | backend agent | 🔄 running |
-| BE3 | Finance: completions, payments/fail/refund, allocations, double-entry ledger (append-only, idempotent), commission rules + snapshots, settlements, daily/monthly reports, reconciliation job, tests F1–F15, L1–L3 | backend agent (worktree) | ⏳ parallel with BE4 |
+| BE2 | Booking: time blocks + exclusion constraint, availability, create Pending (provisional hold, idempotency, limits), confirm/reject/cancel/reschedule/complete/no-show, walk-in, time off, calendar, expiry sweeper (Worker), patient endpoints, reviews + abuse reports, concurrency tests B1–B18 | backend agent | ✅ committed 22cd1d3 (lead run 299/300 — 1 failure to investigate in TEST stage; FE needs i18n for `schedule.link_in_use`) |
+| BE3 | Finance: completions, payments/fail/refund, allocations, double-entry ledger (append-only, idempotent), commission rules + snapshots, settlements, daily/monthly reports, reconciliation job, tests F1–F15, L1–L3 | backend agent | 🔄 running (build-only rule) |
 | BE4 | Notifications: outbox dispatcher (retries/backoff/idempotent), Telegram client (Fake + real HTTP), bot polling/webhook, `/start <token>` linking, Mini App button, message templates uz/ru/en (no PII rules), SMS fallback, reminders 24h/2h, retention job, admin notification endpoints, tests N1–N5 | backend agent | ⏳ parallel with BE3 |
+| FE-INT-2 | Reconcile web/ with booking, finance, notifications/Telegram shapes (after BE3/BE4) | frontend agent | ⏳ |
+| TEST | **Run all test suites once** (dotnet test + web tests), investigate/fix every failure (incl. the BE2 one) | lead + agents | ⏳ after all coding |
 | INT | Merge, regenerate migrations if needed, full build/tests, FE↔API contract reconciliation, docker images, compose up (bundled + host DB modes), end-to-end smoke | lead (+ agent) | ⏳ |
 | REV | Independent reviews: A security/tenant isolation, B concurrency, C finance, D release/QA (read-only) | 4 review agents | ⏳ |
 | FIX | Fix all confirmed findings, re-run everything | agents + lead | ⏳ |
 | DOC | **All documentation in Uzbek (Latin) as far as possible** (owner request 2026-10-18): translate existing English docs; identifiers/commands/code stay English. Final docs: DEPLOYMENT.md, SERVICES.md complete, API.md synced, TESTING.md, Uzbek local-testing guide (docs/ISHGA_TUSHIRISH.md + full test scenarios), final report | lead | ⏳ |
 
 ## Constraints that must survive interruptions
+
+- **Owner rule (2026-10-18 evening): do NOT run test suites after each stage. Agents compile only (`dotnet build`, `npm run typecheck`/`build`) and write tests without executing them. All tests run once in the TEST stage, after all coding is done.** Keep the machine light: one .NET agent at a time.
 
 - Machine RAM is tight (~1 GB free). Run at most two agents at once (one .NET + one frontend), and use
   `MSBUILDDISABLENODEREUSE=1`.
@@ -61,3 +65,4 @@ Resume automatically after any interruption without waiting for a new command.
 - 2026-10-18 ~13:20: FE-INT-1 agent launched in parallel (reconcile web/ with implemented BE1a/BE1b shapes; web/ + docs/FRONTEND.md only).
 - 2026-10-18 ~13:45: FE-INT-1 finished (93/93 verified), committed 4259eab. Remaining FE contract gaps: FRONTEND.md §9.2 (booking/finance/telegram shapes → reconcile after BE2–BE4).
 - 2026-10-18 ~14:30: session limit hit during BE2 (implementation + tests done, docs pending). 17:34: limit reset, BE2 resumed.
+- 2026-10-18 ~18:20: owner resumed work: docs in Uzbek; tests only at the very end; wants a full local-run guide. BE2 committed 22cd1d3. Next: BE3 (finance), then BE4 (notifications/Telegram), sequentially.
