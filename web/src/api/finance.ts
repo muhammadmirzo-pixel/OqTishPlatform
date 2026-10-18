@@ -21,7 +21,7 @@ export function financeApi(c: ApiClient) {
     recordPayment: (clinicId: string, appointmentId: string, body: RecordPaymentBody, idempotencyKey: string) =>
       c.send<PaymentDto>('POST', `${base(clinicId)}/appointments/${seg(appointmentId)}/payments`, body, { idempotencyKey }),
     failPayment: (clinicId: string, paymentId: string, reason: string) =>
-      c.send<void>('POST', `${base(clinicId)}/payments/${seg(paymentId)}/fail`, { reason }),
+      c.send<PaymentDto>('POST', `${base(clinicId)}/payments/${seg(paymentId)}/fail`, { reason }),
     refund: (clinicId: string, paymentId: string, body: RefundBody, idempotencyKey: string) =>
       c.send<PaymentDto>('POST', `${base(clinicId)}/payments/${seg(paymentId)}/refund`, body, { idempotencyKey }),
     daily: (clinicId: string, params: { branchId?: string; from: string; to: string }) =>

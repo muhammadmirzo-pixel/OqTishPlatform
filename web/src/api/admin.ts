@@ -54,14 +54,14 @@ export function adminApi(c: ApiClient) {
     createCommissionRule: (clinicId: string, body: CommissionRuleBody) =>
       c.send<CommissionRuleDto>('POST', `/admin/clinics/${seg(clinicId)}/commission-rules`, body),
     endCommissionRule: (clinicId: string, ruleId: string, effectiveTo: string) =>
-      c.send<void>('POST', `/admin/clinics/${seg(clinicId)}/commission-rules/${seg(ruleId)}/end`, { effectiveTo }),
+      c.send<CommissionRuleDto>('POST', `/admin/clinics/${seg(clinicId)}/commission-rules/${seg(ruleId)}/end`, { effectiveTo }),
 
     settlements: (params: { clinicId?: string; status?: SettlementStatus }) => c.get<SettlementDto[]>(`/admin/settlements${query(params)}`),
     createSettlement: (body: { clinicId: string; year: number; month: number }) => c.send<SettlementDto>('POST', '/admin/settlements', body),
-    finalizeSettlement: (id: string) => c.send<void>('POST', `/admin/settlements/${seg(id)}/finalize`),
+    finalizeSettlement: (id: string) => c.send<SettlementDto>('POST', `/admin/settlements/${seg(id)}/finalize`),
     markSettlementPaid: (id: string, body: { paidAt: string; reference: string }) =>
-      c.send<void>('POST', `/admin/settlements/${seg(id)}/mark-paid`, body),
-    voidSettlement: (id: string, reason: string) => c.send<void>('POST', `/admin/settlements/${seg(id)}/void`, { reason }),
+      c.send<SettlementDto>('POST', `/admin/settlements/${seg(id)}/mark-paid`, body),
+    voidSettlement: (id: string, reason: string) => c.send<SettlementDto>('POST', `/admin/settlements/${seg(id)}/void`, { reason }),
 
     tenantAppointments: (clinicId: string, filters: ClinicAppointmentFilters, reason: string) =>
       c.get<Page<AppointmentDto>>(`/admin/clinics/${seg(clinicId)}/appointments${query(filters)}`, {

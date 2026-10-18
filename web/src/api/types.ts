@@ -1,8 +1,5 @@
-// Types mirroring the DTOs in docs/API.md. Shapes for auth/session (§1), the public catalogue (§2.1),
-// the clinic console setup screens (§4.1) and the admin dashboard/clinics/users/audit (§5.1) follow the
-// implemented backend. Shapes still marked "ASSUMED" (booking, finance, reviews, …) are used by
-// screens but not yet specified; they are listed in docs/FRONTEND.md ("Contract gaps"). The server
-// stays authoritative for every value.
+// Types mirroring the DTOs in docs/API.md; all shapes follow the implemented backend (BE1-BE4).
+// The server stays authoritative for every value.
 
 /** Money as the API sends it: decimal string + currency. Never parsed into floats. */
 export interface Money {
@@ -102,10 +99,10 @@ export interface TelegramConfig {
   botUsername: string | null
   miniAppUrl: string | null
   /**
-   * ASSUMED extension: the bot's numeric id (public; the part of the token before ":"). With it the
-   * website uses Telegram.Login.auth() and needs no eval; without it the widget's redirect mode is used.
+   * The bot's numeric id (public; the part of the token before ":"), null while Telegram is off. With it
+   * the website uses Telegram.Login.auth() (popup, no eval); without it the widget's redirect mode is used.
    */
-  botId?: number | null
+  botId: number | null
 }
 
 export interface TotpSetup {
@@ -163,12 +160,17 @@ export interface AppointmentDto {
   status: AppointmentStatus
   expiresAt: string | null
   quotedPrice: Money
+  priceKind: PriceKind
   chargedAmount: Money | null
   doctor: { id: string; name: string } | null
   contactName: string
   contactPhone: string
   source: 'Patient' | 'WalkIn'
   canCancel: boolean
+  /** The patient already left a review for this appointment. */
+  hasReview: boolean
+  /** Completed, own, inside the review window and not yet reviewed (server decides). */
+  canReview: boolean
   createdAt: string
   history?: AppointmentHistoryEntry[]
 }
@@ -447,7 +449,7 @@ export interface WorkingHoursEntry {
   end: string
 }
 
-/** ASSUMED: time-off item. */
+/** Doctor time off (API.md §4.2). */
 export interface TimeOffDto {
   id: string
   startsAt: string
@@ -465,10 +467,14 @@ export interface ClinicAppointmentFilters {
   pageSize?: number
 }
 
-/** ASSUMED: eligible doctor item. */
+/** GET …/eligible-doctors item (API.md §4.2). */
 export interface EligibleDoctor {
   id: string
   name: string
+  /** Has working hours covering the interval; false = staff overrides the schedule. */
+  withinWorkingHours: boolean
+  /** The doctor currently holds this (Pending) request. */
+  provisional: boolean
 }
 
 export interface WalkInBody {
@@ -480,7 +486,7 @@ export interface WalkInBody {
   contactPhone: string
 }
 
-/** ASSUMED: calendar day view. */
+/** Calendar block (API.md §4.2). `otherBranch` = busy at another branch (no details). */
 export interface CalendarBlock {
   kind: 'Appointment' | 'Hold' | 'TimeOff'
   startsAt: string
@@ -489,12 +495,23 @@ export interface CalendarBlock {
   status: AppointmentStatus | null
   serviceName: string | null
   contactName: string | null
+  otherBranch: boolean
+  /** Time-off id (for deletion). */
+  blockId: string | null
+}
+
+export interface CalendarDoctor {
+  id: string
+  name: string
+  workingHours: { start: string; end: string }[]
+  blocks: CalendarBlock[]
 }
 
 export interface CalendarDto {
   date: string
   timeZone: string
-  doctors: { id: string; name: string; blocks: CalendarBlock[] }[]
+  branchId: string
+  doctors: CalendarDoctor[]
 }
 
 // ---------------------------------------------------------------- finance
@@ -502,7 +519,7 @@ export interface CalendarDto {
 export type PaymentMethod = 'Cash' | 'Card' | 'Transfer'
 export const paymentMethods: readonly PaymentMethod[] = ['Cash', 'Card', 'Transfer']
 
-/** ASSUMED: payment list item. */
+/** Payment (API.md §4.3). */
 export interface PaymentDto {
   id: string
   appointmentId: string
@@ -510,12 +527,19 @@ export interface PaymentDto {
   direction: 'In' | 'Refund'
   method: PaymentMethod
   amount: Money
-  status: 'Recorded' | 'Failed' | 'Voided'
+  status: 'Recorded' | 'Failed'
   externalRef: string | null
   refundOfPaymentId: string | null
   recordedAt: string
   contactName: string | null
   serviceName: string | null
+  /** Sum of refunds of an incoming payment. */
+  refunded: Money
+  /** What can still be refunded. */
+  refundable: Money
+  reason: string | null
+  failureReason: string | null
+  failedAt: string | null
 }
 
 export interface Balance {
@@ -529,6 +553,8 @@ export interface RecordPaymentBody {
   amount: Money
   method: PaymentMethod
   externalRef?: string
+  /** 'Failed' records a declined attempt without ledger effect. */
+  status?: 'Failed'
 }
 
 export interface RefundBody {
@@ -536,7 +562,7 @@ export interface RefundBody {
   reason: string
 }
 
-/** ASSUMED: daily report row. */
+/** Daily report row (API.md §4.3). */
 export interface DailyReportRow {
   date: string
   branchId: string | null
@@ -545,25 +571,31 @@ export interface DailyReportRow {
   collected: Money
   refunded: Money
   commission: Money
+  /** Refunds of payments posted in an earlier month. */
+  priorPeriodRefunded: Money
 }
 
-/** ASSUMED: monthly report. */
+/** Monthly report (API.md §4.3). */
 export interface MonthlyReport {
   year: number
   month: number
+  branchId: string | null
   visits: number
   charged: Money
   collected: Money
   refunded: Money
   commission: Money
+  priorPeriodRefunded: Money
   reconciled: boolean
   commissionRuleConfigured: boolean
+  /** The month is locked by a Finalized/Paid settlement. */
+  locked: boolean
 }
 
 export type SettlementStatus = 'Draft' | 'Finalized' | 'Paid' | 'Voided'
 export const settlementStatuses: readonly SettlementStatus[] = ['Draft', 'Finalized', 'Paid', 'Voided']
 
-/** ASSUMED: settlement shape. */
+/** Settlement (API.md §4.3 / §5.4); `periodEnd` is exclusive. */
 export interface SettlementDto {
   id: string
   clinicId: string
@@ -577,6 +609,11 @@ export interface SettlementDto {
   paidAt: string | null
   paidReference: string | null
   voidReason: string | null
+  periodStart: string
+  periodEnd: string
+  itemCount: number
+  commissionRuleConfigured: boolean
+  paymentTerms: string | null
 }
 
 export type AuditActorKind = 'User' | 'System' | 'Anonymous'
@@ -632,29 +669,35 @@ export interface AdminUserDto {
 
 export type ReportStatus = 'Open' | 'Resolved'
 
-/** ASSUMED */
+/** Abuse report (API.md §5.3). */
 export interface AbuseReportDto {
   id: string
   targetType: 'Clinic' | 'Review'
   targetId: string
   targetLabel: string | null
+  clinicId: string
+  clinicName: string
   reason: string
   status: ReportStatus
   createdAt: string
   resolution: string | null
+  resolvedAt: string | null
 }
 
 export type ReviewModerationStatus = 'Pending' | 'Published' | 'Hidden'
 
-/** ASSUMED */
+/** Admin review row (API.md §5.3). */
 export interface AdminReviewDto {
   id: string
   clinicId: string
   clinicName: string
+  branchName: string
+  appointmentId: string
   rating: number
   text: string
   authorName: string
   status: ReviewModerationStatus
+  moderationReason: string | null
   createdAt: string
 }
 
@@ -663,16 +706,20 @@ export const commissionBases: readonly CommissionBasis[] = ['CollectedPayment', 
 /** Percentage bases carry `rate`; fixed-fee bases carry `fixedFee` (DECISIONS.md OD-F1). */
 export const rateBases: readonly CommissionBasis[] = ['CollectedPayment', 'CompletedService']
 
-/** ASSUMED: rate is a decimal fraction string ("0.1000" = 10 %), matching rate_snapshot. */
+/** Rate is a fraction string with 4 decimals ("0.0750" = 7.5 %). */
 export interface CommissionRuleDto {
   id: string
+  clinicId: string
   basis: CommissionBasis
   rate: string | null
   fixedFee: Money | null
   effectiveFrom: string
   effectiveTo: string | null
   contractReference: string
+  rounding: 'AwayFromZero'
+  approvedByUserId: string
   createdAt: string
+  endedAt: string | null
 }
 
 export interface CommissionRuleBody {
@@ -684,17 +731,22 @@ export interface CommissionRuleBody {
   contractReference: string
 }
 
-export type NotificationStatus = 'Pending' | 'Sent' | 'Failed'
-export const notificationStatuses: readonly NotificationStatus[] = ['Pending', 'Sent', 'Failed']
+export type NotificationStatus = 'Pending' | 'Processing' | 'Sent' | 'Failed' | 'Skipped' | 'Cancelled'
+export const notificationStatuses: readonly NotificationStatus[] = ['Pending', 'Processing', 'Sent', 'Failed', 'Skipped', 'Cancelled']
 
-/** ASSUMED */
+/** GET /admin/notifications item (API.md §5.5); never carries the message text. */
 export interface NotificationDto {
   id: string
   type: string
-  channel: string
+  audience: 'patient' | 'staff'
+  /** 'Telegram' | 'Sms' | 'Telegram,Sms' of the last attempt. */
+  channel: string | null
   status: NotificationStatus
   attempts: number
   createdAt: string
+  notBefore: string
   nextAttemptAt: string | null
+  sentAt: string | null
+  lastErrorCode: string | null
   lastError: string | null
 }

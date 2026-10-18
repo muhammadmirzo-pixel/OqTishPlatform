@@ -52,7 +52,7 @@ export function AdminAuditPage() {
   )
 }
 
-const tone: Record<NotificationStatus, string> = { Pending: 'warning', Sent: 'success', Failed: 'danger' }
+const tone: Record<NotificationStatus, string> = { Pending: 'warning', Processing: 'info', Sent: 'success', Failed: 'danger', Skipped: 'neutral', Cancelled: 'neutral' }
 
 export function NotificationsPage() {
   const { t, locale } = useI18n()
@@ -107,13 +107,17 @@ export function NotificationsPage() {
                         <td>{formatFullDateTime(n.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
                         <td>
                           <code>{n.type}</code>
-                          <div className="muted small">{n.channel}</div>
+                          <div className="muted small">{[t(`adm.audience.${n.audience}`), n.channel].filter(Boolean).join(' · ')}</div>
                         </td>
                         <td>
                           <Badge tone={tone[n.status]}>{t(`adm.outbox.${n.status}`)}</Badge>
                         </td>
                         <td>{n.attempts}</td>
-                        <td className="small">{n.lastError ?? '—'}</td>
+                        <td className="small">
+                          {n.lastErrorCode ? <code>{n.lastErrorCode}</code> : '—'}
+                          {n.lastError && <div className="muted">{n.lastError}</div>}
+                          {n.sentAt && <div className="muted">{t('adm.sentAt')}: {formatFullDateTime(n.sentAt, DEFAULT_TIME_ZONE, locale)}</div>}
+                        </td>
                         <td>
                           {n.status === 'Failed' && (
                             <button

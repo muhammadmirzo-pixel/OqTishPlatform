@@ -13,7 +13,7 @@ export function durationMinutes(a: Pick<AppointmentDto, 'startsAt' | 'endsAt'>):
 }
 
 export const rejectReasons = ['NoDoctorAvailable', 'TimeUnavailable', 'ServiceUnavailable', 'PatientUnreachable', 'Other'] as const
-export const cancelReasons = ['DoctorUnavailable', 'PatientRequest', 'ClinicEmergency', 'Other'] as const
+export const cancelReasons = ['DoctorUnavailable', 'ClinicClosed', 'PatientRequest', 'ClinicEmergency', 'Other'] as const
 type Reason = (typeof rejectReasons)[number] | (typeof cancelReasons)[number]
 const knownReasons: readonly string[] = [...rejectReasons, ...cancelReasons]
 

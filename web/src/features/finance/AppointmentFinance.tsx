@@ -18,14 +18,12 @@ export function AppointmentFinance({ appointment }: { appointment: AppointmentDt
   const api = useApi()
   const { clinicId, can } = useClinic()
   const balance = useQuery(`balance:${appointment.id}`, () => api.finance.balance(clinicId, appointment.id))
-  // The list endpoint has no documented appointment filter; the extra parameter is sent and the
-  // result is filtered client-side as well, so this stays correct either way.
   const payments = useQuery(`payments-of:${appointment.id}`, () => api.finance.payments(clinicId, { appointmentId: appointment.id, branchId: appointment.branchId, pageSize: 100 }))
   const reload = () => {
     balance.reload()
     payments.reload()
   }
-  const own = payments.data?.items.filter((p) => p.appointmentId === appointment.id) ?? []
+  const own = payments.data?.items ?? []
 
   return (
     <section className="card stack" aria-labelledby="finance-title">

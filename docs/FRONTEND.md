@@ -251,31 +251,49 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
   `schedule.doctor_user_invalid`, `schedule.doctor_user_taken`, `admin.invalid_status_transition`,
   `admin.cannot_suspend_self`) uz/ru/en da lokalizatsiya qilindi.
 
-### 9.2 Ochiq
+### 9.2 Hal qilingan (BE2/BE3/BE4, 2026-10-18)
 
-1. Javob shakli hali yozilmagan, UI taxmin qilgan (`api/types.ts`, ASSUMED): time-off,
-   eligible-doctors (`{id,name}[]`), calendar, payments, daily (massiv) va monthly (`reconciled`,
-   `commissionRuleConfigured`) hisobotlar, settlements, admin reports, reviews, commission rules,
-   notifications; ommaviy `…/reviews` va `…/availability` (BE2).
-2. Bitta qabul to'lovlarini olish usuli yo'q: UI `GET …/payments` ga `appointmentId` qo'shib yuboradi
-   va natijani mijozda ham filtrlaydi. Taklif: `appointmentId` filtrini kontraktga qo'shish.
-3. `from`/`to` semantikasi (instant yoki sana, inclusive/exclusive) aniqlanmagan — F4 ga qarang.
-4. `reasonCode` qiymatlari ro'yxati yo'q — F5 ga qarang.
-5. Komissiya `rate` formati va sanalar turi aniqlanmagan — F7.
-6. `GET /telegram/config` da `botId` yo'q: eval'siz popup kirish uchun kerak; hozircha redirect rejimi. **BE4: `botId` qo'shildi** (API.md §6.1).
-7. `Me.totpSetupRequired` umumiy: platforma huquqlari aynan TOTP kutayotganini bilish uchun alohida
+- **R10.** Taxminiy (ASSUMED) shakllar yakuniylashtirildi va `api/types.ts` dan belgilar olib tashlandi:
+  time-off, eligible-doctors (`withinWorkingHours`, `provisional`), calendar (`branchId`, `workingHours`,
+  `otherBranch`, `blockId`), `AppointmentDto` (`priceKind`, `hasReview`, `canReview`), payments
+  (`refunded`, `refundable`, `reason`, `failureReason`, `failedAt`; status faqat `Recorded|Failed`),
+  daily (`priorPeriodRefunded`), monthly (`branchId`, `priorPeriodRefunded`, `locked`), settlements
+  (`periodStart/End`, `itemCount`, `commissionRuleConfigured`, `paymentTerms`), admin reviews/reports,
+  komissiya qoidalari (`rate` — 4 xonali kasr satri, `endedAt` va h.k.), admin notifications
+  (`audience`, `notBefore`, `sentAt`, `lastErrorCode`; holatlar Pending/Processing/Sent/Failed/Skipped/Cancelled),
+  `TelegramConfig.botId`.
+- **R11.** So'rovlar: to'lov va qaytarishda `Idempotency-Key` majburiy (allaqachon yuborilardi);
+  `GET …/payments?appointmentId` serverda filtrlanadi (mijoz filtri olib tashlandi); `fail`, `finalize`,
+  `mark-paid`, `void`, `commission-rules/{id}/end` endi 200 + DTO qaytaradi (API turlari yangilandi);
+  `RecordPaymentBody.status?: 'Failed'` qo'shildi.
+- **R12.** `reasonCode`: rad etish — `NoDoctorAvailable|TimeUnavailable|ServiceUnavailable|PatientUnreachable|Other`,
+  klinika bekor qilishi — `DoctorUnavailable|ClinicClosed|PatientRequest|ClinicEmergency|Other` (UI ro'yxati
+  `ClinicClosed` bilan to'ldirildi, uz/ru/en). `from`/`to` — UTC instant, `[from, to)` (F4); komissiya `rate` — kasr satri (F7).
+- **R13.** UI: sharh formasi `canReview` bo'yicha; tasdiqlash tanlagichida `withinWorkingHours=false` va
+  `provisional` belgilanadi, ish vaqtidan tashqari tanlovda ogohlantirish (tasdiqlash baribir mumkin);
+  qaytarish dialogi `refundable` bo'yicha cheklanadi (qolmasa tugma yashirin; qaytarishi bor to'lovni
+  "muvaffaqiyatsiz" qilib bo'lmaydi); bildirishnomalar jadvalida auditoriya, `lastErrorCode`, `sentAt`.
+  Telegram Login Widget `botId` bilan popup rejimida (CSP: `telegram.org` skripti, `oauth.telegram.org` frame
+  — ruxsat etilgan), `botId` yo'q bo'lsa redirect rejimi.
+- **R14.** Yangi xato kodlari lokalizatsiya qilindi: `schedule.link_in_use`, `finance.appointment_not_payable`,
+  `finance.invalid_payment_state`, `finance.invalid_settlement_state`, `telegram.webhook_unauthorized`
+  (`errors.test.ts` API.md §9 bilan solishtiradi).
+
+### 9.3 Ochiq
+
+1. Walk-in shifokor tanlagichi `withinWorkingHours` ni ko'rsata olmaydi: bu maydon faqat
+   `…/appointments/{id}/eligible-doctors` da bor, walk-in uchun "bo'sh shifokorlar" endpoint'i yo'q
+   (UI shifokorlar ro'yxatidan foydalanadi, band bo'lsa server 409 qaytaradi).
+2. `Me.totpSetupRequired` umumiy: platforma huquqlari aynan TOTP kutayotganini bilish uchun alohida
    belgi (masalan `platformTotpSetupRequired`) yo'q.
-8. `/admin/settlements` va `/clinics/{id}/settlements` sahifalanmagan massiv deb taxmin qilindi.
-9. Sharh qoldirilgan-qoldirilmaganini bildiruvchi maydon yo'q — UI formani ko'rsatadi va
-   `review.already_exists` ni qayta ishlaydi.
-10. Walk-in uchun "shu vaqtda bo'sh shifokorlar" endpoint'i yo'q: UI ommaviy availability
-    (faqat tasdiqlangan klinikalar uchun ishlaydi) va shifokorlar ro'yxatidan foydalanadi; band
-    bo'lsa server 409 qaytaradi.
-11. `availableWithinDays` filtri va `nextFreeSlot` BE2 gacha ishlamaydi (server qabul qiladi, lekin
-    qo'llamaydi / `null`); `rating`/`reviewCount` — `null`/`0`. UI o'zgartirilmadi.
-12. Admin audit `clinicId` ustunida faqat id bor (klinika nomi DTO'da yo'q).
-13. Xodim o'z a'zoligidan chiqishi mumkin (`DELETE …/staff/{own}`), lekin UI'da "Klinikadan chiqish"
-    tugmasi hali yo'q.
+3. `/admin/settlements` va `/clinics/{id}/settlements` sahifalanmagan massiv (≤ 500) — UI shunday ishlaydi.
+4. `hasReview=true` bo'lganda UI formani yashiradi, lekin "sharh qoldirilgan" yozuvini ko'rsatmaydi.
+5. `availableWithinDays` filtri va `nextFreeSlot` — server holatiga qarab tekshirilmagan (BE2 dan keyin qayta ko'rish kerak).
+6. Admin audit `clinicId` ustunida faqat id bor (klinika nomi DTO'da yo'q).
+7. Xodim o'z a'zoligidan chiqishi mumkin (`DELETE …/staff/{own}`), lekin UI'da "Klinikadan chiqish"
+   tugmasi hali yo'q.
+8. Kalendarda `workingHours` / `otherBranch` DTO'da bor, ammo ustun bo'yicha ish vaqti fonini chizish va
+   `blockId` orqali time-off o'chirish tugmasi kalendarda hali yo'q (doktor sahifasidan bajariladi).
 
 ## 10. Testlar
 

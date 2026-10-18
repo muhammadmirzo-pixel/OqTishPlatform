@@ -22,12 +22,12 @@ export function PaymentActions({ payment, onChanged }: { payment: PaymentDto; on
 
   return (
     <div className="row">
-      {can(Perm.paymentRefund) && (
+      {can(Perm.paymentRefund) && isPositive(payment.refundable.amount) && (
         <button type="button" className="btn btn--ghost btn--small" onClick={() => setDialog('refund')}>
           {t('pay.refund')}
         </button>
       )}
-      {can(Perm.paymentRecord) && payment.method === 'Card' && (
+      {can(Perm.paymentRecord) && payment.method === 'Card' && !isPositive(payment.refunded.amount) && (
         <button type="button" className="btn btn--ghost btn--small" onClick={() => setDialog('fail')}>
           {t('pay.markFailed')}
         </button>
@@ -66,12 +66,12 @@ function RefundDialog({ payment, onDone, onClose }: { payment: PaymentDto; onDon
   const api = useApi()
   const { clinicId } = useClinic()
   const keeper = useIdempotencyKeeper()
-  const [amount, setAmount] = useState(amountForInput(payment.amount.amount))
+  const [amount, setAmount] = useState(amountForInput(payment.refundable.amount))
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
   const refund = useAction((body: RefundBody) => api.finance.refund(clinicId, payment.id, body, keeper.keyFor(body)))
   const parsed = parseAmount(amount)
-  const amountError = parsed === null ? t('valid.amount') : !isPositive(parsed) ? t('valid.amountPositive') : compareAmounts(parsed, payment.amount.amount) > 0 ? t('err.finance.refund_exceeds_paid') : null
+  const amountError = parsed === null ? t('valid.amount') : !isPositive(parsed) ? t('valid.amountPositive') : compareAmounts(parsed, payment.refundable.amount) > 0 ? t('err.finance.refund_exceeds_paid') : null
   const reasonError = reason.trim().length < 3 ? t('valid.minLength', { min: 3 }) : null
 
   async function submit(e: FormEvent) {

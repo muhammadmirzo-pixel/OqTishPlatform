@@ -23,7 +23,7 @@ describe('clinic requests', () => {
       meHandler(staffMe(receptionist)),
       ['GET', '/clinics/c1/branches', { body: [branch] }],
       ['GET', '/clinics/c1/appointments', () => page(confirmed ? [] : [appointment()])],
-      ['GET', '/clinics/c1/appointments/a1/eligible-doctors', { body: [{ id: 'd1', name: 'Dr Alfa' }, { id: 'd2', name: 'Dr Beta' }] }],
+      ['GET', '/clinics/c1/appointments/a1/eligible-doctors', { body: [{ id: 'd1', name: 'Dr Alfa', withinWorkingHours: true, provisional: false }, { id: 'd2', name: 'Dr Beta', withinWorkingHours: true, provisional: false }] }],
       [
         'POST',
         '/clinics/c1/appointments/a1/confirm',
@@ -57,7 +57,7 @@ describe('clinic requests', () => {
       meHandler(staffMe(receptionist)),
       ['GET', '/clinics/c1/branches', { body: [branch] }],
       ['GET', '/clinics/c1/appointments', page([appointment()])],
-      ['GET', '/clinics/c1/appointments/a1/eligible-doctors', { body: [{ id: 'd1', name: 'Dr Alfa' }] }],
+      ['GET', '/clinics/c1/appointments/a1/eligible-doctors', { body: [{ id: 'd1', name: 'Dr Alfa', withinWorkingHours: true, provisional: false }] }],
       ['POST', '/clinics/c1/appointments/a1/confirm', () => problem(409, 'booking.expired')],
     ])
     renderApp('/clinic/c1/requests', fetchMock)

@@ -69,9 +69,12 @@ export function PendingActions({ clinicId, appointment, onOutcome }: { clinicId:
           {doctors.data?.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
+              {d.provisional ? ` · ${t('req.provisionalMark')}` : ''}
+              {d.withinWorkingHours ? '' : ` · ${t('req.outsideHoursMark')}`}
             </option>
           ))}
         </select>
+        {doctors.data?.find((d) => d.id === doctorId)?.withinWorkingHours === false && <p className="field__hint">{t('req.outsideHours')}</p>}
         {noDoctors && <p className="field__hint">{t('req.noEligible')}</p>}
         {touched && !doctorId && !noDoctors && <p className="field__error">{t('req.chooseDoctor')}</p>}
         {doctors.error !== undefined && <FormError error={doctors.error} />}

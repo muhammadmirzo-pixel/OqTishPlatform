@@ -16,9 +16,7 @@ import { Details, StatusBadge } from '../../ui/widgets'
 import { ReportButton } from '../public/ReportButton'
 import { PendingCountdown, StatusHistory } from '../appointments/shared'
 import { appointmentWhen, durationMinutes } from '../appointments/format'
-import { useNow } from '../../hooks/useNow'
 
-const REVIEW_WINDOW_DAYS = 30
 
 export function AppointmentDetailPage({ basePath = '/me/appointments' }: { basePath?: string }) {
   const { id = '' } = useParams()
@@ -42,11 +40,10 @@ export function AppointmentDetailPage({ basePath = '/me/appointments' }: { baseP
 }
 
 export function PatientAppointment({ appointment: a, justBooked, onChanged, compact }: { appointment: AppointmentDto; justBooked?: boolean; onChanged: (next?: AppointmentDto) => void; compact?: boolean }) {
-  const now = useNow(60_000)
   const { t, locale } = useI18n()
   const api = useApi()
   const [cancelling, setCancelling] = useState(false)
-  const reviewable = a.status === 'Completed' && now - new Date(a.endsAt).getTime() < REVIEW_WINDOW_DAYS * 86400000
+  const reviewable = a.canReview
 
   return (
     <article className="stack">
