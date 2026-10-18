@@ -138,9 +138,9 @@ All ids `uuid` (v7, app-generated), enums stored as `text` with a `CHECK (col IN
 | `staff.branch_access` | PK(membership_id, branch_id); (clinic_id, membership_id) → memberships and (clinic_id, branch_id) → branches, both composite + cascade (cross-clinic grants are impossible, tested) |
 | `staff.staff_invitations` | clinic_id → clinics (cascade), phone_hash (HMAC of E.164), phone_masked, role, scope, branch_ids uuid[] (non-empty when scope = Branches), invited_by_user_id, expires_at > created_at, accepted_at, accepted_by_user_id, revoked_at. Partial ix(phone_hash) WHERE open |
 | `staff.platform_admin_grants` | user_id, permission, granted_by/revoked_by user ids, granted_at, revoked_at. UNIQUE(user_id, permission) WHERE revoked_at IS NULL |
-| `notify.outbox_messages` | type, **dedup_key UNIQUE**, payload jsonb, created_at, not_before, status (Pending/Processing/Sent/Failed/Cancelled), attempts ≥ 0, next_attempt_at, last_error(500), sent_at. Partial ix(next_attempt_at) WHERE status = 'Pending' |
+| `notify.outbox_messages` | type, **dedup_key UNIQUE**, payload jsonb, created_at, not_before, status (Pending/Processing/Sent/Failed/Cancelled; BE4 adds Skipped), attempts ≥ 0, next_attempt_at, last_error(500), sent_at. Partial ix(next_attempt_at) WHERE status = 'Pending'. BE4 columns: §2.5 |
 | `notify.telegram_link_tokens` | user_id → users, token_hash UNIQUE (SHA-256), expires_at, used_at |
-| `notify.telegram_links` | user_id PK → users, telegram_user_id UNIQUE, chat_id, linked_at |
+| `notify.telegram_links` | user_id PK → users, telegram_user_id UNIQUE, chat_id, linked_at (BE4: is_active, language_code … §2.5) |
 | `audit.audit_log` | occurred_at (default now()), actor_kind (User/System/Anonymous), actor_user_id, action, clinic_id, branch_id, target_type, target_id, correlation_id, ip_hash, details jsonb. No FKs. **Append-only:** trigger `trg_audit_log_append_only` (UPDATE/DELETE) and `trg_audit_log_no_truncate` raise 42501 for every role; `REVOKE UPDATE, DELETE, TRUNCATE … FROM oqtish_app` when that role exists |
 | `common.idempotency_keys` | PK(user_id, key ≤ 64), request_hash (SHA-256 of the request JSON), status (InProgress/Completed), response_json jsonb, created_at, completed_at |
 
@@ -208,6 +208,25 @@ Notes:
 - `Down` drops the triggers, the three functions and the exclusion constraint before the tables; the latest-migration
   Down → Up test covers it. The `finance` schema itself stays (EnsureSchema is idempotent).
 - The app role keeps INSERT/SELECT on the ledger (postings) and UPDATE on payments/settlements/summaries/rules (end only).
+
+## 2.5 Implemented — migration `Notifications` (BE4, 2026-10-18)
+
+Schema `notify`. No tenant data beyond ids; no message text except in the Development-only capture table.
+
+| Table / change | Key columns / constraints |
+|---|---|
+| `outbox_messages` (changed) | status CHECK now `Pending/Processing/Sent/Failed/Cancelled/**Skipped**`; new columns **claim_token** uuid (the dispatcher run holding the row), **locked_until** timestamptz (lease; an expired lease makes a Processing row claimable again), **last_error_code**(64) (`telegram.http_500`, `notify.no_channel`, `reminder.stale` …), **channel**(32) (`Telegram`, `Sms`, `Telegram,Sms`). `attempts` = claim count (incremented when claimed). New indexes: `ix_outbox_messages_lease` (locked_until) WHERE status = 'Processing', `ix_outbox_messages_status_created` (status, created_at) for the admin list, `ix_outbox_messages_created` for retention |
+| `delivery_attempts` (new) | id, **outbox_message_id → outbox_messages ON DELETE CASCADE**, attempt_number ≥ 0, recipient_key(64) (`user:{id}` or `contact` — never a phone or chat id), channel (None/Telegram/Sms), outcome (Sent/Retry/Rejected/Skipped), provider_status(32) (HTTP status, `timeout`, `network`, `ok`, `error`), error_code(64), error(300, scrubbed), created_at. ix(outbox_message_id, recipient_key). A recipient with a non-Retry row is never sent again for that message (per-recipient idempotency) |
+| `telegram_links` (changed) | + **is_active** bool (existing rows `true`), **language_code**(8) CHECK IN ('uz','ru','en') (existing rows `uz`), deactivated_at, deactivation_reason(32) (`blocked` = Bot API 403/chat not found, `stopped` = /stop). + ix(chat_id) |
+| `telegram_bot_state` (new) | **bot_id bigint PK** (numeric part of the token), update_offset bigint (next getUpdates offset), updated_at |
+| `dev_messages` (new) | id, channel(16) (`Telegram`/`Sms`), recipient(64) (chat id / phone), text(4096), buttons jsonb, origin(100) (process name), created_at. ix(channel, created_at). **Written only in Development** by the Fake Telegram client / Fake SMS sender (both refused in Production), so `/api/dev/telegram` can show what the Worker sent. Retention deletes rows after 7 days |
+
+Notes:
+- The migration's `AddColumn` defaults were edited (`is_active` → true, `language_code` → 'uz') so existing links keep
+  working; the EF model has no default (no sentinel problem).
+- `Down` turns `Skipped` rows into `Cancelled` before restoring the old status CHECK.
+- Retention (nightly) deletes from `identity.otp_challenges`, `identity.sessions`, `notify.outbox_messages` (+ attempts by
+  cascade), `notify.telegram_link_tokens`, `notify.dev_messages` only — never audit or ledger tables (docs/SERVICES.md §5.7).
 
 ## 3. Database roles — implemented in `deploy/postgres/init/01-create-roles.sh`
 

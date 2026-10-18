@@ -21,7 +21,8 @@ public enum BookingEvent
 /// <summary>
 /// Writes the notification intents of a booking change into the outbox, in the caller's transaction
 /// (docs/SERVICES.md "Bildirishnoma kontrakti"). Reminders are enqueued on confirm/reschedule and
-/// cancelled (status Cancelled) whenever the appointment leaves Confirmed or moves.
+/// cancelled (status Cancelled) whenever the appointment leaves Confirmed or moves. Walk-ins (no patient account)
+/// get only the SMS fallback types (BE4: cancelled by clinic, rescheduled).
 /// </summary>
 public sealed class BookingNotifier(IOqTishDb db, IOutbox outbox)
 {
@@ -58,7 +59,8 @@ public sealed class BookingNotifier(IOqTishDb db, IOutbox outbox)
 
             async Task PatientAsync(string type, string? dedupSuffix = null)
             {
-                if (r.PatientUserId is not null)
+                // Walk-ins (no account) only get the OD-11 SMS types; the dispatcher reads the contact phone at send time.
+                if (r.PatientUserId is not null || BookingNotificationTypes.SmsFallback.Contains(type))
                 {
                     await outbox.EnqueueAsync(type, BookingNotificationTypes.DedupKey(r.Id, dedupSuffix ?? name, "patient"), notice, null, ct);
                 }

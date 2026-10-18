@@ -137,7 +137,7 @@ BE1a faqat sxema, entity va EF konfiguratsiyalarini yaratdi (endpointlar — BE1
 | `Security:RequireTotpForPrivilegedRoles` | `true` | Development'da `false` |
 | `Auth:Otp:*`, `Auth:Session:*`, `Auth:Password:*` (`MinLength` 10, `MaxLength` 128, `MaxFailedAttempts` 10, `LockoutMinutes` 15), `Auth:TelegramLinkTokenMinutes` (10) | appsettings.json | |
 | `Sms:Provider`, `Sms:Eskiz:*` | Development: `Fake` | Production'da `Fake` taqiqlangan |
-| `Telegram:Enabled`, `BotToken` (sir), `BotUsername`, `MiniAppUrl`, `AuthMaxAgeSeconds` | `false` | |
+| `Telegram:Enabled`, `BotToken` (sir), `BotUsername`, `MiniAppUrl`, `AuthMaxAgeSeconds` | `false` | BE4 kalitlari: §5.8 |
 | `Seed:AdminEmail`, `Seed:AdminPassword`, `Seed:DemoPatientPhone` | dev parol faqat appsettings.Development.json'da | |
 | `RateLimiting:*` | 300 / 10 / 20 per minute | |
 
@@ -448,7 +448,9 @@ doctorId, doctorName, expiresAt, previousStartsAt`. `AppointmentReminder`: `appo
 `starts_at` payload'dagi `startsAt` dan farq qilsa — xabarni `Cancelled` qilib yubormaslik (Booking ham o'zi
 qabul Confirmed'dan chiqqanda yoki ko'chirilganda kutilayotgan eslatmalarni `Cancelled` qiladi, lekin dispatcher
 tekshiruvi kafolat). (2) Faqat vaqti kelgan (`not_before`) xabarlar. (3) Walk-in (bemor akkauntisiz) uchun
-bemor xabarlari yozilmaydi. (4) Xodim xabarlarida qabulning `requestNumber`i ko'rsatiladi, bemor ma'lumoti emas.
+bemor xabarlari yozilmaydi — **BE4 o'zgartirdi:** walk-in uchun faqat `cancelled_by_clinic.patient` va
+`rescheduled.patient` yoziladi (SMS kontakt telefoniga, §5.3). (4) Xodim xabarlarida qabulning `requestNumber`i
+ko'rsatiladi, bemor ma'lumoti emas. Amalga oshirilishi — §5.
 
 ### 3.9 Yakunlash hook kontrakti (BE3 uchun)
 
@@ -624,3 +626,183 @@ Oldindan to'lov: Confirmed qabulga 200 000 to'lansa, Receivable −200 000 (bemo
 | `Finance:SummaryWindowDays` | 35 | qayta hisoblanadigan oyna (kun) |
 | `Finance:DailyReportMaxDays` | 92 | kunlik hisobotning eng uzun oralig'i |
 | `Seed:DemoFinance` | false (Development'da true) | demo komissiya qoidasi va demo to'lovlar |
+
+## 5. Bildirishnomalar va Telegram bot (BE4, 2026-10-18)
+
+Bu bo'lim outbox xabarlarini yetkazishni (dispatcher), kanallarni, shablonlarni, bot buyruqlarini, ishlash
+rejimlarini, saqlash muddatini (retention) va Telegram botni ulash bo'yicha qo'llanmani tavsiflaydi. Qarorlar:
+`docs/DECISIONS.md` §5.4 (BE4-1 … BE4-14). API: `docs/API.md` §5.5, §6.1, §7. Jadval: `docs/DATABASE.md` §2.5.
+
+### 5.1 Outbox dispatcher (`OutboxDispatcher`, Worker `OutboxDispatcherService`)
+
+| Bosqich | Nima qiladi |
+|---|---|
+| Ishga tushish | Har `Notifications:DispatchIntervalSeconds` (2 s) da; to'liq batch bo'lsa darhol keyingisi. Har batch — alohida DI scope |
+| Claim (`IOutboxClaimer` → `OutboxClaimer`) | Bitta SQL: vaqti kelgan qatorlar (`Pending` va `next_attempt_at ≤ now()`, yoki lease muddati o'tgan `Processing`) `FOR UPDATE SKIP LOCKED` bilan olinadi → `Processing`, yangi `claim_token`, `locked_until = now() + LeaseSeconds` (300 s), `attempts + 1`. Bir nechta Worker bir qatorni hech qachon birga olmaydi |
+| Qabul qiluvchilar | Bemor turlari (`*.patient`): payload'dagi `patientUserId`; walk-in (akkauntsiz) — qabulning kontakt telefoni. Xodim turlari (`*.staff`): klinikaning faol a'zolari (klinika Suspended emas, user Active), roli `appointment.triage` ga ega (Owner, Admin, Receptionist), Clinic scope yoki shu filialga grant, Telegram chat havolasi faol |
+| Kanal | Telegram yoqilgan va **faol** chat havolasi bor → Telegram. Aks holda faqat OD-11 turlari (Confirmed, Rejected, CancelledByClinic, Rescheduled) uchun SMS. Aks holda `Skipped` (`notify.no_channel`). Shu 4 tur uchun Telegram xatosi (vaqtinchalik yoki bloklangan) bo'lsa, o'sha urinishda SMS'ga o'tiladi |
+| Eslatmalar | Yuborishdan oldin qabul qayta o'qiladi: `Confirmed` emas yoki `starts_at` payload'dagidan farq qiladi → `Cancelled` (`reminder.stale`); boshlanish vaqti o'tib ketgan → `Cancelled` (`reminder.too_late`). Eslatmalar faqat Telegram orqali |
+| Urinish yozuvi | Har bir qabul qiluvchiga yuborishdan keyin darhol `notify.delivery_attempts` qatori (kanal, natija, provayder statusi, xato kodi, tozalangan xato matni). Qayta urinishda yakuniy natijasi bor qabul qiluvchiga qayta yuborilmaydi |
+| Yakun | Hech bo'lmasa bittasi yuborildi → `Sent`; vaqtinchalik xato → `Pending` + backoff; doimiy xato → `Failed`; kanal yo'q → `Skipped`; qabul qiluvchi yo'q → `Skipped` (`notify.no_recipient`). Yakuniy yozuv `claim_token` bo'yicha shartli UPDATE |
+| Backoff | 1-…5-urinishdan keyin: 1 daq, 5 daq, 30 daq, 2 soat, 6 soat (`Notifications:BackoffSeconds`) ± 20 % jitter (`JitterRatio`); 429 `retry_after` uzunroq bo'lsa o'sha. 6-urinish (`MaxAttempts`) muvaffaqiyatsiz → `Failed` |
+| Kafolat | **Kamida bir marta (at-least-once):** provayder chaqiruvi bilan urinish yozuvi orasida Worker o'chsa, o'sha bitta xabar qayta yuborilishi mumkin. Dedup kaliti har bir biznes hodisasi uchun bitta xabarni kafolatlaydi. Yetkazish xatosi biznes ma'lumotiga hech qachon ta'sir qilmaydi: dispatcher qabullarni faqat o'qiydi, faqat `notify.*` ga yozadi |
+
+Statuslar: `Pending → Processing → Sent | Skipped | Pending (retry) | Failed | Cancelled`. Admin `Failed → Pending`
+qila oladi (`POST /api/admin/notifications/{id}/retry`, audit `admin.notification.retried`).
+
+### 5.2 Kanal adapterlari
+
+| Port | Amalga oshirish | Vazifasi |
+|---|---|---|
+| `ITelegramBotClient` (Application) | `TelegramBotApiClient` (Infrastructure, haqiqiy) | `https://api.telegram.org/bot<token>/<method>` ga JSON POST: `sendMessage` (inline keyboard: `url` yoki `web_app` tugmalari, parse mode yo'q), `getUpdates`, `setWebhook`, `deleteWebhook`, `getMe`. Har chaqiruvga timeout (`RequestTimeoutSeconds` 15; getUpdates: long-poll + 10 s). Xatolar tasniflanadi: timeout/tarmoq/5xx/401/404/409 — vaqtinchalik; 429 — `retry_after` (≤ 5 s bo'lsa bir marta kutib qayta urinadi); 403 va "chat not found" — chat havolasi o'chiriladi; boshqa 400 — doimiy. Token, URL va xabar matni hech qachon loglanmaydi |
+| | `FakeTelegramBotClient` (Development/testlar) | Telegramga murojaat qilmaydi: xabarlar `FakeTelegramMailbox` da va Development'da `notify.dev_messages` da saqlanadi (`GET /api/dev/telegram`). Testlar uchun `FailNext` / `SendBehavior`. Production'da ishga tushish rad etiladi |
+| `ISmsSender` | `EskizSmsSender` / `FakeSmsSender` | BE1a adapterlari. Fake SMS ham Development'da `notify.dev_messages` ga yoziladi, shuning uchun `GET /api/dev/sms` Worker yuborgan SMS'larni ham ko'rsatadi |
+| `IDevMessageSink` | `DevMessageSink` | Faqat Development muhitida yozadi, xatolarni yutadi (yetkazishga ta'sir qilmaydi) |
+
+Tanlash: `Telegram:Client` = `Real` / `Fake`; bo'sh bo'lsa Development'da Fake, boshqa joyda Real
+(`StartupGuards.ValidateTelegram`).
+
+### 5.3 Shablonlar (`NotificationTemplates`, uz / ru / en)
+
+Til — chat havolasidagi `language_code` (Telegram'dan: `ru*` → ru, `en*` → en, qolgani → uz). SMS tili ham shu
+(havola bo'lmasa uz). Vaqt filial vaqt mintaqasida `dd.MM.yyyy HH:mm`. Tibbiy ma'lumot yo'q.
+
+| Tur | Telegram mazmuni | SMS (OD-11) |
+|---|---|---|
+| `appointment.requested.patient` | so'rov qabul qilindi: klinika, filial, xizmat, vaqt, tasdiqlash muddati | — |
+| `appointment.confirmed.patient` | tasdiqlandi: klinika, filial, **manzil**, xizmat, shifokor, vaqt | "OqTish: qabulingiz tasdiqlandi. {klinika}, {dd.MM HH:mm}." |
+| `appointment.rejected.patient` | rad etildi + sabab (`reasonCode` tarjimasi) + qayta yozilish taklifi | "OqTish: {vaqt} dagi so'rovingiz rad etildi ({klinika}). Boshqa vaqtni tanlang." |
+| `appointment.cancelled_by_clinic.patient` | klinika bekor qildi + sabab | "OqTish: {klinika} {vaqt} dagi qabulingizni bekor qildi." |
+| `appointment.rescheduled.patient` | yangi vaqt, avvalgi vaqt, manzil, shifokor | "OqTish: qabulingiz {vaqt} ga ko'chirildi ({klinika})." |
+| `appointment.expired.patient` | klinika o'z vaqtida tasdiqlamadi | — |
+| `appointment.completed.patient` | rahmat + sharh qoldirish taklifi | — |
+| `appointment.reminder.patient` (24h / 2h) | "ertaga qabulingiz bor" / "2 soat qoldi" + manzil, xizmat, vaqt | — (faqat Telegram) |
+| `appointment.requested.staff` | "Yangi so'rov #XXXXXXXX", klinika, filial, xizmat, vaqt, tasdiqlash muddati + "Konsolda ochish" tugmasi | — |
+| `appointment.cancelled_by_patient.staff` | "Bemor qabulni bekor qildi #XXXXXXXX" + xizmat, vaqt | — |
+| `appointment.expired.staff` | "So'rov #XXXXXXXX muddati o'tdi" | — |
+
+Xodim xabarlarida bemorning ismi va telefoni **hech qachon** yo'q (OD-10) — faqat so'rov raqami (id'ning oxirgi
+8 belgisi). Tugmalar: bemorga `web_app` "Qabullarim" → `{MiniAppUrl}/appointments/{id}`; xodimga `url` "Konsolda
+ochish" → `{Notifications:PublicBaseUrl}/clinic/{clinicId}/requests` (yoki `/appointments/{id}`). Tugma faqat ochiq
+**https** manzil uchun qo'shiladi (Telegram localhost/http tugmani 400 bilan rad etadi). SMS matnlari lotin
+yozuvida ≤ 160 belgi (klinika nomi 40 belgigacha qisqartiriladi).
+
+### 5.4 Bot buyruqlari (`TelegramBotService`)
+
+| Buyruq | Natija |
+|---|---|
+| `/start <token>` | `TelegramLinkService.ConsumeTelegramLinkTokenAsync` (bir martalik, 10 daqiqa): chat akkauntga bog'lanadi, til saqlanadi, "Tayyor!" javobi + Mini App tugmasi. Yaroqsiz/ishlatilgan/muddati o'tgan → tushuntirish; bu Telegram boshqa akkauntga tegishli → rad (birlashtirilmaydi, audit `identity.link_conflict`) |
+| `/start` | O'chirilgan (stop/blok) havolani qayta yoqadi; yoki shu Telegram bilan Mini App / Login Widget orqali kirgan foydalanuvchining chatini bog'laydi (audit `notify.telegram_chat_linked`); aks holda salomlashuv matni + "OqTish'ni ochish" (`web_app`) tugmasi va bog'lash yo'riqnomasi |
+| `/appointments` | Bog'langan bemorning o'z yaqin qabullari (Pending / Confirmed, eng ko'pi 5 ta): vaqt, holat, xizmat, klinika, filial |
+| `/stop` | Chat havolasini o'chiradi (`stopped`, audit `notify.telegram_stopped`) — bot boshqa xabar yubormaydi, muhim xabarlar SMS orqali. Telegram orqali kirish saqlanadi (to'liq uzish — `DELETE /api/me/telegram`) |
+| `/help` va boshqa matn | Buyruqlar ro'yxati |
+
+Faqat shaxsiy (private) chatlar; guruh, kanal va bot jo'natuvchilar e'tiborsiz qoldiriladi. Har chat uchun daqiqasiga
+`Telegram:ChatRateLimitPerMinute` (20) ta xabar, qolgani javobsiz. Javob yuborilmasa (masalan, bot bloklangan) faqat
+xato kodi loglanadi.
+
+### 5.5 Ishlash rejimlari
+
+| Rejim | Qanday ishlaydi | Qachon |
+|---|---|---|
+| `Polling` (default) | Worker `TelegramPollingService` ishga tushganda webhook'ni o'chiradi, keyin `getUpdates` long polling (`PollingTimeoutSeconds` 25). Offset `notify.telegram_bot_state` da (bot id bo'yicha) har yangilanishdan keyin saqlanadi. Xatoda 5 s, 409 da 30 s kutadi | Lokal ishlash, ochiq HTTPS manzil yo'q server |
+| `Webhook` | API ishga tushganda `setWebhook({WebhookBaseUrl}/api/telegram/webhook/{yo'l}, secret_token)` chaqiradi. Telegram yangilanishlarni `POST /api/telegram/webhook/{yo'l}` ga yuboradi; `X-Telegram-Bot-Api-Secret-Token` tekshiriladi | Production (ochiq HTTPS domen bor) |
+
+Yo'l segmenti sirdan hosil qilinadi: hex(SHA-256("oqtish-webhook-path:" + `WebhookSecret`)) ning birinchi 32 belgisi.
+Noto'g'ri yo'l → 404, noto'g'ri sir → 401. Ikkala rejim bir vaqtda ishlamaydi (polling webhook'ni o'chiradi,
+webhook rejimida polling ishga tushmaydi).
+
+### 5.6 Admin endpointlari (`NotificationAdminHandlers`)
+
+| Endpoint | Ruxsat | Mazmuni |
+|---|---|---|
+| `GET /api/admin/notifications?status&page&pageSize` | `platform.audit.view` | tur, auditoriya (patient/staff), kanal, status, urinishlar, oxirgi xato kodi — **xabar matni va payload hech qachon** |
+| `POST /api/admin/notifications/{id}/retry` | `platform.audit.view` | `Failed → Pending` (urinishlar 0 ga), audit; boshqa status → 409 |
+
+### 5.7 Saqlash muddati (`RetentionHandler`, Worker `RetentionService`)
+
+Worker ishga tushganda bir marta va har kuni `Retention:RunAtLocalTime` (03:30, Asia/Tashkent) da, DB vaqti bilan:
+
+| Jadval | O'chiriladi |
+|---|---|
+| `identity.otp_challenges` | yaratilganiga 24 soatdan ko'p (`OtpChallengeHours`) |
+| `identity.sessions` | bekor qilingan / muddati o'tgan / idle bo'lib o'lganiga 30 kundan ko'p (`SessionDays`) |
+| `notify.outbox_messages` (+ `delivery_attempts` cascade) | Sent/Skipped/Cancelled — 30 kundan eski (`OutboxDays`); Failed — 90 kundan eski (`FailedOutboxDays`). Pending/Processing hech qachon |
+| `notify.telegram_link_tokens` | muddati tugaganiga 24 soatdan ko'p (`LinkTokenHours`) |
+| `notify.dev_messages` | 7 kundan eski (`DevMessageDays`) |
+
+Audit log va ledger **hech qachon** o'chirilmaydi. `Retention:Enabled=false` ishni o'chiradi.
+
+### 5.8 Konfiguratsiya kalitlari (BE4)
+
+| Kalit | Default | Izoh |
+|---|---|---|
+| `Telegram:Mode` | `Polling` | `Polling` yoki `Webhook` (`OQTISH_TELEGRAM_MODE`) |
+| `Telegram:Client` | Development: `Fake`, boshqa: `Real` | Production'da `Fake` taqiqlangan (`OQTISH_TELEGRAM_CLIENT`) |
+| `Telegram:WebhookSecret` | — | Sir. Webhook rejimida majburiy, 32–256 belgi (A–Z a–z 0–9 _ -) (`OQTISH_TELEGRAM_WEBHOOK_SECRET`) |
+| `Telegram:WebhookBaseUrl` | — | Webhook rejimida majburiy, https (`OQTISH_TELEGRAM_WEBHOOK_BASE_URL`) |
+| `Telegram:ApiBaseUrl` | `https://api.telegram.org` | |
+| `Telegram:RequestTimeoutSeconds` / `PollingTimeoutSeconds` | 15 / 25 | |
+| `Telegram:ChatRateLimitPerMinute` | 20 | |
+| `Telegram:MaxInlineRetryAfterSeconds` | 5 | |
+| `Notifications:DispatchIntervalSeconds` / `BatchSize` / `LeaseSeconds` | 2 / 20 / 300 | |
+| `Notifications:MaxAttempts` / `BackoffSeconds` / `JitterRatio` | 6 / `60,300,1800,7200,21600` / 0.2 | |
+| `Notifications:PublicBaseUrl` | — | Xodim xabaridagi "Konsolda ochish" tugmasi uchun https manzil (`OQTISH_PUBLIC_BASE_URL`) |
+| `Retention:*` | §5.7 | |
+
+### 5.9 Telegram botni ulash (qadamma-qadam)
+
+1. **Bot yaratish.** Telegram'da [@BotFather](https://t.me/BotFather) ni oching → `/newbot` → bot nomini (masalan,
+   "OqTish") va `_bot` bilan tugaydigan foydalanuvchi nomini (masalan, `oqtish_uz_bot`) kiriting. BotFather **token**
+   beradi (`123456789:AA…`). Token — sir: uni hech kimga yubormang, git'ga qo'shmang.
+2. **Tokenni `.env` ga yozish** (faqat serverdagi `.env`, `.env.example` emas):
+   ```bash
+   OQTISH_TELEGRAM_ENABLED=true
+   OQTISH_TELEGRAM_BOT_TOKEN=123456789:AA...        # BotFather bergan token
+   OQTISH_TELEGRAM_BOT_USERNAME=oqtish_uz_bot       # @ belgisisiz
+   OQTISH_TELEGRAM_MINIAPP_URL=https://oqtish.example.uz/tg
+   OQTISH_PUBLIC_BASE_URL=https://oqtish.example.uz
+   ```
+   Keyin `docker compose up -d` (API va Worker qayta ishga tushadi). `GET /api/telegram/config` endi
+   `enabled: true` va `botId` qaytaradi.
+3. **Buyruqlar menyusi.** BotFather → `/setcommands` → botni tanlang → quyidagini yuboring:
+   ```
+   start - Boshlash / Telegramni bog'lash
+   appointments - Yaqin qabullarim
+   stop - Xabarnomalarni o'chirish
+   help - Yordam
+   ```
+4. **Mini App va menyu tugmasi.** BotFather → `/mybots` → bot → *Bot Settings* → *Menu Button* → *Configure menu
+   button* → URL: `https://oqtish.example.uz/tg`, matn: `OqTish`. (Ixtiyoriy: `/newapp` bilan Mini App'ni ham
+   ro'yxatdan o'tkazish mumkin — URL o'sha.) Mini App faqat **https** bilan ishlaydi.
+5. **Login Widget domeni.** BotFather → `/setdomain` → botni tanlang → `oqtish.example.uz` (sxemasiz). Busiz saytdagi
+   "Telegram orqali kirish" tugmasi ishlamaydi.
+6. **Rejimni tanlash.**
+   - *Polling* (default, `OQTISH_TELEGRAM_MODE=Polling`): hech narsa qo'shimcha kerak emas — Worker o'zi Telegram'dan
+     yangilanishlarni oladi. Ochiq domen bo'lmasa ham ishlaydi. Bitta bot uchun faqat **bitta** Worker polling qilishi
+     kerak (aks holda Telegram 409 qaytaradi).
+   - *Webhook* (`OQTISH_TELEGRAM_MODE=Webhook`): sir yarating va manzilni yozing:
+     ```bash
+     OQTISH_TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 32)
+     OQTISH_TELEGRAM_WEBHOOK_BASE_URL=https://oqtish.example.uz
+     ```
+     API ishga tushganda `setWebhook` ni o'zi chaqiradi (logda "Telegram webhook registered"). Reverse proxy
+     `/api/telegram/webhook/*` ni API'ga o'tkazishi kerak (`/api` ostida — mavjud nginx sozlamasi yetarli).
+     Tekshirish: `https://api.telegram.org/bot<TOKEN>/getWebhookInfo` (tokenni brauzer tarixida qoldirmang).
+7. **Tekshirish.** Saytga kiring → Profil → "Telegramni bog'lash" → havolani oching → botda "Start". Bot "Tayyor!"
+   deb javob beradi. `/appointments` yuboring. Klinika so'rovni tasdiqlaganda xabar keladi.
+8. **Lokal sinov.**
+   - Haqiqiy botsiz (Development, Fake klient): `OQTISH_TELEGRAM_ENABLED=true` va ixtiyoriy soxta token
+     (`123:fake`) bilan ishga tushiring. Profil'da havola oling, `?start=` dan keyingi tokenni nusxalang va
+     `POST /api/dev/telegram/simulate` `{ "telegramUserId": 1001, "text": "/start <token>" }` yuboring
+     (`X-OqTish-Client: web` sarlavhasi bilan). Bot javoblari va bildirishnomalar `GET /api/dev/telegram` da,
+     SMS'lar `GET /api/dev/sms?phone=…` da ko'rinadi.
+   - Haqiqiy bot bilan lokal: `OQTISH_TELEGRAM_CLIENT=Real` (yoki `Telegram__Client=Real`) qo'ying va **Polling** rejimidan foydalaning — ochiq URL kerak
+     emas. Mini App va Login Widget esa https talab qiladi: lokal saytni HTTPS tunnel (masalan,
+     `cloudflared tunnel --url http://localhost:8080` yoki `ngrok http 8080`) orqali oching va BotFather'dagi Mini App
+     URL / domenni tunnel manziliga vaqtincha o'zgartiring. Webhook'ni lokal sinash ham shu tunnel orqali
+     (`OQTISH_TELEGRAM_WEBHOOK_BASE_URL=https://<tunnel>`) mumkin; ish tugagach Polling'ga qayting (Worker webhook'ni
+     o'zi o'chiradi).
+9. **Xavfsizlik.** Token sizib chiqsa: BotFather → `/revoke` → yangi tokenni `.env` ga yozing va qayta ishga
+   tushiring. Webhook sirini almashtirish uchun `OQTISH_TELEGRAM_WEBHOOK_SECRET` ni o'zgartirib API'ni qayta ishga
+   tushirish kifoya (yo'l ham o'zgaradi, `setWebhook` qayta chaqiriladi).

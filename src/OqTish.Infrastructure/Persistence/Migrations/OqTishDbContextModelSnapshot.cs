@@ -1738,6 +1738,120 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Notifications.DeliveryAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_number");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("channel");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("error");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("error_code");
+
+                    b.Property<Guid>("OutboxMessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("outbox_message_id");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("ProviderStatus")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("provider_status");
+
+                    b.Property<string>("RecipientKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("recipient_key");
+
+                    b.HasKey("Id")
+                        .HasName("pk_delivery_attempts");
+
+                    b.HasIndex("OutboxMessageId", "RecipientKey")
+                        .HasDatabaseName("ix_delivery_attempts_outbox_message_id_recipient_key");
+
+                    b.ToTable("delivery_attempts", "notify", t =>
+                        {
+                            t.HasCheckConstraint("ck_delivery_attempts_attempt_number", "attempt_number >= 0");
+
+                            t.HasCheckConstraint("ck_delivery_attempts_channel", "channel IN ('None', 'Telegram', 'Sms')");
+
+                            t.HasCheckConstraint("ck_delivery_attempts_outcome", "outcome IN ('Sent', 'Retry', 'Rejected', 'Skipped')");
+                        });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Notifications.DevCapturedMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Buttons")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("buttons");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("channel");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("origin");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("recipient");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dev_messages");
+
+                    b.HasIndex("Channel", "CreatedAt")
+                        .HasDatabaseName("ix_dev_messages_channel_created_at");
+
+                    b.ToTable("dev_messages", "notify");
+                });
+
             modelBuilder.Entity("OqTish.Domain.Notifications.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1747,6 +1861,15 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                     b.Property<int>("Attempts")
                         .HasColumnType("integer")
                         .HasColumnName("attempts");
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid?>("ClaimToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_token");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1762,6 +1885,15 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("last_error");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("last_error_code");
+
+                    b.Property<DateTimeOffset?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
 
                     b.Property<DateTimeOffset>("NextAttemptAt")
                         .HasColumnType("timestamp with time zone")
@@ -1795,20 +1927,50 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_outbox_messages");
 
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_outbox_messages_created");
+
                     b.HasIndex("DedupKey")
                         .IsUnique()
                         .HasDatabaseName("ix_outbox_messages_dedup_key");
+
+                    b.HasIndex("LockedUntil")
+                        .HasDatabaseName("ix_outbox_messages_lease")
+                        .HasFilter("status = 'Processing'");
 
                     b.HasIndex("NextAttemptAt")
                         .HasDatabaseName("ix_outbox_messages_due")
                         .HasFilter("status = 'Pending'");
 
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_outbox_messages_status_created");
+
                     b.ToTable("outbox_messages", "notify", t =>
                         {
                             t.HasCheckConstraint("ck_outbox_messages_attempts", "attempts >= 0");
 
-                            t.HasCheckConstraint("ck_outbox_messages_status", "status IN ('Pending', 'Processing', 'Sent', 'Failed', 'Cancelled')");
+                            t.HasCheckConstraint("ck_outbox_messages_status", "status IN ('Pending', 'Processing', 'Sent', 'Failed', 'Cancelled', 'Skipped')");
                         });
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Notifications.TelegramBotState", b =>
+                {
+                    b.Property<long>("BotId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("bot_id");
+
+                    b.Property<long>("UpdateOffset")
+                        .HasColumnType("bigint")
+                        .HasColumnName("update_offset");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("BotId")
+                        .HasName("pk_telegram_bot_state");
+
+                    b.ToTable("telegram_bot_state", "notify");
                 });
 
             modelBuilder.Entity("OqTish.Domain.Notifications.TelegramChatLink", b =>
@@ -1821,6 +1983,25 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("chat_id");
 
+                    b.Property<DateTimeOffset?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deactivated_at");
+
+                    b.Property<string>("DeactivationReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("deactivation_reason");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("LanguageCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("language_code");
+
                     b.Property<DateTimeOffset>("LinkedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("linked_at");
@@ -1832,11 +2013,17 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                     b.HasKey("UserId")
                         .HasName("pk_telegram_links");
 
+                    b.HasIndex("ChatId")
+                        .HasDatabaseName("ix_telegram_links_chat_id");
+
                     b.HasIndex("TelegramUserId")
                         .IsUnique()
                         .HasDatabaseName("ix_telegram_links_telegram_user_id");
 
-                    b.ToTable("telegram_links", "notify");
+                    b.ToTable("telegram_links", "notify", t =>
+                        {
+                            t.HasCheckConstraint("ck_telegram_links_language_code", "language_code IN ('uz', 'ru', 'en')");
+                        });
                 });
 
             modelBuilder.Entity("OqTish.Domain.Notifications.TelegramLinkToken", b =>
@@ -3133,6 +3320,16 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_totp_credentials_users_user_id");
+                });
+
+            modelBuilder.Entity("OqTish.Domain.Notifications.DeliveryAttempt", b =>
+                {
+                    b.HasOne("OqTish.Domain.Notifications.OutboxMessage", null)
+                        .WithMany()
+                        .HasForeignKey("OutboxMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_delivery_attempts_outbox_messages_outbox_message_id");
                 });
 
             modelBuilder.Entity("OqTish.Domain.Notifications.TelegramChatLink", b =>

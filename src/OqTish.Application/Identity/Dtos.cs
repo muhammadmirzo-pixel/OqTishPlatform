@@ -52,7 +52,8 @@ public sealed record TotpSetupDto(string Secret, string OtpauthUri);
 
 public sealed record TelegramLinkDto(string DeepLink, DateTimeOffset ExpiresAt);
 
-public sealed record TelegramConfigDto(bool Enabled, string? BotUsername, string? MiniAppUrl);
+/// <summary><c>GET /api/telegram/config</c>. <see cref="BotId"/> (BE4, additive) = numeric bot id for the Login Widget popup (FRONTEND §9.2).</summary>
+public sealed record TelegramConfigDto(bool Enabled, string? BotUsername, string? MiniAppUrl, long? BotId = null);
 
 public static class AuthMethods
 {

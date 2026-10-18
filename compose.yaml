@@ -54,6 +54,11 @@ services:
       Telegram__BotToken: ${OQTISH_TELEGRAM_BOT_TOKEN:-}
       Telegram__BotUsername: ${OQTISH_TELEGRAM_BOT_USERNAME:-}
       Telegram__MiniAppUrl: ${OQTISH_TELEGRAM_MINIAPP_URL:-}
+      Telegram__Mode: ${OQTISH_TELEGRAM_MODE:-Polling}
+      Telegram__Client: ${OQTISH_TELEGRAM_CLIENT:-}
+      Telegram__WebhookSecret: ${OQTISH_TELEGRAM_WEBHOOK_SECRET:-}
+      Telegram__WebhookBaseUrl: ${OQTISH_TELEGRAM_WEBHOOK_BASE_URL:-}
+      Notifications__PublicBaseUrl: ${OQTISH_PUBLIC_BASE_URL:-}
       ForwardedHeaders__KnownNetworks__0: ${OQTISH_BACKEND_SUBNET:-172.30.240.0/24}
     depends_on:
       migrate:
@@ -87,6 +92,11 @@ services:
       Telegram__BotToken: ${OQTISH_TELEGRAM_BOT_TOKEN:-}
       Telegram__BotUsername: ${OQTISH_TELEGRAM_BOT_USERNAME:-}
       Telegram__MiniAppUrl: ${OQTISH_TELEGRAM_MINIAPP_URL:-}
+      Telegram__Mode: ${OQTISH_TELEGRAM_MODE:-Polling}
+      Telegram__Client: ${OQTISH_TELEGRAM_CLIENT:-}
+      Telegram__WebhookSecret: ${OQTISH_TELEGRAM_WEBHOOK_SECRET:-}
+      Telegram__WebhookBaseUrl: ${OQTISH_TELEGRAM_WEBHOOK_BASE_URL:-}
+      Notifications__PublicBaseUrl: ${OQTISH_PUBLIC_BASE_URL:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

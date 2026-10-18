@@ -103,7 +103,8 @@ public sealed class TelegramConfigQuery(IOptions<TelegramOptions> options)
         return new TelegramConfigDto(
             enabled,
             enabled ? o.BotUsername : null,
-            enabled && !string.IsNullOrWhiteSpace(o.MiniAppUrl) ? o.MiniAppUrl : null);
+            enabled && !string.IsNullOrWhiteSpace(o.MiniAppUrl) ? o.MiniAppUrl : null,
+            enabled ? o.BotId : null);
     }
 
     /// <summary>Enabled flag plus a bot token and username: without them nothing Telegram-related can work.</summary>

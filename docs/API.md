@@ -316,7 +316,7 @@ type TimeOffDto = { id: string; startsAt: string; endsAt: string; reason: string
 | `POST …/appointments/{id}/reschedule` `{ startsAt, doctorId }` | `appointment.triage`. Confirmed only. Same duration; start on the grid (400), not in the past and within the horizon (422 `booking.lead_time`); doctor rules as confirm. Moves the block atomically; history row Confirmed → Confirmed `Rescheduled`; patient notice; old reminders cancelled, new ones enqueued → 200 |
 | `POST …/appointments/{id}/complete` `{ chargedAmount: Money }` | `appointment.outcome` (Doctor: own). Confirmed only; from the start time (422 `booking.too_early_for_outcome`); amount ≥ 0, ≤ 2 decimals (400 `finance.amount_invalid`). Sets `chargedAmount`, releases the block, calls the BE3 completion hook in the same transaction → 200 |
 | `POST …/appointments/{id}/no-show` | `appointment.outcome` (Doctor: own). Confirmed only; from start + 15 min (422) → 200 |
-| `POST …/appointments` (walk-in) | `appointment.create_walkin` on the body's branch (other clinic's branch → 404). Body `{ branchId, serviceId, startsAt, doctorId, contactName, contactPhone }`, optional `Idempotency-Key`. Start on the grid, not earlier than now − 60 min, within the horizon (422 `booking.lead_time`); doctor eligible (422) and free (409 `booking.doctor_busy`). → **201** `AppointmentDto` (Confirmed, `source: 'WalkIn'`, no patient account, no notifications) |
+| `POST …/appointments` (walk-in) | `appointment.create_walkin` on the body's branch (other clinic's branch → 404). Body `{ branchId, serviceId, startsAt, doctorId, contactName, contactPhone }`, optional `Idempotency-Key`. Start on the grid, not earlier than now − 60 min, within the horizon (422 `booking.lead_time`); doctor eligible (422) and free (409 `booking.doctor_busy`). → **201** `AppointmentDto` (Confirmed, `source: 'WalkIn'`, no patient account, no notification on creation; BE4: a later clinic cancel / reschedule sends an SMS to the contact phone) |
 | `GET …/calendar?branchId&date` | `appointment.view` on the branch (`branchId` required) → `CalendarDto` for the branch-local day: the branch's Pending (as `Hold`, not overdue), Confirmed, Completed, NoShow appointments in their doctor's column, time off, and busy time at other branches (`otherBranch: true`, no details). Doctor role: own column only, holds without details |
 | `GET …/doctors/{doctorId}/time-off?from&to` | Members who share a branch with the doctor (or the doctor itself) → `TimeOffDto[]` overlapping [from, to); default: not yet ended |
 | `POST …/doctors/{doctorId}/time-off` `{ startsAt, endsAt, reason? }` | `schedule.manage` on **every** branch the doctor is linked to, or the Doctor role for its own record. End after start and in the future, ≤ 90 days, start within a year, reason ≤ 200. Overlap with any active block (hold, appointment, other time off) → 409 `schedule.timeoff_conflict` (exclusion constraint). → **201** `TimeOffDto` |
@@ -382,8 +382,8 @@ a price reduction (contra-revenue) — see FINANCIAL_RULES §11.
 ### 5.1 Implementation notes and DTOs (BE1b, 2026-10-18)
 
 Implemented: dashboard, clinics (list/approve/reject/suspend/reinstate), users (list/suspend/reinstate),
-audit; BE2: reports, reviews, break-glass appointment read (§5.3); BE3: commission rules and settlements (§5.4).
-Notifications come later.
+audit; BE2: reports, reviews, break-glass appointment read (§5.3); BE3: commission rules and settlements (§5.4);
+BE4: notifications (§5.5).
 Every platform check answers 403 `common.forbidden` without the grant and 403 `auth.totp_setup_required`
 while TOTP is not enabled (`Security:RequireTotpForPrivilegedRoles`). Permission split (as the UI
 assumed): approve/reject = `platform.clinic.verify`; suspend/reinstate = `platform.account.suspend`.
@@ -456,23 +456,62 @@ type CommissionRuleDto = { id; clinicId; basis: 'CollectedPayment'|'CompletedSer
 | `POST /admin/settlements/{id}/void` `{ reason 1–500 }` | Draft → Voided, items released. Finalized/Paid → **409 `finance.period_locked`** → 200 |
 | | Other wrong transitions → 409 `finance.invalid_settlement_state`; unknown id → 404 |
 
+### 5.5 Notifications (BE4, 2026-10-18)
+
+Both need `platform.audit.view` (403 `common.forbidden` without it, 403 `auth.totp_setup_required` while TOTP is not
+enabled). Message bodies and payloads are **never** returned (they contain names/times; OD-10).
+
+```ts
+type NotificationStatus = 'Pending'|'Processing'|'Sent'|'Failed'|'Cancelled'|'Skipped' // UI assumed Pending|Sent|Failed (subset)
+type AdminNotificationDto = { id; type: string /* appointment.confirmed.patient … */; audience: 'patient'|'staff'
+  channel: string|null /* 'Telegram' | 'Sms' | 'Telegram,Sms' of the last attempt */; status: NotificationStatus; attempts: number
+  createdAt; notBefore; nextAttemptAt: string|null /* only while Pending */; sentAt: string|null
+  lastErrorCode: string|null /* telegram.http_500, telegram.blocked, sms.failed, notify.no_channel, reminder.stale … */
+  lastError: string|null /* scrubbed provider description, never text/phones */ }
+```
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `GET /admin/notifications?status&page&pageSize` | → `Page<AdminNotificationDto>`, newest first. Unknown `status` → 400 |
+| `POST /admin/notifications/{id}/retry` | Failed → Pending with a fresh attempt budget (attempts 0), due now → **204**; audit `admin.notification.retried`. Other status → 409 `admin.invalid_status_transition`; unknown id → 404 |
+
+Deviation from the UI assumption (`api/types.ts` `NotificationDto`): additive fields `audience`, `notBefore`, `sentAt`,
+`lastErrorCode`; the status union is larger.
+
 ## 6. Telegram
 
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `POST /telegram/webhook/{secretPath}` | Telegram (secret path + `X-Telegram-Bot-Api-Secret-Token`) | Bot updates when `Telegram:Mode=Webhook`. In `Polling` mode (default for local work) the Worker calls `getUpdates` instead |
-| `GET /telegram/config` | anon | `{ enabled, botUsername, miniAppUrl }` for the UI. `enabled` is true only when `Telegram:Enabled` and a bot token + username are configured; the other two are null otherwise |
+| `GET /telegram/config` | anon | `{ enabled, botUsername, miniAppUrl, botId }` for the UI. `enabled` is true only when `Telegram:Enabled` and a bot token + username are configured; the others are null otherwise |
 
 Bot behaviour: `/start <linkToken>` links the chat to the account that created the token. `/start`
 alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unlinks.
 `/appointments` lists upcoming appointments for linked patients.
 
+### 6.1 Implementation notes (BE4, 2026-10-18)
+
+| Endpoint | Contract as implemented |
+|---|---|
+| `POST /telegram/webhook/{secretPath}` | Mapped always; answers only when Telegram is enabled **and** `Telegram:Mode=Webhook`. `secretPath` = first 32 hex chars of SHA-256(`"oqtish-webhook-path:" + Telegram:WebhookSecret`) (the API registers it itself with `setWebhook` on startup, using `Telegram:WebhookBaseUrl`). Wrong path / Polling mode / disabled → **404** `common.not_found`; right path with a missing or wrong `X-Telegram-Bot-Api-Secret-Token` → **401** `telegram.webhook_unauthorized` (constant-time comparison). Body = a Bot API `Update`; after authentication always **200** (bad JSON or a failing update are logged by type only, so Telegram does not redeliver forever). No `X-OqTish-Client` needed. Anonymous (no cookie) |
+| `GET /telegram/config` | **Additive** `botId: number\|null` — the numeric part of the bot token, for the Login Widget popup (FRONTEND §9.2 item 6) |
+
+Bot behaviour as implemented (docs/SERVICES.md §5.5): private chats only (groups/channels/bots ignored, OD-10); per-chat
+flood limit (`Telegram:ChatRateLimitPerMinute`, 20); language from the sender's `language_code` (uz/ru/en, fallback uz).
+`/start <token>` → `ConsumeTelegramLinkTokenAsync` (invalid/used/expired → explanation; Telegram id owned by another
+account → refusal, no merge). `/start` → re-activates a stopped/blocked link, or links the chat of a user who already
+signed in with that Telegram account (Mini App / Login Widget), else a welcome text with the "OqTish'ni ochish" web_app
+button. `/appointments` → the linked patient's own upcoming Pending/Confirmed appointments (max 5). **Deviation:** `/stop`
+**deactivates** the chat link (no more bot messages; important ones fall back to SMS) but keeps the Telegram sign-in
+identity — full unlinking stays `DELETE /me/telegram`. `/help` → command list.
+
 ## 7. Development-only — `/api/dev` (404 outside Development)
 
 | Method & path | Purpose |
 |---|---|
-| `GET /dev/sms?phone` | Messages captured by the Fake SMS sender (to read OTP codes during local testing) → `[{ text, sentAt }]`, newest first |
-| `GET /dev/telegram` | Messages the Fake Telegram client would have sent |
+| `GET /dev/sms?phone` | Messages captured by the Fake SMS sender (to read OTP codes during local testing) → `[{ text, sentAt }]`, newest first. BE4: also SMS fallback messages sent by the Worker (from `notify.dev_messages`) |
+| `GET /dev/telegram?chatId` | Messages the Fake Telegram client would have sent (by the API **and** the Worker — captured in `notify.dev_messages`), newest first, max 100 → `[{ chatId, text, buttons /* inline_keyboard JSON or null */, sentAt, origin }]` (BE4) |
+| `POST /dev/telegram/simulate` `{ telegramUserId, text, languageCode? }` | BE4: feeds a private-chat message to the bot as if Telegram sent it (e.g. `/start <token>` from a deep link) → `{ outcome }` (`Linked`, `LinkInvalid`, `Welcome`, `Appointments`, …); the reply appears in `/dev/telegram`. 400 without `telegramUserId`/`text` |
 | `POST /dev/seed` | Idempotently loads fictional demo data (same as `dotnet run --project src/OqTish.Api -- seed`, which is allowed in Development and Staging and always refused in Production) → `{ contributors: string[] }`. Identity seed: admin `admin@oqtish.local` / `Seed:AdminPassword` (dev-only default `Admin123!demo`) with all platform permissions; demo patient `+998900000001`. BE1b adds 3 approved demo clinics in Tashkent + 1 Pending, services, doctors, hours and demo staff logins for every role (`Seed:DemoStaffAccounts`, Development only) — credentials in docs/SERVICES.md §2.9. BE2 adds demo appointments in every status for the first clinic, one published and one pending review and an open abuse report (SERVICES.md §3.12) |
 
 ## 8. Health
@@ -505,6 +544,7 @@ alone sends a welcome message with a "Open OqTish" Mini App button. `/stop` unli
 | `account.delete_blocked` | 422 | Leave clinics / platform roles before deleting the account (BE1a) |
 | `telegram.disabled` | 422 | Telegram integration not configured (BE1a) |
 | `telegram.link_invalid` | 422 | Bot deep-link token invalid, used or expired (bot only, BE4) |
+| `telegram.webhook_unauthorized` | 401 | Webhook call without the right `X-Telegram-Bot-Api-Secret-Token` (BE4) |
 | `common.method_not_allowed` / `common.internal` | 405 / 500 | Framework-generated problems (BE1a) |
 | `booking.slot_unavailable` | 409 | No eligible doctor free for that interval |
 | `booking.outside_hours` | 422 | Not within working hours |

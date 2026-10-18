@@ -5,8 +5,9 @@ namespace OqTish.Application.Notifications;
 /// <summary>
 /// Outbox message types written by Booking (BE2). BE4 delivers them (templates per type and language,
 /// docs/SERVICES.md "Bildirishnoma kontrakti"). Staff types (<c>*.staff</c>) go to staff of the branch who
-/// hold <c>appointment.triage</c> (requested/cancelled/expired); patient types to <c>PatientUserId</c>.
-/// Payloads never contain patient phones or names (OD-10).
+/// hold <c>appointment.triage</c> (requested/cancelled/expired); patient types to <c>PatientUserId</c>, or — walk-ins,
+/// only the <see cref="SmsFallback"/> types — by SMS to the appointment's contact phone, which the dispatcher reads at
+/// send time. Payloads never contain patient phones or names (OD-10).
 /// </summary>
 public static class BookingNotificationTypes
 {
@@ -27,6 +28,18 @@ public static class BookingNotificationTypes
         RequestedStaff, RequestedPatient, ConfirmedPatient, RejectedPatient, CancelledByPatientStaff, CancelledByClinicPatient,
         RescheduledPatient, ExpiredPatient, ExpiredStaff, CompletedPatient, ReminderPatient,
     ];
+
+    /// <summary>
+    /// OD-11: the patient types that fall back to SMS (contact phone of the appointment) when no active Telegram link
+    /// exists or Telegram refuses the chat. Walk-ins (no account) receive exactly these by SMS. Reminders and all
+    /// other types are Telegram only.
+    /// </summary>
+    public static readonly IReadOnlySet<string> SmsFallback = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ConfirmedPatient, RejectedPatient, CancelledByClinicPatient, RescheduledPatient,
+    };
+
+    public static bool IsStaff(string type) => type.EndsWith(".staff", StringComparison.Ordinal);
 
     /// <summary>Dedup key <c>appt:{id}:{event}:{audience}</c> (one message per appointment, event and audience).</summary>
     public static string DedupKey(Guid appointmentId, string evt, string audience) => $"appt:{appointmentId:N}:{evt}:{audience}";

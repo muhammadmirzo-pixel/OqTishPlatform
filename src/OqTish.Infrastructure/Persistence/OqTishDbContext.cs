@@ -99,6 +99,12 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
 
     public DbSet<TelegramChatLink> TelegramChatLinks => Set<TelegramChatLink>();
 
+    public DbSet<DeliveryAttempt> DeliveryAttempts => Set<DeliveryAttempt>();
+
+    public DbSet<TelegramBotState> TelegramBotStates => Set<TelegramBotState>();
+
+    public DbSet<DevCapturedMessage> DevCapturedMessages => Set<DevCapturedMessage>();
+
     public DbSet<AuditLogEntry> AuditLog => Set<AuditLogEntry>();
 
     public DbSet<IdempotencyRecord> IdempotencyKeys => Set<IdempotencyRecord>();

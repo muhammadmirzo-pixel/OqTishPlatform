@@ -9,6 +9,9 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddHostedService<DatabaseReadinessGate>();
 builder.Services.AddHostedService<ExpirySweeperService>();
 builder.Services.AddHostedService<FinanceSummaryService>();
+builder.Services.AddHostedService<OutboxDispatcherService>();
+builder.Services.AddHostedService<TelegramPollingService>();
+builder.Services.AddHostedService<RetentionService>();
 
 var host = builder.Build();
 await host.RunAsync();

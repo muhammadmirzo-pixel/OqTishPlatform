@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using OqTish.Application.Identity.Sms;
+using OqTish.Application.Notifications;
 
 namespace OqTish.Infrastructure.Sms;
 
@@ -32,10 +33,13 @@ public sealed class FakeSmsMailbox
     public bool FailSends { get; set; }
 }
 
-/// <summary>Development/test SMS sender: stores messages in <see cref="FakeSmsMailbox"/>; never logs them.</summary>
-internal sealed class FakeSmsSender(FakeSmsMailbox mailbox, TimeProvider clock) : ISmsSender
+/// <summary>
+/// Development/test SMS sender: stores messages in <see cref="FakeSmsMailbox"/> and, in Development, in
+/// <c>notify.dev_messages</c> (so <c>GET /api/dev/sms</c> also shows SMS sent by the Worker); never logs them.
+/// </summary>
+internal sealed class FakeSmsSender(FakeSmsMailbox mailbox, IDevMessageSink sink, TimeProvider clock) : ISmsSender
 {
-    public Task SendAsync(string e164Phone, string text, CancellationToken cancellationToken)
+    public async Task SendAsync(string e164Phone, string text, CancellationToken cancellationToken)
     {
         if (mailbox.FailSends)
         {
@@ -43,6 +47,6 @@ internal sealed class FakeSmsSender(FakeSmsMailbox mailbox, TimeProvider clock) 
         }
 
         mailbox.Add(new FakeSmsMessage(e164Phone, text, clock.GetUtcNow()));
-        return Task.CompletedTask;
+        await sink.CaptureAsync("Sms", e164Phone, text, null, cancellationToken);
     }
 }

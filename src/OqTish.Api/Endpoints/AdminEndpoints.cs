@@ -3,8 +3,10 @@ using OqTish.Application.Admin;
 using OqTish.Application.Audit;
 using OqTish.Application.Booking;
 using OqTish.Application.Common;
+using OqTish.Application.Notifications;
 using OqTish.Application.Reviews;
 using OqTish.Domain.Booking;
+using OqTish.Domain.Notifications;
 using OqTish.Domain.Reviews;
 using OqTish.Domain.Tenancy;
 
@@ -66,6 +68,16 @@ public static class AdminEndpoints
                 (await query.PlatformAsync(clinicId, action, page, pageSize, ct)).ToHttp(http, TypedResults.Ok))
             .WithName("AdminAudit").WithSummary("Platform audit log (platform.audit.view)")
             .Produces<Page<AuditEntryDto>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403);
+
+        admin.MapGet("/notifications", async (OutboxStatus? status, int? page, int? pageSize, NotificationAdminHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.ListAsync(status, page, pageSize, ct)).ToHttp(http, TypedResults.Ok))
+            .WithName("AdminNotifications").WithSummary("Outbox delivery status, newest first; no message bodies (platform.audit.view)")
+            .Produces<Page<AdminNotificationDto>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403);
+
+        admin.MapPost("/notifications/{messageId:guid}/retry", async (Guid messageId, NotificationAdminHandlers handler, HttpContext http, CancellationToken ct) =>
+                (await handler.RetryAsync(messageId, ct)).ToHttp(http, TypedResults.NoContent))
+            .WithName("RetryNotification").WithSummary("Failed → Pending with a fresh attempt budget; audited (platform.audit.view)")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
 
         admin.MapGet("/reports", async (ReportStatus? status, int? page, int? pageSize, ReportHandlers handler, HttpContext http, CancellationToken ct) =>
                 (await handler.AdminListAsync(status, page, pageSize, ct)).ToHttp(http, TypedResults.Ok))

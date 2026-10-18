@@ -8,6 +8,8 @@ using OqTish.Application.Common.Seeding;
 using OqTish.Application.Finance;
 using OqTish.Application.Identity;
 using OqTish.Application.Identity.Handlers;
+using OqTish.Application.Notifications;
+using OqTish.Application.Notifications.Telegram;
 using OqTish.Application.Public;
 using OqTish.Application.Reviews;
 using OqTish.Application.Scheduling;
@@ -71,6 +73,14 @@ public static class DependencyInjection
         services.AddScoped<SettlementHandlers>();
         services.AddScoped<RebuildDailySummariesHandler>();
         services.AddScoped<IClinicDashboardContributor, FinanceDashboardContributor>();
+
+        // Notifications + Telegram bot (BE4)
+        services.AddScoped<OutboxDispatcher>();
+        services.AddScoped<TelegramBotService>();
+        services.AddScoped<TelegramPoller>();
+        services.AddSingleton<TelegramChatRateLimiter>();
+        services.AddScoped<NotificationAdminHandlers>();
+        services.AddScoped<RetentionHandler>();
 
         // Reviews / reports (BE2)
         services.AddScoped<ReviewHandlers>();

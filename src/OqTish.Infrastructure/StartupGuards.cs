@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using OqTish.Application.Common.Security;
+using OqTish.Application.Identity.Telegram;
 using OqTish.Infrastructure.Sms;
 
 namespace OqTish.Infrastructure;
@@ -66,5 +67,63 @@ public static class StartupGuards
         }
 
         throw new InvalidOperationException($"Unknown Sms:Provider '{provider}'. Use Eskiz or Fake.");
+    }
+
+    /// <summary>
+    /// Telegram checks: <c>Telegram:Client</c> = Real | Fake (empty → Fake in Development, Real elsewhere; Fake is refused
+    /// in Production); <c>Telegram:Mode</c> = Polling | Webhook; when Telegram is enabled in Webhook mode,
+    /// <c>Telegram:WebhookSecret</c> (32–256 chars of A–Z a–z 0–9 _ -) and an absolute HTTPS <c>Telegram:WebhookBaseUrl</c>
+    /// are required. Returns the client kind.
+    /// </summary>
+    public static string ValidateTelegram(IConfiguration configuration, IHostEnvironment environment)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
+        var client = configuration["Telegram:Client"];
+        if (string.IsNullOrWhiteSpace(client))
+        {
+            client = environment.IsDevelopment() ? TelegramClients.Fake : TelegramClients.Real;
+        }
+        else if (string.Equals(client, TelegramClients.Fake, StringComparison.OrdinalIgnoreCase))
+        {
+            client = TelegramClients.Fake;
+        }
+        else if (string.Equals(client, TelegramClients.Real, StringComparison.OrdinalIgnoreCase))
+        {
+            client = TelegramClients.Real;
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unknown Telegram:Client '{client}'. Use Real or Fake.");
+        }
+
+        if (client == TelegramClients.Fake && environment.IsProduction())
+        {
+            throw new InvalidOperationException("Telegram:Client=Fake is not allowed in Production.");
+        }
+
+        var mode = configuration["Telegram:Mode"];
+        var webhook = string.Equals(mode, TelegramModes.Webhook, StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(mode) && !webhook && !string.Equals(mode, TelegramModes.Polling, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unknown Telegram:Mode '{mode}'. Use Polling or Webhook.");
+        }
+
+        var enabled = bool.TryParse(configuration["Telegram:Enabled"], out var e) && e;
+        if (enabled && webhook)
+        {
+            var secret = configuration["Telegram:WebhookSecret"] ?? string.Empty;
+            if (secret.Length is < 32 or > 256 || !secret.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-'))
+            {
+                throw new InvalidOperationException("Telegram:Mode=Webhook requires Telegram:WebhookSecret (32-256 characters of A-Z, a-z, 0-9, '_' and '-').");
+            }
+
+            if (!Uri.TryCreate(configuration["Telegram:WebhookBaseUrl"], UriKind.Absolute, out var baseUrl) || baseUrl.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new InvalidOperationException("Telegram:Mode=Webhook requires an absolute https Telegram:WebhookBaseUrl.");
+            }
+        }
+
+        return client;
     }
 }

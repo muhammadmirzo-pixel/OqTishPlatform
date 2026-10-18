@@ -106,6 +106,12 @@ public interface IOqTishDb
 
     DbSet<TelegramChatLink> TelegramChatLinks { get; }
 
+    DbSet<DeliveryAttempt> DeliveryAttempts { get; }
+
+    DbSet<TelegramBotState> TelegramBotStates { get; }
+
+    DbSet<DevCapturedMessage> DevCapturedMessages { get; }
+
     // audit / common
     DbSet<AuditLogEntry> AuditLog { get; }
 

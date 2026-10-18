@@ -13,8 +13,11 @@ using OqTish.Application.Common.Security;
 using OqTish.Application.Identity;
 using OqTish.Application.Identity.Sms;
 using OqTish.Application.Identity.Telegram;
+using OqTish.Application.Notifications;
+using OqTish.Application.Notifications.Telegram;
 using OqTish.Infrastructure.Booking;
 using OqTish.Infrastructure.Common;
+using OqTish.Infrastructure.Notifications;
 using OqTish.Infrastructure.Persistence;
 using OqTish.Infrastructure.Security;
 using OqTish.Infrastructure.Sms;
@@ -44,6 +47,7 @@ public static class DependencyInjection
         }
 
         var (pepper, smsProvider) = StartupGuards.Validate(configuration, environment);
+        var telegramClient = StartupGuards.ValidateTelegram(configuration, environment);
 
         services.AddDbContext<OqTishDbContext>(options => ConfigureDbContext(options, connectionString));
         services.AddScoped<IOqTishDb>(sp => sp.GetRequiredService<OqTishDbContext>());
@@ -59,6 +63,8 @@ public static class DependencyInjection
         services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
         services.Configure<OqTish.Application.Booking.BookingOptions>(configuration.GetSection(OqTish.Application.Booking.BookingOptions.SectionName));
         services.Configure<OqTish.Application.Finance.FinanceOptions>(configuration.GetSection(OqTish.Application.Finance.FinanceOptions.SectionName));
+        services.Configure<NotificationOptions>(configuration.GetSection(NotificationOptions.SectionName));
+        services.Configure<RetentionOptions>(configuration.GetSection(RetentionOptions.SectionName));
 
         // Common ports
         services.AddSingleton<IDbErrorClassifier, DbErrorClassifier>();
@@ -69,6 +75,13 @@ public static class DependencyInjection
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<IDbClock, DbClock>();
         services.AddScoped<OqTish.Application.Booking.IBookingStore, BookingStore>();
+        services.AddScoped<IOutboxClaimer, OutboxClaimer>();
+        services.AddSingleton<IDevMessageSink>(sp => new DevMessageSink(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            environment.IsDevelopment(),
+            environment.ApplicationName,
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<DevMessageSink>>()));
         services.TryAddScoped<SystemRequestContext>();
         services.TryAddScoped<IRequestContext>(sp => sp.GetRequiredService<SystemRequestContext>());
         services.TryAddScoped<ICurrentUser>(sp => sp.GetRequiredService<SystemRequestContext>());
@@ -98,8 +111,21 @@ public static class DependencyInjection
                 sp.GetRequiredService<ILogger<EskizSmsSender>>()));
         }
 
-        // Telegram
+        // Telegram: Fake (Development/tests; refused in Production by StartupGuards) or the real Bot API client.
         services.AddSingleton<ITelegramLoginVerifier, TelegramLoginVerifier>();
+        services.AddSingleton<FakeTelegramMailbox>();
+        if (telegramClient == TelegramClients.Fake)
+        {
+            services.AddSingleton<ITelegramBotClient, FakeTelegramBotClient>();
+        }
+        else
+        {
+            services.AddSingleton<ITelegramBotClient>(sp => new TelegramBotApiClient(
+                new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) }) { Timeout = Timeout.InfiniteTimeSpan },
+                sp.GetRequiredService<IOptions<TelegramOptions>>(),
+                sp.GetRequiredService<ILogger<TelegramBotApiClient>>(),
+                sp.GetRequiredService<TimeProvider>()));
+        }
 
         services.AddApplication();
         return services;

@@ -1,6 +1,6 @@
 # Testing Strategy and Required Test Catalogue
 
-Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2, BE2 §0.3, BE3 §0.4 — written, not yet executed).
+Status: Phase 2 harness in place. The catalogue below (§2–§6) is the required target; §0 lists what exists today (BE1a §0.1, BE1b §0.2, BE2 §0.3, BE3 §0.4 and BE4 §0.5 — written, not yet executed).
 
 ## 0. Current tests (Phase 2, verified 2026-10-18)
 
@@ -157,6 +157,34 @@ run once in the final test stage. Results are therefore unknown until then.
 | — | `EndpointAuthorizationTests` (unchanged) | covers the 16 new endpoints automatically |
 
 Helpers: `FinanceWorld` / `FinanceCalls` (Finance/FinanceKit.cs) on top of `BookingHost`, `BookingWorld`, `Race`.
+
+### 0.5 Added in BE4 (notifications, Telegram bot) — written 2026-10-18, **not yet executed**
+
+Owner rule: compile only (`dotnet build`, 0 warnings); these tests are written and compile and run in the final test
+stage. Results are unknown until then. Integration tests use `NotificationKit` (Notifications/NotificationKit.cs) on top of
+`BookingHost`: Development DI graph → **Fake Telegram client** (`FakeTelegramMailbox`: captured messages, `FailNext`,
+`SendBehavior` failure hooks, queued updates) and Fake SMS; Telegram enabled with a fake token; jitter 0.
+
+| Id | Test (class) | Proves |
+|---|---|---|
+| N1 | `N1_telegram_500_keeps_the_appointment_retries_with_backoff_and_fails_after_six_attempts` (OutboxDispatcherTests) | every attempt → Pending with next attempt ≈ +1 m / 5 m / 30 m / 2 h / 6 h, not due before; 6th → Failed; 6 attempt rows (Telegram, Retry, 500, attempt 1…6); appointment still Pending, booking invariants hold |
+| N2 | `N2_crash_after_send_does_not_resend…` | one message per dedup key; a row stuck Processing with an expired lease is reclaimed (attempts 2) and **not re-sent** to a recipient with a Sent attempt; without the attempt row (crash before it) exactly one duplicate — at-least-once, documented |
+| — | `Lease_reclaim_takes_only_expired_processing_rows_and_concurrent_claims_are_disjoint` | live lease not claimed, expired lease claimed (attempt + 1), two concurrent claimers (barrier) get disjoint sets covering all 39 due rows (SKIP LOCKED) |
+| N3 | `N3_without_a_telegram_link_confirmed_falls_back_to_sms_and_other_types_are_skipped` | confirmed → SMS to the contact phone (uz text); requested → Skipped `notify.no_channel`; reminders Skipped (Telegram only); no exception, no Telegram call |
+| — | `Sms_fallback_is_used_only_for_rejected_confirmed_cancelled_by_clinic_and_rescheduled` | the four OD-11 types → SMS; requested/expired → Skipped |
+| — | `Walk_ins_get_sms_to_the_contact_phone_for_clinic_cancel_and_reschedule_only` | walk-in creation enqueues nothing; reschedule + clinic cancel → 2 intents (no phone/name in payloads), 2 SMS to the walk-in contact, recipient key `contact` |
+| N4 | `N4_staff_messages_go_to_linked_triage_staff_of_the_branch_and_never_contain_the_patient_phone_or_name` | receptionist gets "New request #XXXXXXXX" (en) + console button and the patient-cancel notice; FinanceManager (no triage) and a receptionist scoped to another branch get nothing; texts and payloads contain no patient phone or name |
+| N5 | `N5_no_reminder_after_cancellation_and_the_dispatcher_rechecks_stale_reminders` | Booking cancels reminders on clinic cancel; reminders forced back to Pending for a cancelled appointment and for one moved behind Booking's back → Cancelled `reminder.stale`, nothing sent |
+| — | `A_due_reminder_for_a_confirmed_appointment_is_sent_by_telegram` | 24 h and 2 h reminders delivered (uz texts) |
+| — | `Linked_patient_gets_telegram_in_their_language_with_a_mini_app_button_and_no_sms` | ru text with doctor and branch address, web_app button `…/tg/appointments/{id}`, no SMS |
+| — | `Blocked_bot_deactivates_the_chat_link_and_falls_back_to_sms_where_allowed` | 403 → link inactive (`blocked`); confirmed delivered by SMS, requested Skipped; later messages skip Telegram |
+| — | `Telegram_disabled_means_sms_for_od11_types_even_with_a_link`, `Sms_failure_is_retried_and_never_touches_the_appointment`, `Unknown_types_fail_permanently_without_a_send` | channel rules, SMS retry (`sms.failed`), permanent failure |
+| — | TelegramBotTests: `/start` **valid token** (link active, language ru, identity created, reply + Mini App button), **reused** token and **expired** / unknown token → `LinkInvalid`, other account's Telegram id → `LinkConflict` without merge; plain `/start` links a known Telegram identity, otherwise welcome; group/supergroup/bot/non-text ignored; `/stop` → inactive (`stopped`, audited), `/start` re-activates; `/appointments` lists only own upcoming Pending/Confirmed; per-chat rate limit; poller handles queued updates once and persists the offset; a blocked reply is not an error | bot behaviour |
+| — | NotificationApiTests: admin notifications **authz** (anonymous 401, patient 403, other platform permission 403 for list and retry); list without payload/PII, fields, status filter, bad status 400; retry Failed → Pending (204, audited), again → 409, unknown → 404; **webhook** wrong path 404, missing/wrong secret 401, right secret 200 + bot reply, bad JSON 200, setWebhook registered on startup; webhook 404 in Polling mode; **dev Telegram endpoints** (simulate + list in Development, **404 in Production**); config `botId`; Production refuses Fake Telegram and an incomplete webhook setup | HTTP contracts |
+| — | RetentionAndWorkerTests: `Retention_deletes_only_eligible_rows_and_never_touches_audit` (exact counts per table, Pending/Processing/Failed-40-days kept, attempts cascade, audit unchanged); `Worker_dispatcher_service_delivers_due_messages_on_its_timer` | retention scope; hosted service |
+| — | Unit `NotificationRulesTests` | backoff 1 m/5 m/30 m/2 h/6 h, jitter bounds, retry_after, final at 6, schedule parsing; a Telegram template for every type × language, SMS only for OD-11 types (≤ 160 chars uz/en), branch-time formatting, staff texts with request number and no phone; language mapping; command parsing; bot id / webhook path; public-https button rule; startup guards (Fake refused in Production, webhook secret/base URL) |
+| — | Unit `TelegramBotApiClientTests` | request URL/body (inline keyboard web_app/url, no parse_mode), error classification (403, chat not found, 400, 5xx, 401, 409), 429 short retry once / long returned, timeout and network transient, token never echoed, getUpdates parsing, setWebhook secret |
+| — | `EndpointAuthorizationTests` (unchanged) | covers the new admin/webhook/dev endpoints automatically |
 
 ## 1. Layers
 

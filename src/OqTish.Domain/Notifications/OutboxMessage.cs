@@ -2,6 +2,12 @@ using OqTish.Domain.Common;
 
 namespace OqTish.Domain.Notifications;
 
+/// <summary>
+/// Lifecycle of an outbox message (BE4 dispatcher, docs/SERVICES.md §5):
+/// Pending → Processing (claimed with a lease) → Sent | Skipped | Pending (retry with backoff) | Failed (max
+/// attempts / permanent error) | Cancelled (stale reminder, cancelled by Booking). A Processing row whose lease
+/// expired (worker crash) is claimed again. An operator can move Failed back to Pending.
+/// </summary>
 public enum OutboxStatus
 {
     Pending = 1,
@@ -9,12 +15,16 @@ public enum OutboxStatus
     Sent = 3,
     Failed = 4,
     Cancelled = 5,
+
+    /// <summary>Nothing to deliver: no recipient or no channel (e.g. no Telegram link and no SMS fallback for the type).</summary>
+    Skipped = 6,
 }
 
 /// <summary>
 /// A message to be delivered after the business transaction commits (ADR-008). Written in the same
 /// transaction as the change that caused it; <see cref="DedupKey"/> is UNIQUE so a replayed change
-/// enqueues nothing new. Dispatching (claim with SKIP LOCKED, retries, backoff) is the Worker's job.
+/// enqueues nothing new. Dispatching (claim with SKIP LOCKED + lease, retries, backoff) is done by the Worker's
+/// <c>OutboxDispatcher</c>, which updates the row with conditional statements on <see cref="ClaimToken"/>.
 /// </summary>
 public sealed class OutboxMessage
 {
@@ -41,14 +51,27 @@ public sealed class OutboxMessage
 
     public OutboxStatus Status { get; private set; }
 
+    /// <summary>Number of dispatch claims so far (incremented when a dispatcher claims the row).</summary>
     public int Attempts { get; private set; }
 
     public DateTimeOffset NextAttemptAt { get; private set; }
 
-    /// <summary>Scrubbed error text of the last failed attempt.</summary>
+    /// <summary>Scrubbed error text of the last failed attempt (codes and provider status only, never message text or phones).</summary>
     public string? LastError { get; private set; }
 
+    /// <summary>Stable code of the last problem, e.g. <c>telegram.http_500</c>, <c>notify.no_channel</c>, <c>reminder.stale</c>.</summary>
+    public string? LastErrorCode { get; private set; }
+
+    /// <summary>Channel(s) used by the last attempt (<c>Telegram</c>, <c>Sms</c>, <c>Telegram,Sms</c>).</summary>
+    public string? Channel { get; private set; }
+
     public DateTimeOffset? SentAt { get; private set; }
+
+    /// <summary>Token of the dispatcher run that holds the row while <see cref="OutboxStatus.Processing"/>.</summary>
+    public Guid? ClaimToken { get; private set; }
+
+    /// <summary>Lease end while Processing; after it another dispatcher may reclaim the row (crash recovery).</summary>
+    public DateTimeOffset? LockedUntil { get; private set; }
 
     public static OutboxMessage Create(string type, string dedupKey, string payloadJson, DateTimeOffset now, DateTimeOffset? notBefore)
     {
@@ -68,20 +91,20 @@ public sealed class OutboxMessage
         };
     }
 
-    public void MarkSent(DateTimeOffset now)
+    /// <summary>Operator retry (admin): Failed → Pending with a fresh attempt budget, due now.</summary>
+    public bool RetryManually(DateTimeOffset now)
     {
-        Status = OutboxStatus.Sent;
-        SentAt = now;
-        Attempts++;
-        LastError = null;
-    }
+        if (Status != OutboxStatus.Failed)
+        {
+            return false;
+        }
 
-    public void MarkAttemptFailed(string scrubbedError, DateTimeOffset nextAttemptAt, bool final)
-    {
-        Attempts++;
-        LastError = scrubbedError.Length > 500 ? scrubbedError[..500] : scrubbedError;
-        NextAttemptAt = nextAttemptAt;
-        Status = final ? OutboxStatus.Failed : OutboxStatus.Pending;
+        Status = OutboxStatus.Pending;
+        Attempts = 0;
+        NextAttemptAt = now;
+        ClaimToken = null;
+        LockedUntil = null;
+        return true;
     }
 
     public void Cancel() => Status = OutboxStatus.Cancelled;

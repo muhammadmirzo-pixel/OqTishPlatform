@@ -262,7 +262,7 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
 3. `from`/`to` semantikasi (instant yoki sana, inclusive/exclusive) aniqlanmagan — F4 ga qarang.
 4. `reasonCode` qiymatlari ro'yxati yo'q — F5 ga qarang.
 5. Komissiya `rate` formati va sanalar turi aniqlanmagan — F7.
-6. `GET /telegram/config` da `botId` yo'q: eval'siz popup kirish uchun kerak; hozircha redirect rejimi.
+6. `GET /telegram/config` da `botId` yo'q: eval'siz popup kirish uchun kerak; hozircha redirect rejimi. **BE4: `botId` qo'shildi** (API.md §6.1).
 7. `Me.totpSetupRequired` umumiy: platforma huquqlari aynan TOTP kutayotganini bilish uchun alohida
    belgi (masalan `platformTotpSetupRequired`) yo'q.
 8. `/admin/settlements` va `/clinics/{id}/settlements` sahifalanmagan massiv deb taxmin qilindi.

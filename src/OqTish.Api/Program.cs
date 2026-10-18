@@ -63,6 +63,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddOqTishRateLimiting(builder.Configuration);
 
+// Telegram webhook mode: setWebhook after startup (no-op in Polling mode / when Telegram is disabled).
+builder.Services.AddHostedService<TelegramWebhookRegistrar>();
+
 var app = builder.Build();
 
 if (SeedCommand.IsRequested(args))
