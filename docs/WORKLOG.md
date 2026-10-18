@@ -75,3 +75,7 @@ Resume automatically after any interruption without waiting for a new command.
 - 2026-10-19: owner ok'd: fix review findings (most important first), then Uzbek docs + final report. Resume automatically after limits.
 - 2026-10-19: FIX stage done (see DECISIONS §6); targeted tests green (268 + 16 + 8 + FE 12). Next: DOC (Uzbek key docs, DEPLOYMENT.md, final report).
 - 2026-10-19: DOC done — README, DEPLOYMENT.md, YAKUNIY_HISOBOT.md (Uzbek), ISHGA_TUSHIRISH updated, smoke test 24/24 on latest code. All stages complete.
+
+## UI/UX qayta dizayn (2026-10-19)
+
+- Phase A (Discovery) tayyor: `docs/FRONTEND_PHASE_A.md`. Egasining tasdig‘i kutilmoqda (yo‘nalish, xarita, foto, `/` landing). Tasdiqdan keyin Phase B (dizayn tizimi) boshlanadi.
