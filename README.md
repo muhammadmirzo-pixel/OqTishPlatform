@@ -1,116 +1,106 @@
-# OqTish — Dental Clinic Appointment Platform
+# OqTish — stomatologiya klinikalari uchun onlayn qabul platformasi
 
-A multi-tenant platform that connects independent dental clinics, their branches, staff and patients.
-Patients request appointments, clinics assign doctors and confirm, and the platform records payments
-and commission in an append-only ledger.
+OqTish mustaqil stomatologiya klinikalari, ularning filiallari, xodimlari va bemorlarni bog'laydi.
+- **Bemorlar:** klinika topadi, narxlarni solishtiradi va qabulga yoziladi.
+- **Klinika:** so'rovni 30 daqiqa ichida tasdiqlaydi va shifokor tayinlaydi.
+- **Moliya:** to'lovlar va komissiya o'zgarmas buxgalteriya daftarida hisobga olinadi.
+- **Telegram:** bot va Mini App orqali yozilish va bildirishnomalar.
 
-**Status: Phase 2 (scaffold).** The solution, database setup, containers, CI and test harness are in
-place. No business features exist yet (they start in Phase 3).
+## Tarkibi
 
-## Repository layout
-
-```
-src/OqTish.Domain          domain model (no dependencies)
-src/OqTish.Application     use cases, authorization rules, DTOs
-src/OqTish.Infrastructure  EF Core + PostgreSQL, migrations, external adapters
-src/OqTish.Api             ASP.NET Core API (health checks, OpenAPI, ProblemDetails, rate limiting)
-src/OqTish.Worker          background jobs (currently: database readiness gate only)
-web/                       React + TypeScript (Vite)
-tests/                     architecture tests, PostgreSQL integration tests (Testcontainers)
-deploy/                    Dockerfiles, nginx config, PostgreSQL init (roles)
-docs/                      design documents (start with docs/IMPLEMENTATION_PLAN.md)
-```
-
-## Prerequisites
-
-| Tool | Version | Notes |
-|---|---|---|
-| .NET SDK | 10.0.401 (pinned in `global.json`) | |
-| Node.js | 24 LTS | `web/package.json` `engines` |
-| Docker Engine + Compose | 29 / v5 | required for containers **and** integration tests |
-
-If Docker Desktop is installed but not running, point the CLI at the system engine:
-`export DOCKER_CONTEXT=default` (for Compose) and `export DOCKER_HOST=unix:///var/run/docker.sock`
-(for Testcontainers in `dotnet test`).
-
-## Run the full stack (Docker Compose)
-
-```bash
-cp .env.example .env            # then replace every __REPLACE_ME__ with a strong random value
-docker compose -f compose.yaml -f compose.dev.yaml up --build -d
-docker compose ps               # api should become "healthy"; migrate exits 0
-open http://localhost:8080      # SPA; shows "Server holati: Ishlayapti" when the API is ready
-open http://localhost:8080/swagger/   # Swagger UI (Development overlay only)
-```
-
-Startup order: `postgres` (healthy) → `migrate` (applies EF Core migrations as `oqtish_owner`, then
-exits) → `api` + `worker` (connect as least-privilege roles) → `web` (nginx: SPA + `/api` proxy).
-
-`compose.yaml` alone is the production-like baseline (no DB port, `Production` environment, Swagger off).
-
-**Using a PostgreSQL installed on this machine instead** (local development only): set
-`OQTISH_HOSTDB_CONNECTION="Host=localhost;Port=5432;Database=OqTish_db;Username=...;Password=..."` in
-`.env` (keep the double quotes), then run
-`docker compose -f compose.yaml -f compose.hostdb.yaml up -d --build --wait`. The bundled `postgres`
-service doesn't start in this mode, and the services join the host network, bound to `127.0.0.1`
-(API :5080, web :8080). Running without Docker, `dotnet run` reads the same connection string from
-user-secrets (`dotnet user-secrets set "ConnectionStrings:Main" "..." --project src/OqTish.Api`, and the
-same for `src/OqTish.Worker`). Details: [docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) §2A.
-
-Stop: `docker compose down`. **`docker compose down -v` deletes the database volume.** Use it only
-for a disposable local database.
-
-## Run locally without containers
-
-```bash
-dotnet tool restore
-# Needs a PostgreSQL you control, e.g. the compose one: docker compose -f compose.yaml -f compose.dev.yaml up -d postgres migrate
-export ConnectionStrings__Main="Host=localhost;Port=55432;Database=oqtish;Username=oqtish_api;Password=<OQTISH_DB_API_PASSWORD from .env>"
-dotnet run --project src/OqTish.Api           # http://localhost:5080
-cd web && npm ci && npm run dev               # http://localhost:5173, proxies /api and /health to :5080
-```
-
-## Database migrations
-
-```bash
-# Add a migration after changing the model
-dotnet tool run dotnet-ef migrations add <Name> \
-  --project src/OqTish.Infrastructure --startup-project src/OqTish.Infrastructure \
-  --output-dir Persistence/Migrations
-
-# Review the SQL (idempotent script, as CI produces)
-dotnet tool run dotnet-ef migrations script --idempotent \
-  --project src/OqTish.Infrastructure --startup-project src/OqTish.Infrastructure
-
-# Apply to a database you control (never an unknown or production DB without approval + backup)
-OQTISH_MIGRATIONS_CONNECTION="Host=...;Database=oqtish;Username=oqtish_owner;Password=..." \
-  dotnet tool run dotnet-ef database update \
-  --project src/OqTish.Infrastructure --startup-project src/OqTish.Infrastructure
-```
-
-The API never migrates on startup. `/health/ready` reports unhealthy while migrations are pending.
-
-## Tests and checks
-
-```bash
-dotnet build                     # warnings are errors
-dotnet test                      # architecture + integration tests (starts a postgres:18-alpine container)
-cd web
-npm run lint && npm run typecheck && npm test && npm run build
-npm audit --omit=dev
-```
-
-See [docs/TESTING.md](docs/TESTING.md) for the full required test catalogue and what exists today.
-
-## Documents
-
-| Document | Contents |
+| Qism | Nima qiladi |
 |---|---|
-| [docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) | ishga tushirish qo'llanmasi (o'zbek tilida) |
-| [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | phases, exit criteria, risk register, phase reports |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | system diagram, modules, booking/confirm sequences |
-| [docs/DATABASE.md](docs/DATABASE.md) | ER diagram, constraints, DB roles, RLS, migration policy |
-| [docs/SECURITY.md](docs/SECURITY.md) | authn/authz model, permission matrix, privacy |
-| [docs/FINANCIAL_RULES.md](docs/FINANCIAL_RULES.md) | ledger, commission, numeric test cases, open accounting rules |
-| [docs/TESTING.md](docs/TESTING.md) | test strategy and catalogue |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | ADRs, package versions, assumptions, open business decisions |
+| **Bemorlar sayti** | Klinika qidirish (xizmat, tuman, masofa, narx, reyting), klinika sahifasi, qabulga yozilish, "Qabullarim", sharhlar |
+| **Klinika paneli** | So'rovlar (30 daqiqalik hisoblagich), kalendar, shifokorlar va jadval, xizmatlar va narxlar, filiallar, xodimlar, walk-in, to'lovlar, hisobotlar, audit |
+| **Platforma admini** | Klinikalarni tekshirish, foydalanuvchilarni bloklash, shikoyatlar, sharhlar moderatsiyasi, komissiya shartnomalari, oylik hisob-kitoblar, audit, bildirishnomalar |
+| **Telegram bot + Mini App** | Hisobni ulash, qabul holati xabarlari va eslatmalar, Telegram ichida yozilish (bemor) va so'rovlarni tasdiqlash (xodim) |
+| **Worker (fon xizmati)** | Muddati o'tgan so'rovlarni bekor qilish, bildirishnomalarni yuborish, eslatmalar, moliyaviy moslik, eski ma'lumotlarni tozalash |
+
+Interfeys tillari: o'zbek (lotin), rus, ingliz.
+
+## Tez boshlash (lokal)
+
+```bash
+cd ~/Projects/OqTishProgram
+export PATH=$HOME/.dotnet:$HOME/.local/opt/node/bin:$PATH DOCKER_CONTEXT=default
+docker compose -f compose.yaml -f compose.hostdb.yaml up -d --build --wait     # kompyuterdagi OqTish_db bilan
+docker compose -f compose.yaml -f compose.hostdb.yaml run --rm api seed        # demo ma'lumotlar (bir marta)
+deploy/smoke-test.sh                                                            # 24 ta avtomatik tekshiruv
+```
+
+Sayt: http://localhost:8080. Demo loginlar, SMS kodni olish va qo'lda sinov ssenariylari
+[docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) da.
+
+## Texnologiyalar
+
+.NET 10 (ASP.NET Core API + Worker Service, EF Core + Npgsql), PostgreSQL 18, React 19 + TypeScript +
+Vite, nginx, Docker Compose, GitLab CI, xUnit v3 + Testcontainers (haqiqiy PostgreSQL), Vitest.
+Aniq versiyalar: [docs/DECISIONS.md](docs/DECISIONS.md) §1.1.
+
+## Arxitektura qisqacha
+
+- **Modulli monolit:** bitta API, bitta Worker, bitta PostgreSQL. Qabul, bildirishnoma navbati (outbox)
+  va moliya daftari bitta tranzaksiyada yoziladi, shuning uchun ma'lumot hech qachon "yarim" saqlanmaydi.
+- **Qatlamlar:**
+  - `Domain`: qoidalar va holatlar mashinasi;
+  - `Application`: amallar (handler'lar) va ruxsat tekshiruvi;
+  - `Infrastructure`: baza, SMS, Telegram;
+  - `Api` va `Worker`: kirish nuqtalari.
+
+  Qatlamlar orasidagi bog'liqlik testlar bilan nazorat qilinadi.
+- **Ikki marta band qilib bo'lmaydi:**
+  - Bemor so'rov yuborganda server mos shifokorning vaqtini yashirin "band" qiladi.
+  - PostgreSQL'ning GiST exclusion cheklovi bitta shifokorga ikkita ustma-ust vaqt yozilishini **ma'lumotlar bazasi darajasida** taqiqlaydi.
+  - Bir vaqtdagi so'rovlar 50 martalik testlar bilan tekshirilgan.
+- **30 daqiqalik muddat** server vaqti bilan tekshiriladi. Worker muddati o'tgan so'rovlarni bekor qiladi va vaqtni bo'shatadi.
+- **Moliya:** ikki tomonlama (double-entry), faqat qo'shiladigan (append-only) daftar.
+  - Xatolar o'chirilmaydi, teskari yozuv bilan tuzatiladi.
+  - Takroriy so'rov ikki marta yozilmaydi (idempotentlik).
+  - Komissiya faqat admin kiritgan shartnoma qoidasidan olinadi; qoida bo'lmasa, komissiya 0.
+
+Batafsil: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SERVICES.md](docs/SERVICES.md)
+(har bir servis va handler nima qiladi, o'zbekcha).
+
+## Xavfsizlik qisqacha
+
+- **Klinikalar ajratilgan:**
+  - Har bir so'rovda resurs bazadan o'qiladi va **uning o'z** klinikasi/filiali bo'yicha ruxsat tekshiriladi.
+  - Boshqa klinika ma'lumotiga urinish → 404, ruxsat yo'q → 403.
+  - Bazada klinikaga bog'langan kompozit tashqi kalitlar bor.
+- **Kirish:**
+  - Bemorlar SMS kod yoki Telegram orqali kiradi.
+  - Xodimlar email + parol bilan kiradi; egasi, moliyachi va admin uchun **TOTP majburiy**.
+  - Sessiyalar serverda saqlanadi va bekor qilinishi mumkin (mutlaq muddat 60 kun).
+  - Xato kodlar soni cheklangan.
+- **Himoya:** CSRF uchun majburiy sarlavha, IP va foydalanuvchi bo'yicha limitlar, xavfsizlik sarlavhalari (CSP va boshqalar).
+- **Ma'lumotlar bazasi rollari:** dastur jadval yarata olmaydi va daftar yoki auditni o'zgartira olmaydi.
+- **Maxfiylik:**
+  - Loglarda telefon, ism, kod va tokenlar yo'q.
+  - Telegram xabarlarida tibbiy ma'lumot yo'q; xodimlarga bemor telefoni yuborilmaydi.
+- **Production rejimi** xavfli sozlamalar bilan ishga tushmaydi.
+
+Batafsil: [docs/SECURITY.md](docs/SECURITY.md), tekshiruv natijalari: [docs/DECISIONS.md](docs/DECISIONS.md) §6.
+
+## Testlar
+
+```bash
+export DOCKER_HOST=unix:///var/run/docker.sock
+dotnet build && dotnet test            # ~430 ta test (arxitektura, unit, haqiqiy PostgreSQL integratsiya, bir vaqtdagi so'rovlar)
+cd web && npm run lint && npm run typecheck && npm test && npm run build    # 93 ta frontend testi
+```
+
+## Hujjatlar
+
+| Hujjat | Mazmuni | Til |
+|---|---|---|
+| [docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) | Lokal ishga tushirish, demo loginlar, sinov ssenariylari | 🇺🇿 |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Serverga chiqarish, yangilash, orqaga qaytarish | 🇺🇿 |
+| [docs/SERVICES.md](docs/SERVICES.md) | Har bir servis, handler, fon jarayoni va Telegram botni ulash | 🇺🇿 |
+| [docs/FRONTEND.md](docs/FRONTEND.md) | Sahifalar xaritasi, ruxsatlar, Mini App | 🇺🇿 |
+| [docs/YAKUNIY_HISOBOT.md](docs/YAKUNIY_HISOBOT.md) | Nima qilindi, qanday tekshirildi, ma'lum cheklovlar | 🇺🇿 |
+| [docs/BACKUP_AND_RESTORE.md](docs/BACKUP_AND_RESTORE.md) | Zaxira nusxa va tiklash (sinovdan o'tgan) | 🇬🇧 |
+| [docs/API.md](docs/API.md) | Barcha API endpointlari, ruxsatlar, xato kodlari | 🇬🇧 (texnik ma'lumotnoma) |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DATABASE.md](docs/DATABASE.md) | Arxitektura, ER-diagramma, cheklovlar | 🇬🇧 |
+| [docs/SECURITY.md](docs/SECURITY.md), [docs/FINANCIAL_RULES.md](docs/FINANCIAL_RULES.md) | Xavfsizlik, ruxsatlar matritsasi, moliya qoidalari | 🇬🇧 |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Barcha qarorlar (§6 tekshiruv natijalari o'zbekcha) | 🇬🇧/🇺🇿 |
+| [docs/SRS.md](docs/SRS.md), [docs/TESTING.md](docs/TESTING.md), [docs/CONVENTIONS.md](docs/CONVENTIONS.md), [docs/WORKLOG.md](docs/WORKLOG.md) | Talablar, testlar katalogi, kod qoidalari, ish jurnali | 🇬🇧 |

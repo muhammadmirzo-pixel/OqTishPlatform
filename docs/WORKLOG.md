@@ -25,7 +25,7 @@ Resume automatically after any interruption without waiting for a new command.
 | INT ✅ | (done 2026-10-18 ~23:50: host-DB compose rebuilt, Notifications migration applied to OqTish_db, seed OK, HTTP smoke: OTP sign-in → book → confirm → double-confirm 409 → payment/idempotent replay → refund rules → balance → daily report commission 4000.00 correct; authz 403/404 and CSRF 403 correct) Merge, regenerate migrations if needed, full build/tests, FE↔API contract reconciliation, docker images, compose up (bundled + host DB modes), end-to-end smoke | lead (+ agent) | ⏳ |
 | REV | ONE combined review | 1 review agent | ✅ done: R1 High (client IP behind outer proxy), R2–R10 Medium/Low |
 | FIX | Fix review findings in order R1 → R2 → R3 → R4 → R6 → R7 → R8 → R10 → R5; R9 (DP key encryption) = documented deployment step. Lead fixes directly; targeted tests only | lead | ✅ R1,R2,R3,R4,R6,R10 fixed; R7 false positive; R8 kept by design; R5 known risk; R9 deploy step (DECISIONS §6) |
-| DOC 🔄 | **All documentation in Uzbek (Latin) as far as possible** (owner request 2026-10-18): translate existing English docs; identifiers/commands/code stay English. Final docs: DEPLOYMENT.md, SERVICES.md complete, API.md synced, TESTING.md, Uzbek local-testing guide (docs/ISHGA_TUSHIRISH.md + full test scenarios), final report | lead | ⏳ |
+| DOC ✅ | **All documentation in Uzbek (Latin) as far as possible** (owner request 2026-10-18): translate existing English docs; identifiers/commands/code stay English. Final docs: DEPLOYMENT.md, SERVICES.md complete, API.md synced, TESTING.md, Uzbek local-testing guide (docs/ISHGA_TUSHIRISH.md + full test scenarios), final report | lead | ⏳ |
 
 ## Constraints that must survive interruptions
 
@@ -74,3 +74,4 @@ Resume automatically after any interruption without waiting for a new command.
 - 2026-10-18 ~23:50: INT done (see stage row). Launching ONE combined review agent.
 - 2026-10-19: owner ok'd: fix review findings (most important first), then Uzbek docs + final report. Resume automatically after limits.
 - 2026-10-19: FIX stage done (see DECISIONS §6); targeted tests green (268 + 16 + 8 + FE 12). Next: DOC (Uzbek key docs, DEPLOYMENT.md, final report).
+- 2026-10-19: DOC done — README, DEPLOYMENT.md, YAKUNIY_HISOBOT.md (Uzbek), ISHGA_TUSHIRISH updated, smoke test 24/24 on latest code. All stages complete.

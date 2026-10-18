@@ -3,8 +3,8 @@
 Bu qo'llanma dasturni o'z kompyuteringizda **to'liq ishga tushirish**, demo ma'lumotlarni yuklash,
 har bir rol bilan kirish va asosiy ish jarayonlarini qo'lda sinab ko'rishni bosqichma-bosqich tushuntiradi.
 
-> Hujjat holati: 2026-10-18 kechqurun. Moliya (to'lovlar, hisobotlar, komissiya) va Telegram bot hozir
-> qurilmoqda. Ular tayyor bo'lgach, ushbu qo'llanma yangilanadi va har bir buyruq qayta tekshiriladi.
+> Hujjat holati: 2026-10-19. Barcha qismlar tayyor. Ushbu qo'llanmadagi buyruqlar shu kuni
+> tekshirildi (usul A + seed + `deploy/smoke-test.sh`: 24/24 ✅).
 
 ---
 
@@ -21,11 +21,9 @@ har bir rol bilan kirish va asosiy ish jarayonlarini qo'lda sinab ko'rishni bosq
 | Kalendar, sharhlar va moderatsiya, shikoyatlar | ✅ |
 | Platforma admini: klinikalarni tekshirish, foydalanuvchilarni bloklash, audit | ✅ |
 | UI: bemorlar sayti, klinika paneli, admin paneli, Telegram Mini App sahifalari | ✅ |
-| To'lovlar, qaytarishlar, komissiya, hisob-kitoblar, hisobotlar | 🔄 qurilmoqda |
-| Telegram bot, bildirishnomalar (Telegram/SMS), eslatmalar | 🔄 navbatda |
+| To'lovlar, qaytarishlar, komissiya, hisob-kitoblar, hisobotlar | ✅ |
+| Telegram bot, bildirishnomalar (Telegram/SMS), eslatmalar | ✅ (lokal rejimda xabarlar "soxta" qutiga tushadi) |
 
-UI'da hali tayyor bo'lmagan bo'limlar (masalan, to'lovlar) ochilsa, server xato qaytaradi. Bu shu
-bosqichlar tugaguncha kutilgan holat.
 
 ---
 
@@ -247,10 +245,31 @@ Lokal rejimda haqiqiy SMS yuborilmaydi. Kodlar "soxta SMS qutisi"ga tushadi:
 3. **Sharhlar**: moderatsiyani kutayotgan sharhni nashr qiling. Klinika reytingi yangilanadi.
 4. **Audit jurnali**: barcha muhim amallar shu yerda yoziladi.
 
-### 8.5. Telegram Mini App (brauzerda)
-http://localhost:8080/tg sahifasi oddiy brauzerda "Telegram ichida oching" ogohlantirishini ko'rsatadi.
-Bu to'g'ri xatti-harakat. Telegram ichida to'liq ishlashi uchun bot tokeni va HTTPS manzil kerak. Bot
-tayyor bo'lgach, sozlash bo'yicha alohida bo'lim qo'shiladi.
+### 8.5. Moliya (to'lov va hisobot)
+1. `reception@…` bilan tasdiqlangan qabulni oching → **To'lov kiritish** (summa, naqd/karta/o'tkazma).
+2. `finance@…` bilan kiring → to'lovni **Qaytarish** (qabulxona qaytara olmaydi, bu to'g'ri).
+3. **Hisobotlar**: kunlik tushum, qaytarish va komissiya. Demo klinikada 10% komissiya qoidasi bor
+   ("DEMO-0001"), masalan 50 000 to'lov va 10 000 qaytarishdan keyin komissiya 4 000.
+4. Admin panel → **Hisob-kitoblar**: o'tgan oy uchun hisob-kitob yaratish, yakunlash, "to'landi" deb belgilash.
+
+### 8.6. Bildirishnomalar va Telegram (lokal rejimda)
+Lokal rejimda haqiqiy Telegram'ga hech narsa yuborilmaydi. Yuboriladigan xabarlar soxta qutiga tushadi:
+```bash
+curl http://localhost:8080/api/dev/telegram
+```
+Admin panel → **Bildirishnomalar**: har bir xabarning holati (yuborildi / kanal yo'q / xato).
+
+http://localhost:8080/tg (Mini App) oddiy brauzerda "Telegram ichida oching" ogohlantirishini
+ko'rsatadi. Bu to'g'ri xatti-harakat. Haqiqiy Telegram'da sinash uchun bot tokeni va HTTPS manzil kerak:
+`docs/SERVICES.md` §5.9 "Telegram botni ulash" (lokal sinov uchun HTTPS tunnel bo'yicha eslatma ham bor).
+
+### 8.7. Avtomatik tekshiruv (bitta buyruq)
+```bash
+deploy/smoke-test.sh
+```
+24 ta qadam: kirish (barcha rollar va SMS kod), bo'sh vaqt, bron qilish, tasdiqlash, ikkinchi
+tasdiqlashning rad etilishi, boshqa klinika/rol ruxsatlari, to'lov, takroriy to'lov, qaytarish
+qoidalari, balans, hisobot, admin. Oxirida "Hammasi muvaffaqiyatli" chiqishi kerak.
 
 ---
 
