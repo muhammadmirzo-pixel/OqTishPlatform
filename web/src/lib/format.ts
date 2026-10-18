@@ -1,5 +1,5 @@
 import type { Locale } from '../i18n/messages'
-import type { Money } from '../domain/types'
+import type { Money } from '../api/types'
 
 const intlLocale: Record<Locale, string> = { uz: 'uz-Latn-UZ', ru: 'ru-RU', en: 'en-GB' }
 const currencyLabel: Record<Locale, string> = { uz: "so'm", ru: 'сум', en: 'UZS' }
@@ -28,6 +28,33 @@ export function formatDateTime(isoUtc: string, timeZone: string, locale: Locale)
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(new Date(isoUtc))
+}
+
+/** Date only ("18 Oct 2026") of a UTC instant in the given zone. */
+export function formatInstantDate(isoUtc: string, timeZone: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(intlLocale[locale], { timeZone, day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(isoUtc))
+}
+
+/** Full date and time with year, for audit trails and history. */
+export function formatFullDateTime(isoUtc: string, timeZone: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(intlLocale[locale], {
+    timeZone,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(isoUtc))
+}
+
+/** Weekday + date of a local "YYYY-MM-DD" (for date pickers). */
+export function formatLocalDay(isoDate: string, locale: Locale): { weekday: string; day: string } {
+  const d = new Date(`${isoDate}T12:00:00Z`)
+  return {
+    weekday: new Intl.DateTimeFormat(intlLocale[locale], { weekday: 'short', timeZone: 'UTC' }).format(d),
+    day: new Intl.DateTimeFormat(intlLocale[locale], { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(d),
+  }
 }
 
 export function formatTime(isoUtc: string, timeZone: string, locale: Locale): string {

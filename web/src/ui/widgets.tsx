@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import type { AppointmentStatus } from '../domain/types'
+import { useState, type ReactNode } from 'react'
+import type { AppointmentStatus } from '../api/types'
 import { useI18n } from '../i18n/context'
 import { localeNames, locales, type Locale } from '../i18n/messages'
 import { remaining } from '../lib/format'
@@ -46,7 +46,7 @@ export function LanguageSwitcher() {
       <span className="visually-hidden">{t('lang.label')}</span>
       <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label={t('lang.label')}>
         {locales.map((l) => (
-          <option key={l} value={l}>
+          <option key={l} value={l} lang={l}>
             {localeNames[l]}
           </option>
         ))}
@@ -55,7 +55,7 @@ export function LanguageSwitcher() {
   )
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
     <header className="page-header">
       <div>
@@ -73,5 +73,46 @@ export function StatCard({ label, value, tone }: { label: string; value: ReactNo
       <span className="stat__label">{label}</span>
       <span className="stat__value">{value}</span>
     </div>
+  )
+}
+
+export function Stars({ rating, label }: { rating: number | null; label?: string }) {
+  if (rating === null) return null
+  const full = Math.round(rating)
+  return (
+    <span className="stars" aria-label={label ?? String(rating)} role="img">
+      {'★★★★★'.slice(0, full)}
+      <span className="stars__empty">{'★★★★★'.slice(full)}</span>
+    </span>
+  )
+}
+
+export function CopyButton({ text }: { text: string }) {
+  const { t } = useI18n()
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      className="btn btn--ghost btn--small"
+      onClick={() => {
+        void navigator.clipboard?.writeText(text).then(() => setCopied(true), () => setCopied(false))
+      }}
+    >
+      <span aria-live="polite">{copied ? t('common.copied') : t('common.copy')}</span>
+    </button>
+  )
+}
+
+/** Definition list for read-only detail panels. */
+export function Details({ items }: { items: [ReactNode, ReactNode][] }) {
+  return (
+    <dl className="details">
+      {items.map(([k, v], i) => (
+        <div key={i} className="details__row">
+          <dt>{k}</dt>
+          <dd>{v}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }

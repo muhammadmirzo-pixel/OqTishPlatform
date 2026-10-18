@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import { searchForWorkspaceRoot } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 // Dev server proxies API and health calls to the locally running API (dotnet run → :5080),
@@ -8,6 +9,8 @@ const apiTarget = process.env.OQTISH_API_DEV_URL ?? 'http://localhost:5080'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Tests read docs/API.md (?raw) to check that every documented error code is localised.
+    fs: process.env.VITEST ? { allow: [searchForWorkspaceRoot(process.cwd()), '../docs'] } : undefined,
     proxy: {
       '/api': apiTarget,
       '/health': apiTarget,

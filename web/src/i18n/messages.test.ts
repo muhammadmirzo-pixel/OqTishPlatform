@@ -25,3 +25,16 @@ describe('interpolate', () => {
     expect(interpolate('Salom, {name}!', {})).toBe('Salom, {name}!')
   })
 })
+
+describe('catalogue sections', () => {
+  it('do not define the same key twice (a later section would silently override it)', async () => {
+    const { sections } = await import('./messages')
+    const seen = new Map<string, string>()
+    for (const [name, section] of Object.entries(sections)) {
+      for (const key of Object.keys(section.uz)) {
+        expect(seen.get(key), `${key} in ${name}`).toBeUndefined()
+        seen.set(key, name)
+      }
+    }
+  })
+})

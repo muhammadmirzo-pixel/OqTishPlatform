@@ -72,3 +72,58 @@ describe('createApiClient', () => {
     expect(init.credentials).toBe('same-origin')
   })
 })
+
+describe('CSRF header, idempotency and session expiry', () => {
+  const ok = () => vi.fn().mockImplementation(async () => new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }))
+  const headersOf = (mock: ReturnType<typeof vi.fn>, i = 0) => (mock.mock.calls[i]![1] as RequestInit).headers as Record<string, string>
+
+  it('sends X-OqTish-Client: web on every non-GET request but not on GET', async () => {
+    const fetchMock = ok()
+    const client = createApiClient('/api', fetchMock)
+    await client.get('/me')
+    for (const method of ['POST', 'PUT', 'DELETE'] as const) await client.send(method, '/x')
+    expect(headersOf(fetchMock, 0)['X-OqTish-Client']).toBeUndefined()
+    expect([1, 2, 3].map((i) => headersOf(fetchMock, i)['X-OqTish-Client'])).toEqual(['web', 'web', 'web'])
+  })
+
+  it('identifies the Telegram Mini App as tg-miniapp', async () => {
+    const fetchMock = ok()
+    const client = createApiClient('/api', fetchMock)
+    client.setClientKind('tg-miniapp')
+    await client.send('POST', '/auth/telegram/webapp', { initData: 'x' })
+    expect(headersOf(fetchMock)['X-OqTish-Client']).toBe('tg-miniapp')
+  })
+
+  it('passes the Idempotency-Key header when given', async () => {
+    const fetchMock = ok()
+    const client = createApiClient('/api', fetchMock)
+    await client.send('POST', '/appointments', { a: 1 }, { idempotencyKey: 'k-123' })
+    expect(headersOf(fetchMock)['Idempotency-Key']).toBe('k-123')
+    expect(headersOf(fetchMock)['Content-Type']).toBe('application/json')
+  })
+
+  it('exposes the problem code and notifies listeners on auth.unauthenticated only', async () => {
+    const listener = vi.fn()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(401, { code: 'auth.invalid_credentials' }))
+      .mockResolvedValueOnce(jsonResponse(401, { code: 'auth.unauthenticated' }))
+    const client = createApiClient('/api', fetchMock)
+    client.onUnauthenticated(listener)
+    const first = (await client.send('POST', '/auth/password/login', {}).catch((e: unknown) => e)) as ApiError
+    expect(first.code).toBe('auth.invalid_credentials')
+    expect(listener).not.toHaveBeenCalled()
+    await client.get('/me').catch(() => undefined)
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('accepts 202 with a JSON body and 204 without one', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"challengeId":"c1"}', { status: 202, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const client = createApiClient('/api', fetchMock)
+    expect(await client.send('POST', '/auth/otp/request', { phone: 'x' })).toEqual({ challengeId: 'c1' })
+    expect(await client.send('POST', '/auth/logout')).toBeUndefined()
+  })
+})

@@ -1,0 +1,10 @@
+// Platform admin chunk (loaded on first visit to /admin).
+export { AdminLayout } from '../AdminLayout'
+export { AdminAuditPage, NotificationsPage } from '../../features/admin/AdminAuditPages'
+export { AdminClinicsPage } from '../../features/admin/AdminClinicsPage'
+export { AdminDashboardPage } from '../../features/admin/AdminDashboardPage'
+export { AdminReportsPage, AdminReviewsPage } from '../../features/admin/AdminModerationPages'
+export { AdminSettlementsPage } from '../../features/admin/AdminSettlementsPage'
+export { AdminUsersPage } from '../../features/admin/AdminUsersPage'
+export { CommissionPage } from '../../features/admin/CommissionPage'
+export { TenantDataPage } from '../../features/admin/TenantDataPage'

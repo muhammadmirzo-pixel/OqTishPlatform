@@ -1,0 +1,134 @@
+import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
+import { useApi } from '../../api/context'
+import type { DoctorBody, DoctorDto, ServiceDto, StaffMemberDto } from '../../api/types'
+import { useSession } from '../../auth/session'
+import { useAction } from '../../hooks/useAction'
+import { useQuery } from '../../hooks/useQuery'
+import { useTitle } from '../../hooks/useTitle'
+import { useI18n } from '../../i18n/context'
+import { Dialog } from '../../ui/Dialog'
+import { Checkbox, CheckboxGroup, Field, FormError, SubmitButton } from '../../ui/forms'
+import { EmptyState, QueryView } from '../../ui/states'
+import { Badge, PageHeader } from '../../ui/widgets'
+import { useClinic } from './clinicContext'
+import { Perm } from './permissions'
+
+export function DoctorsPage() {
+  const { t } = useI18n()
+  useTitle(t('clinicNav.doctors'))
+  const api = useApi()
+  const { me } = useSession()
+  const { clinicId, can, branchName } = useClinic()
+  const doctors = useQuery(`doctors:${clinicId}`, () => api.clinic.doctors(clinicId))
+  const services = useQuery(`services:${clinicId}`, () => api.clinic.services(clinicId))
+  const [creating, setCreating] = useState(false)
+  const manage = can(Perm.scheduleManage)
+  const serviceName = (id: string) => services.data?.find((s) => s.id === id)?.name ?? '…'
+
+  return (
+    <div className="stack">
+      <PageHeader
+        title={t('clinicNav.doctors')}
+        actions={
+          manage && (
+            <button type="button" className="btn" onClick={() => setCreating(true)}>
+              {t('doc.add')}
+            </button>
+          )
+        }
+      />
+      <QueryView query={doctors}>
+        {(list) => {
+          const visible = manage || can(Perm.catalogManage) ? list : list.filter((d) => d.userId === me?.id)
+          return visible.length === 0 ? (
+            <EmptyState title={t('doc.none')} />
+          ) : (
+            <ul className="list-plain stack">
+              {visible.map((d) => (
+                <li key={d.id}>
+                  <Link to={`/clinic/${clinicId}/doctors/${d.id}`} className="card card--link stack">
+                    <span>
+                      <strong>{d.displayName}</strong> {!d.isActive && <Badge>{t('common.inactive')}</Badge>} {d.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
+                    </span>
+                    <span className="small">{d.branchIds.map(branchName).join(', ') || t('doc.noBranches')}</span>
+                    <span className="muted small">{d.serviceIds.map(serviceName).join(', ') || t('doc.noServices')}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )
+        }}
+      </QueryView>
+      {creating && services.data && (
+        <DoctorDialog
+          doctor={null}
+          services={services.data}
+          onDone={() => {
+            setCreating(false)
+            doctors.reload()
+          }}
+          onClose={() => setCreating(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: DoctorDto | null; services: ServiceDto[]; onDone: () => void; onClose: () => void }) {
+  const { t } = useI18n()
+  const api = useApi()
+  const { clinicId, branches, can } = useClinic()
+  const staff = useQuery(can(Perm.staffManage) ? `staff:${clinicId}` : null, () => api.clinic.staff(clinicId))
+  const [name, setName] = useState(doctor?.displayName ?? '')
+  const [isActive, setActive] = useState(doctor?.isActive ?? true)
+  const [branchIds, setBranchIds] = useState<string[]>(doctor?.branchIds ?? [])
+  const [serviceIds, setServiceIds] = useState<string[]>(doctor?.serviceIds ?? [])
+  const [userId, setUserId] = useState(doctor?.userId ?? '')
+  const [touched, setTouched] = useState(false)
+  const save = useAction((body: DoctorBody) => (doctor ? api.clinic.updateDoctor(clinicId, doctor.id, body) : api.clinic.createDoctor(clinicId, body)))
+  const doctorsStaff: StaffMemberDto[] = (staff.data ?? []).filter((s) => s.role === 'Doctor')
+  const errors = {
+    name: !name.trim() ? t('valid.required') : name.length > 100 ? t('valid.maxLength', { max: 100 }) : null,
+    branches: branchIds.length === 0 ? t('valid.chooseOne') : null,
+    services: serviceIds.length === 0 ? t('valid.chooseOne') : null,
+  }
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setTouched(true)
+    if (errors.name || errors.branches || errors.services) return
+    const r = await save.run({ displayName: name.trim(), isActive, branchIds, serviceIds, userId: userId || null })
+    if (r.ok) onDone()
+  }
+
+  return (
+    <Dialog title={doctor ? t('doc.edit') : t('doc.add')} onClose={onClose}>
+      <form className="stack" onSubmit={submit} noValidate>
+        <Field label={t('doc.name')} error={touched ? errors.name : null}>
+          {(p) => <input {...p} maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />}
+        </Field>
+        <CheckboxGroup legend={t('doc.branches')} options={branches.map((b) => ({ id: b.id, label: b.name }))} value={branchIds} onChange={setBranchIds} error={touched ? errors.branches : null} />
+        <CheckboxGroup legend={t('doc.services')} options={services.filter((s) => s.isActive).map((s) => ({ id: s.id, label: s.name }))} value={serviceIds} onChange={setServiceIds} error={touched ? errors.services : null} />
+        {staff.data && (
+          <Field label={t('doc.account')} hint={t('doc.accountHint')} optional>
+            {(p) => (
+              <select {...p} value={userId} onChange={(e) => setUserId(e.target.value)}>
+                <option value="">{t('doc.noAccount')}</option>
+                {doctorsStaff.map((s) => (
+                  <option key={s.userId} value={s.userId}>
+                    {s.displayName}
+                    {s.phoneMasked ? ` (${s.phoneMasked})` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        )}
+        <Checkbox label={t('common.active')} checked={isActive} onChange={setActive} />
+        <FormError error={save.error} />
+        <SubmitButton pending={save.pending}>{t('common.save')}</SubmitButton>
+      </form>
+    </Dialog>
+  )
+}

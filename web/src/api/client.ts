@@ -1,6 +1,9 @@
-// Thin fetch wrapper. Every non-2xx response becomes an ApiError with an explicit `kind`, so screens
-// can render the required states (validation, permission denied, not found, conflict, rate limit,
-// server error) without parsing HTTP details themselves. The server stays authoritative for all rules.
+// Thin fetch wrapper. Every non-2xx response becomes an ApiError with an explicit `kind` and the
+// server's machine-readable `code`, so screens can render the right state and a localised message
+// without parsing HTTP details. The server stays authoritative for all rules.
+//
+// CSRF (CONVENTIONS.md §5, OD-23): every non-GET request carries `X-OqTish-Client` ("web", or
+// "tg-miniapp" inside the Telegram Mini App). Cookies are sent same-origin only.
 
 export type ApiErrorKind =
   | 'validation'
@@ -12,12 +15,15 @@ export type ApiErrorKind =
   | 'server'
   | 'network'
 
-/** RFC 7807 body as produced by the API (ProblemDetails + traceId + optional field errors). */
+export type ClientKind = 'web' | 'tg-miniapp'
+
+/** RFC 7807 body as produced by the API (ProblemDetails + code + traceId + optional field errors). */
 export interface ProblemDetails {
   type?: string
   title?: string
   status?: number
   detail?: string
+  code?: string
   traceId?: string
   errors?: Record<string, string[]>
 }
@@ -35,10 +41,23 @@ export class ApiError extends Error {
     this.problem = problem
   }
 
+  /** Stable error code from docs/API.md §9 (e.g. "booking.slot_unavailable"). */
+  get code(): string | undefined {
+    return this.problem?.code
+  }
+
   /** Correlation id to show users on server errors, so support can find the log entry. */
   get traceId(): string | undefined {
     return this.problem?.traceId
   }
+
+  get fieldErrors(): Record<string, string[]> {
+    return this.problem?.errors ?? {}
+  }
+}
+
+export function isApiError(value: unknown, code?: string): value is ApiError {
+  return value instanceof ApiError && (code === undefined || value.code === code)
 }
 
 export function kindForStatus(status: number): ApiErrorKind {
@@ -51,44 +70,87 @@ export function kindForStatus(status: number): ApiErrorKind {
   return 'server'
 }
 
-export interface ApiClient {
-  get<T>(path: string, init?: RequestInit): Promise<T>
-  send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown, init?: RequestInit): Promise<T>
+export interface RequestOptions {
+  headers?: Record<string, string>
+  /** Sent as `Idempotency-Key`; callers keep it stable across retries of one submission. */
+  idempotencyKey?: string
+  signal?: AbortSignal
 }
 
-export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch): ApiClient {
-  const base = baseUrl.replace(/\/+$/, '')
+export type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-  async function request<T>(path: string, init: RequestInit): Promise<T> {
+export interface ApiClient {
+  get<T>(path: string, options?: RequestOptions): Promise<T>
+  send<T>(method: Method, path: string, body?: unknown, options?: RequestOptions): Promise<T>
+  readonly clientKind: ClientKind
+  setClientKind(kind: ClientKind): void
+  /** Called when any request answers 401 `auth.unauthenticated` (session expired or revoked). */
+  onUnauthenticated(listener: () => void): () => void
+}
+
+export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch, options: { clientKind?: ClientKind } = {}): ApiClient {
+  const base = baseUrl.replace(/\/+$/, '')
+  let clientKind: ClientKind = options.clientKind ?? 'web'
+  const listeners = new Set<() => void>()
+
+  async function request<T>(path: string, method: 'GET' | Method, body: unknown, opts: RequestOptions | undefined): Promise<T> {
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (method !== 'GET') {
+      headers['X-OqTish-Client'] = clientKind
+      if (body !== undefined) headers['Content-Type'] = 'application/json'
+      if (opts?.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey
+    }
+    Object.assign(headers, opts?.headers)
+
     let response: Response
     try {
       response = await fetchImpl(`${base}${path}`, {
+        method,
         credentials: 'same-origin',
-        ...init,
-        headers: { Accept: 'application/json', ...init.headers },
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: opts?.signal,
       })
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
       throw new ApiError('network', undefined, undefined)
     }
 
     if (!response.ok) {
-      throw new ApiError(kindForStatus(response.status), response.status, await readProblem(response))
+      const problem = await readProblem(response)
+      const error = new ApiError(kindForStatus(response.status), response.status, problem)
+      if (response.status === 401 && error.code === 'auth.unauthenticated') listeners.forEach((l) => l())
+      throw error
     }
-    if (response.status === 204) {
-      return undefined as T
+    if (response.status === 204 || response.status === 202 || response.headers.get('Content-Length') === '0') {
+      return (await readOptionalJson(response)) as T
     }
     return (await response.json()) as T
   }
 
   return {
-    get: (path, init) => request(path, { ...init, method: 'GET' }),
-    send: (method, path, body, init) =>
-      request(path, {
-        ...init,
-        method,
-        headers: { 'Content-Type': 'application/json', ...init?.headers },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      }),
+    get: (path, opts) => request(path, 'GET', undefined, opts),
+    send: (method, path, body, opts) => request(path, method, body, opts),
+    get clientKind() {
+      return clientKind
+    },
+    setClientKind(kind) {
+      clientKind = kind
+    },
+    onUnauthenticated(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+}
+
+async function readOptionalJson(response: Response): Promise<unknown> {
+  const text = await response.text().catch(() => '')
+  if (!text) return undefined
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
   }
 }
 
@@ -100,4 +162,20 @@ async function readProblem(response: Response): Promise<ProblemDetails | undefin
   } catch {
     return undefined
   }
+}
+
+/** Builds "?a=1&b=x", skipping undefined, null and empty values. */
+export function query(params: object): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params) as [string, unknown][]) {
+    if (value === undefined || value === null || value === '') continue
+    search.set(key, String(value))
+  }
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+/** Encodes a path segment (ids come from the URL and must not alter the request path). */
+export function seg(value: string): string {
+  return encodeURIComponent(value)
 }

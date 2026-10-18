@@ -1,28 +1,29 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { I18nContext, interpolate, type I18nValue } from './context'
-import { catalog, locales, type Locale } from './messages'
+import { catalog, isLocale, type Locale } from './messages'
 
 const STORAGE_KEY = 'oqtish.locale'
 
-function initialLocale(): Locale {
+function storedLocale(): Locale | null {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored && (locales as readonly string[]).includes(stored)) return stored as Locale
+    return stored && isLocale(stored) ? stored : null
   } catch {
-    // Storage can be unavailable (private mode, Telegram webviews); fall back to Uzbek.
+    // Storage can be unavailable (private mode, Telegram webviews).
+    return null
   }
-  return 'uz'
 }
 
 export function I18nProvider({ children, initial }: { children: ReactNode; initial?: Locale }) {
-  const [locale, setLocaleState] = useState<Locale>(initial ?? initialLocale)
+  const [locale, setLocaleState] = useState<Locale>(() => initial ?? storedLocale() ?? 'uz')
 
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
 
-  const setLocale = useCallback((next: Locale) => {
+  const setLocale = useCallback((next: Locale, options?: { persist?: boolean }) => {
     setLocaleState(next)
+    if (options?.persist === false) return
     try {
       localStorage.setItem(STORAGE_KEY, next)
     } catch {
@@ -31,7 +32,12 @@ export function I18nProvider({ children, initial }: { children: ReactNode; initi
   }, [])
 
   const value = useMemo<I18nValue>(
-    () => ({ locale, setLocale, t: (key, params) => interpolate(catalog[locale][key], params) }),
+    () => ({
+      locale,
+      setLocale,
+      hasUserChoice: () => storedLocale() !== null,
+      t: (key, params) => interpolate(catalog[locale][key] ?? key, params),
+    }),
     [locale, setLocale],
   )
 

@@ -12,6 +12,7 @@ RUN npm run build
 # Unprivileged nginx (uid 101, port 8080): serves the SPA and reverse-proxies the API.
 FROM ${NGINX_IMAGE} AS web
 COPY deploy/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
+COPY deploy/nginx/security-headers-tg.conf /etc/nginx/snippets/security-headers-tg.conf
 COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --chmod=0755 deploy/nginx/40-write-config-json.sh /docker-entrypoint.d/40-write-config-json.sh
 # Static files stay root-owned (read-only for the nginx user).

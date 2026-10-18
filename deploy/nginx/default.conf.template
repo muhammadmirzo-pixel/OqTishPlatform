@@ -47,6 +47,29 @@ server {
         include /etc/nginx/snippets/security-headers.conf;
     }
 
+    # Telegram Mini App entry (BotFather Mini App URL = https://<host>/tg). Served from this
+    # location (rewrite … break, no internal redirect) so the Telegram-specific headers apply.
+    location = /tg {
+        rewrite ^ /index.html break;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/security-headers-tg.conf;
+    }
+
+    location ^~ /tg/ {
+        rewrite ^ /index.html break;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/security-headers-tg.conf;
+    }
+
+    # Telegram Login Widget redirect target: the signed payload is in the query string, so it is
+    # kept out of the access log. The SPA removes it from the address bar immediately.
+    location = /login/telegram {
+        access_log off;
+        rewrite ^ /index.html break;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/security-headers.conf;
+    }
+
     location / {
         try_files $uri /index.html;
         add_header Cache-Control "no-cache" always;

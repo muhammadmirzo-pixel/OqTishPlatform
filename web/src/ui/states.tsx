@@ -1,15 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
+import { ApiError } from '../api/client'
+import { errorMessage } from '../api/errors'
 import { useI18n } from '../i18n/context'
-
-export function DemoNotice() {
-  const { t } = useI18n()
-  return (
-    <p className="demo-notice" role="note">
-      <span aria-hidden="true">⚠</span> {t('demo.notice')}
-    </p>
-  )
-}
 
 export function EmptyState({ title, children }: { title?: string; children?: ReactNode }) {
   const { t } = useI18n()
@@ -21,13 +14,74 @@ export function EmptyState({ title, children }: { title?: string; children?: Rea
   )
 }
 
-export function ErrorState({ traceId, onRetry }: { traceId?: string; onRetry?: () => void }) {
+export function LoadingState({ inline = false }: { inline?: boolean }) {
   const { t } = useI18n()
+  return (
+    <div className={inline ? 'state state--inline' : 'state'} role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" /> {t('common.loading')}
+    </div>
+  )
+}
+
+export function ForbiddenState({ children }: { children?: ReactNode }) {
+  const { t } = useI18n()
+  return (
+    <div className="state state--forbidden" role="alert">
+      <p className="state__title">{t('state.forbiddenTitle')}</p>
+      <p>{t('state.forbiddenBody')}</p>
+      {children}
+    </div>
+  )
+}
+
+export function TotpRequiredState() {
+  const { t } = useI18n()
+  return (
+    <div className="state state--forbidden" role="alert">
+      <p className="state__title">{t('state.totpTitle')}</p>
+      <p>{t('state.totpBody')}</p>
+      <Link className="btn" to="/me/security">
+        {t('state.totpLink')}
+      </Link>
+    </div>
+  )
+}
+
+export function NotFoundState() {
+  const { t } = useI18n()
+  return (
+    <div className="state">
+      <p className="state__title">{t('state.notFoundTitle')}</p>
+      <p>{t('state.notFoundBody')}</p>
+      <Link className="btn" to="/">
+        {t('state.toHome')}
+      </Link>
+    </div>
+  )
+}
+
+export function NotFoundPage() {
+  return (
+    <div className="page narrow">
+      <NotFoundState />
+    </div>
+  )
+}
+
+/** Picks the right full-section state for a failed load (403 / TOTP / 404 / other). */
+export function ApiErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const { t } = useI18n()
+  if (error instanceof ApiError) {
+    if (error.code === 'auth.totp_setup_required') return <TotpRequiredState />
+    if (error.kind === 'forbidden') return <ForbiddenState />
+    if (error.kind === 'notFound') return <NotFoundState />
+  }
+  const traceId = error instanceof ApiError ? error.traceId : undefined
   return (
     <div className="state state--error" role="alert">
       <p className="state__title">{t('state.errorTitle')}</p>
-      <p>{t('state.errorBody')}</p>
-      {traceId && <p className="muted">{t('state.errorTrace', { traceId })}</p>}
+      <p>{errorMessage(t, error)}</p>
+      {traceId && <p className="muted small">{t('state.errorTrace', { traceId })}</p>}
       {onRetry && (
         <button type="button" className="btn" onClick={onRetry}>
           {t('common.retry')}
@@ -37,47 +91,15 @@ export function ErrorState({ traceId, onRetry }: { traceId?: string; onRetry?: (
   )
 }
 
-export function ForbiddenState() {
-  const { t } = useI18n()
-  return (
-    <div className="state state--forbidden" role="alert">
-      <p className="state__title">{t('state.forbiddenTitle')}</p>
-      <p>{t('state.forbiddenBody')}</p>
-    </div>
-  )
-}
-
-export function LoadingState() {
-  const { t } = useI18n()
-  return (
-    <div className="state" role="status" aria-live="polite">
-      <span className="spinner" aria-hidden="true" /> {t('common.loading')}
-    </div>
-  )
-}
-
-export function NotFoundPage() {
-  const { t } = useI18n()
-  return (
-    <div className="page narrow">
-      <div className="state">
-        <p className="state__title">{t('state.notFoundTitle')}</p>
-        <p>{t('state.notFoundBody')}</p>
-        <Link className="btn" to="/">
-          {t('state.toHome')}
-        </Link>
-      </div>
-    </div>
-  )
-}
-
-/** Inline banner used after a demo-only action, so nobody mistakes it for a real write. */
-export function DemoActionResult({ shown }: { shown: boolean }) {
-  const { t } = useI18n()
-  if (!shown) return null
-  return (
-    <p className="demo-notice demo-notice--action" role="status">
-      {t('common.demoAction')}
-    </p>
-  )
+/** Renders loading / error / content for a query result. */
+export function QueryView<T>({
+  query,
+  children,
+}: {
+  query: { data: T | undefined; error: unknown; loading: boolean; reload: () => void }
+  children: (data: T) => ReactNode
+}) {
+  if (query.data !== undefined) return <>{children(query.data)}</>
+  if (query.error !== undefined) return <ApiErrorState error={query.error} onRetry={query.reload} />
+  return <LoadingState />
 }

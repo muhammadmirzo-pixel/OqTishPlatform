@@ -5,7 +5,10 @@ export type Params = Record<string, string | number>
 
 export interface I18nValue {
   locale: Locale
-  setLocale: (locale: Locale) => void
+  /** `persist: false` applies a locale without recording it as the user's own choice. */
+  setLocale: (locale: Locale, options?: { persist?: boolean }) => void
+  /** True when the user picked a language explicitly (stored preference). */
+  hasUserChoice: () => boolean
   t: (key: MessageKey, params?: Params) => string
 }
 
