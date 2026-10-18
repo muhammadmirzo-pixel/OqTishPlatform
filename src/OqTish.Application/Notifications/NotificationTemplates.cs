@@ -86,9 +86,9 @@ public static class NotificationTemplates
             (BookingNotificationTypes.ExpiredPatient, _) => Lines("The clinic did not confirm your request in time, so it expired.", place,
                 $"Service: {m.ServiceName}", $"Time: {time}", "Please choose another time or clinic."),
 
-            (BookingNotificationTypes.CompletedPatient, "uz") => Lines("Tashrifingiz uchun rahmat!", place, "Fikringizni \"Qabullarim\" bo'limida qoldirishingiz mumkin."),
-            (BookingNotificationTypes.CompletedPatient, "ru") => Lines("Спасибо за визит!", place, "Вы можете оставить отзыв в разделе «Мои записи»."),
-            (BookingNotificationTypes.CompletedPatient, _) => Lines("Thank you for your visit!", place, "You can leave a review under \"My appointments\"."),
+            (BookingNotificationTypes.CompletedPatient, "uz") => Lines("Tashrifingiz uchun rahmat!", place, $"Xizmat: {m.ServiceName}", "Fikringizni \"Qabullarim\" bo'limida qoldirishingiz mumkin."),
+            (BookingNotificationTypes.CompletedPatient, "ru") => Lines("Спасибо за визит!", place, $"Услуга: {m.ServiceName}", "Вы можете оставить отзыв в разделе «Мои записи»."),
+            (BookingNotificationTypes.CompletedPatient, _) => Lines("Thank you for your visit!", place, $"Service: {m.ServiceName}", "You can leave a review under \"My appointments\"."),
 
             (BookingNotificationTypes.ReminderPatient, "uz") => Lines(m.ReminderKind == "2h" ? "Eslatma: qabulingizga 2 soat qoldi." : "Eslatma: ertaga qabulingiz bor.",
                 place, address is null ? null : $"Manzil: {address}", $"Xizmat: {m.ServiceName}", $"Vaqt: {time}"),

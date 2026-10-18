@@ -109,8 +109,16 @@ public class RetentionAndWorkerTests(PostgresFixture postgres)
         await service.StartAsync(Ct);
         try
         {
-            for (var i = 0; i < 100 && host.Telegram().For(4001).Count == 0; i++)
+            // Wait for the committed status, not just the send: the dispatcher records Sent after the
+            // provider call returns, so stopping at the first captured message would race that write.
+            for (var i = 0; i < 100; i++)
             {
+                if (host.Telegram().For(4001).Count > 0
+                    && (await host.MessageAsync(BookingNotificationTypes.RequestedStaff, booked.Id)).Status == OutboxStatus.Sent)
+                {
+                    break;
+                }
+
                 await Task.Delay(100, Ct);
             }
         }
