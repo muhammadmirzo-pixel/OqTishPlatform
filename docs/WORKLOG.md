@@ -99,3 +99,4 @@ Resume automatically after any interruption without waiting for a new command.
 - 2026-10-19: Qism 03 (katalog): desktop'da ro'yxat qatorlari (rasm o'rni | ma'lumot | narx va tugmalar), mobil'da kartochka; ClinicCardView layout="row".
 - 2026-10-19: Qism 04 (klinika sahifasi): yorliqlar (Xizmatlar va narxlar / Sharhlar (n) / Klinika haqida, ?tab=, ← →), o'ngda Filiallar (n) tanlagichi + "Shu filialga yozilish", filial ma'lumoti va ish vaqti alohida kartochkada; xizmat qatorida davomiylik soat ikonkasi bilan; mobil'da filiallar yorliqlardan oldin.
 - 2026-10-19: Qism 10 (konsol sidebar): menyuda son belgilari (klinika: So'rovlar = kutilayotganlar; admin: Klinikalar = tekshiruvdagilar, Shikoyatlar = ochiqlar; 60 s), sidebar pastida foydalanuvchi kartasi (ism + rol, /me); desktop topbar'dagi profil tugmasi olib tashlandi.
+- 2026-10-19: Qism 05: bugungi kun chipida "Bugun". FRONTEND_PHASE_A §0.2 — referensning 12 qismi ↔ ilova holat jadvali (07 — API yo'q, D7).

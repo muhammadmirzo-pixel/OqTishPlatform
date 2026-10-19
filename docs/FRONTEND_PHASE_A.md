@@ -40,6 +40,23 @@ arxitekturasi va boshqa bo‘limlar o‘z kuchida).
 | Profil menyusida "To‘lovlar" | Bemor uchun to‘lovlar endpoint’i yo‘q | Ko‘rsatilmaydi |
 | Booking 3 qadam (Xizmat → Sana va vaqt → Tasdiqlash) | Bizda filial va aloqa qadamlari ham bor | 3 vizual qadam: **Xizmat** (filial bitta bo‘lsa avtomatik, aks holda shu qadamda), **Sana va vaqt**, **Tasdiqlash** (aloqa + tekshirish). API oqimi o‘zgarmaydi |
 
+### 0.2 Referensning 12 qismi ↔ ilova (2026-10-19, real backend’da solishtirildi)
+
+| # | Qism | Ilovadagi joyi | Holat |
+|---|---|---|---|
+| 01 | Bemorlar uchun landing | `/` — `LandingPage` | ✅ Hero + qidiruv (tuman, xizmat turi), afzalliklar, yo‘nalishlar, "Qanday ishlaydi", klinikalar, FAQ. Foto/3D tish o‘rniga SVG (D2); "Xavfsiz to‘lov", "Tajribali shifokorlar" yo‘q (§0.1) |
+| 02 | Mobil bosh ekran | `/` telefon’da | ✅ Ixcham: salom (kirgan bo‘lsa), qidiruv, gorizontal yo‘nalishlar va klinikalar, pastki tab bar. Xarita yo‘q (D3) |
+| 03 | Qidiruv va ro‘yxat | `/clinics` | ✅ Ro‘yxat qatorlari (desktop), filtrlar paneli/drawer, saralash, faol chiplar. Rasm o‘rnida monogramma (D1); narx/reyting filtrlari yo‘q (D4/D5) |
+| 04 | Klinika tafsilotlari | `/clinics/:id` | ✅ Yorliqlar (Xizmatlar / Sharhlar / Haqida), filiallar tanlagichi + yozilish, ish vaqti, xaritada ochish havolasi. Galereya va qulayliklar (Wi-Fi va h.k.) API’da yo‘q |
+| 05 | Sana va vaqt | `/book/:id?step=time` | ✅ Kun chiplari ("Bugun"), mavjud vaqtlar, doimiy xulosa paneli. 5 emas, 3 vizual bosqich (§0.1) |
+| 06 | Muvaffaqiyat ekrani | `/me/appointments/:id` | ✅ Halol variant: "So‘rov yuborildi", 30 daqiqalik halqa, holat avtomatik yangilanadi; "tasdiqlandi" faqat server `Confirmed` bo‘lsa |
+| 07 | Bildirishnomalar | — | ⛔ Bemor bildirishnomalari API’si yo‘q (D7); Telegram bog‘lash `/me` da |
+| 08 | Profil | `/me` (+ xavfsizlik, takliflar) | ✅ Profil kartochkasi + menyu, ism, telefon (OTP), Telegram, hisobni o‘chirish. "Sharhlarim", "Yordam" bo‘limlari API’da yo‘q |
+| 09 | Klinika dashboard’i | `/clinic/:id` | ✅ Ikonkali metrikalar + ta’riflar, bugungi qabullar, 14 kunlik moliya grafigi. "+12%" kabi taqqoslash yo‘q (D9) |
+| 10 | Klinika sidebar’i | `ConsoleShell` | ✅ To‘q ko‘k sidebar, bo‘limlar, "So‘rovlar" yonida son, pastda foydalanuvchi kartasi |
+| 11 | Afzalliklar / ishonch | landing "Nega OqTish?" | ✅ 4 ta halol karta (tekshirilgan klinikalar, haqiqiy bo‘sh vaqtlar, ochiq narxlar, ma’lumot himoyasi). "24/7 yordam", "Xavfsiz to‘lov" yo‘q |
+| 12 | Dizayn tizimi | `/__ui` (faqat dev), `styles/tokens.css` | ✅ Ranglar, Inter, Lucide, tugmalar, holat belgilari, motion; qorong‘i rejim |
+
 Qolgan qarorlar (egasi javob bermagan, standart bo‘yicha): `/` = landing, katalog `/clinics` da;
 xarita — tashqi havola; foto — joy tayyor, illyustratsiya bilan.
 
