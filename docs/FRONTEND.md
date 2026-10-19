@@ -1,10 +1,12 @@
 # Frontend (web SPA va Telegram Mini App)
 
 Bitta React 19 + TypeScript (strict) SPA: `web/`. Vite 8, react-router 8 (`createBrowserRouter`).
-Yangi bog'liqlik qo'shilmagan: UI-freymvork, CSS-freymvork, state kutubxonasi yoki react-query yo'q.
-Server holati uchun kichik o'z hook'larimiz bor (`useQuery`, `useAction`). Uslublar — oddiy CSS va
-dizayn tokenlari (yorug' va qorong'i rejim `prefers-color-scheme` orqali), 360 / 768 / 1280 px uchun
-moslashuvchan.
+UI-freymvork, CSS-freymvork, state kutubxonasi yoki react-query yo'q. Qayta dizaynda (2026-10-19,
+`docs/FRONTEND_PHASE_A.md` §0 "Moviy klinika") faqat `lucide-react` (ikonlar), `@fontsource-variable/inter`
+(shrift o'z serverimizda — CSP) va `motion` (cheklangan) qo'shildi; dev: `@playwright/test`,
+`@axe-core/playwright`. Server holati uchun kichik o'z hook'larimiz bor (`useQuery`, `useAction`).
+Uslublar — oddiy CSS qatlamlari va dizayn tokenlari (yorug' / qorong'i / tizim, qo'lda almashtirish),
+360 / 768 / 1280 px da Playwright + axe bilan tekshirilgan (§10).
 
 Kontrakt: `docs/API.md`. Auth/seans (§1, §1.1), ommaviy katalog (§2.1), klinika paneli sozlash
 ekranlari (§4.1) va admin dashboard/klinikalar/foydalanuvchilar/audit (§5.1) DTO'lari backend
@@ -23,8 +25,12 @@ npm run lint           # oxlint --deny-warnings
 npm run typecheck      # tsc -b
 npm test               # vitest run (jsdom, API fetch darajasida mock qilinadi)
 npm run build          # tsc -b && vite build → web/dist
+npm run e2e            # Playwright UI to'plami: axe (WCAG 2.2 AA), gorizontal skrol, skrinshotlar — 5 loyiha
 npm audit --omit=dev
 ```
+
+Taxminiy mobil Web Vitals: `npm run build && npx vite preview --port 4173`, keyin
+`E2E_PERF=1 E2E_BASE_URL=http://localhost:4173 npx playwright test perf --project=mobile-360`.
 
 Runtime konfiguratsiya: `/config.json` (`{ "apiBaseUrl": "/api" }`, web konteyneri ishga tushganda
 `deploy/nginx/40-write-config-json.sh` yozadi). Fayl bo'lmasa — `VITE_API_BASE_URL` yoki `/api`.
@@ -58,9 +64,17 @@ web/src/
   i18n/                    messages.ts (agregator) + sections/*.ts (uz → ru, en)
   lib/                     format.ts (pul/vaqt), money.ts (BigInt tiyin), time.ts (IANA zona), phone.ts, script.ts
   hooks/                   useQuery, useAction, useNow, useTitle
-  ui/                      holatlar, formalar, dialoglar, vidjetlar, sahifalash
+  styles/                  tokens.css (rang/tip/bo'shliq/motion, yorug'/qorong'i), base, components, layouts, landing
+  ui/                      biznes mantiqsiz komponentlar: Button, Dialog (tone="danger"), ReasonDialog/ConfirmDialog
+                           (danger, acknowledge), Drawer, Toast(useToast), Skeleton, Tooltip(InfoTip), ContextChip,
+                           LineChart (SVG), CountdownRing, Monogram, holatlar (ikonkali), formalar, vidjetlar
+  dev/UiGallery.tsx        /__ui komponent galereyasi — faqat development (production build'ga kirmaydi)
   test/                    harness (fetch mock + router), fiktiv fixture'lar, flows/*.test.tsx
+web/e2e/                   Playwright: ui.spec.ts (mock API), perf.spec.ts (E2E_PERF), support/mockApi.ts
 ```
+
+Lazy chunk'lar (`app/chunks/`): `patient` (booking, akkaunt, qabullarim), `clinic`, `admin`, `telegram`.
+Boshlang'ich JS ≈ 181 kB gzip (react-dom + react-router + i18n katalogi).
 
 `src/demo/data.ts` va `src/domain/types.ts` o'chirildi: ishlab chiqarish ekranlari namunaviy
 ma'lumotdan foydalanmaydi. Fiktiv ma'lumot faqat `src/test/fixtures.ts` da.
@@ -75,7 +89,8 @@ a'zolikning `permissions` massividagi huquq (birortasi yetarli); admin marshrutl
 
 | Marshrut | Vazifasi | API chaqiruvlari | Huquq |
 |---|---|---|---|
-| `/` | Klinikalarni qidirish: q, yo'nalish (11 ta qat'iy kalit, nomlari UI katalogidan `category.<key>`), xizmat, tuman, saralash (reyting/narx/masofa/nom), "7 kun ichida bo'sh vaqt", sahifalash | `GET /public/facets`, `GET /public/clinics` | anon |
+| `/` | Landing: qidiruv, qanday ishlaydi, yo'nalishlar, tavsiya klinikalar (reyting bo'yicha), tasdiqlash tushuntirishi, FAQ | `GET /public/facets`, `GET /public/clinics?sort=rating&pageSize=3` | anon |
+| `/clinics` | Katalog: q, yo'nalish (11 ta qat'iy kalit, nomlari UI katalogidan `category.<key>`), xizmat, tuman, saralash (reyting/narx/masofa/nom), "7 kun ichida bo'sh vaqt", sahifalash | `GET /public/facets`, `GET /public/clinics` | anon |
 | `/clinics/:clinicId` | Klinika profili: filiallar, ish vaqti, xizmatlar va narxlar (Fixed / From), sharhlar, shikoyat | `GET /public/clinics/{id}`, `GET /public/clinics/{id}/reviews`, `POST /reports` | anon (shikoyat — user) |
 | `/book/:clinicId` | Yozilish ustasi: filial → xizmat → sana (30 kun) + vaqt → aloqa → tekshirish → yuborish | `GET /public/clinics/{id}`, `GET /public/branches/{id}/availability`, `POST /appointments` (+Idempotency-Key) | ko'rish anon; yuborish user |
 | `/login` | Telefon OTP (qayta yuborish hisoblagichi), xodim email+parol (+TOTP), parolni tiklash, Telegram Login Widget | `POST /auth/otp/request`, `/auth/otp/verify`, `/auth/password/login`, `/auth/password/reset/*`, `GET /telegram/config`, `POST /auth/telegram/widget` | anon |
@@ -95,12 +110,12 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
 
 | Marshrut | Vazifasi | API chaqiruvlari | Huquq |
 |---|---|---|---|
-| `` (dashboard) | Bugungi hisoblagichlar, tushum (faqat server qaytarsa), tezkor havolalar | `GET …/dashboard` | har qanday a'zolik |
-| `requests` | Pending so'rovlar: hisoblagich, mos shifokorlar ro'yxati, tasdiqlash / rad etish (sabab kodi); `booking.expired` / `not_pending` / `doctor_busy` da ro'yxat yangilanadi; har 30 s avtomatik yangilanish | `GET …/appointments?status=Pending`, `GET …/eligible-doctors`, `POST …/confirm`, `POST …/reject` | `appointment.triage` |
+| `` (dashboard) | Ikonkali metrikalar + ta'riflar (InfoTip): kutilayotgan so'rovlar (istalgan sana), bugungi tasdiqlangan/yakunlangan/kelmadi, bugun yig'ilgan to'lovlar (faqat server qaytarsa); bugungi qabullar (`appointment.view`); tezkor amallar; 14 kunlik "bajarilgan xizmatlar qiymati / yig'ilgan to'lovlar" grafigi + jadval ko'rinishi (`finance.report.view`) | `GET …/dashboard`, `GET …/appointments?from&to`, `GET …/reports/daily` | har qanday a'zolik |
+| `requests` | Pending so'rovlar: hisoblagich, mos shifokorlar ro'yxati, tasdiqlash / rad etish (sabab kodi); `booking.expired` / `not_pending` / `doctor_busy` da ro'yxat yangilanadi; har 30 s avtomatik yangilanish; 10 daqiqadan kam qolganiga "Shoshilinch" belgisi; natija Toast'da; J/K/Enter (faqat ro'yxat fokusda) | `GET …/appointments?status=Pending`, `GET …/eligible-doctors`, `POST …/confirm`, `POST …/reject` | `appointment.triage` |
 | `appointments` | Ro'yxat: sana oralig'i, holat, shifokor filtrlari | `GET …/appointments`, `GET …/doctors` | `appointment.view` |
 | `appointments/:appointmentId` | Tafsilot va tarix; Pending: tasdiqlash/rad; Confirmed: yakunlash (summa taklif qilingan narx bilan to'ldiriladi), kelmadi, ko'chirish, bekor qilish; qoldiq, to'lovlar, to'lov kiritish, qaytarish, "o'tmagan" | `GET …/appointments/{id}`, `POST …/complete`, `/no-show`, `/reschedule`, `/cancel`, `GET …/balance`, `GET …/payments`, `POST …/payments`, `POST …/payments/{id}/refund`, `/fail` | `appointment.view` (+ har bir amal o'z huquqi bilan) |
 | `walk-in` | Qabulxona/telefon orqali yozuv (darhol Confirmed, shifokor tanlanadi) | `GET …/services`, `GET …/doctors`, `GET /public/branches/{id}/availability` (taklif uchun), `POST …/appointments` (+Idempotency-Key) | `appointment.create_walkin` |
-| `calendar` | Kun jadvali: ustunlar — shifokorlar, bloklar vaqt bo'yicha joylashtirilgan (filial vaqti) | `GET …/calendar?branchId&date` | `appointment.view` |
+| `calendar` | Kun (ustunlar — shifokorlar) / Hafta (bitta shifokor, 7 kun) / Ro'yxat; shifokor ish vaqti foni, filial vaqti bo'yicha "hozir" chizig'i, ustma-ust bloklar yonma-yon, boshqa filialdagi bandlik, legenda (`?view=day\|week\|list&date&doctor`) | `GET …/calendar?branchId&date` (hafta — 7 ta so'rov, D6) | `appointment.view` |
 | `doctors`, `doctors/:doctorId` | Shifokorlar CRUD, filial/xizmat bog'lanishi, xodim hisobini bog'lash (faqat `staff.manage` bilan; aks holda joriy `userId` o'zgarmasdan qaytariladi — API bo'sh `userId` ni "uzish" deb tushunadi), haftalik jadval muharriri (filiallar bo'yicha ham ustma-ust tushish tekshiriladi), dam olish (time off) | `GET/POST/PUT …/doctors`, `GET/PUT …/working-hours`, `GET/POST/DELETE …/time-off`, `GET …/staff` (faqat `staff.manage` bo'lsa) | `schedule.manage` / `schedule.own_timeoff` (o'z yozuvi) / `catalog.manage` (ko'rish) |
 | `services` | Xizmatlar (qat'iy yo'nalish kalitlari) va har bir filial narxi/davomiyligi | `GET/POST/PUT …/services`, `PUT …/branches/{b}/services/{s}` (204) | xizmat yaratish/tahrirlash — `catalog.manage` **butun klinika** bo'yicha; filial narxi — o'sha filialda `catalog.manage` |
 | `branches` | Filiallar (vaqt mintaqasi faqat `Asia/Tashkent` / `Asia/Samarkand`, telefon ixtiyoriy, koordinatalar ikkalasi birga, ≤ 6 kasr) va ish vaqti | `POST/PUT …/branches`, `PUT …/branches/{id}/hours` (204) | yaratish — `branch.manage` butun klinika bo'yicha; tahrir — o'sha filialda |
@@ -167,6 +182,9 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
 - Testlar: har bir tilda barcha kalitlar va bir xil `{placeholder}`lar; bo'limlar orasida kalit
   takrorlanmasligi; `docs/API.md` §9 dagi **har bir** xato kodi uchun xabar borligi (test hujjatni
   o'qiydi, yangi kod qo'shilsa test yiqiladi).
+- To'rt til: `uz` (lotin), `uz-Cyrl` (kirill — `uz` dan avtomatik transliteratsiya, `i18n/translit.ts`;
+  istisnolar `i18n/uzCyrlOverrides.ts`), `ru`, `en`. O'zbekcha apostrof standarti: `o‘`/`g‘` (U+2018),
+  tutuq belgisi `’` (U+2019); yangi kalit: `PYTHONUTF8=1 python web/scripts/add-i18n.py <section.ts> <keys.json>`.
 - Til tanlagich har bir layout'da. Standart — o'zbekcha. Tanlov `localStorage` da (`oqtish.locale`).
   Mini App'da foydalanuvchi o'zi tanlamagan bo'lsa, Telegram `language_code` (uz/ru/en) olinadi.
 
@@ -292,8 +310,9 @@ Filial tanlovi URL'da: `?branch=<id>` (menyu havolalari uni saqlaydi). Barcha sa
 6. Admin audit `clinicId` ustunida faqat id bor (klinika nomi DTO'da yo'q).
 7. Xodim o'z a'zoligidan chiqishi mumkin (`DELETE …/staff/{own}`), lekin UI'da "Klinikadan chiqish"
    tugmasi hali yo'q.
-8. Kalendarda `workingHours` / `otherBranch` DTO'da bor, ammo ustun bo'yicha ish vaqti fonini chizish va
-   `blockId` orqali time-off o'chirish tugmasi kalendarda hali yo'q (doktor sahifasidan bajariladi).
+8. Kalendar `workingHours` (ish vaqti foni) va `otherBranch` ni ko'rsatadi (2026-10-19). `blockId` orqali
+   time-off o'chirish tugmasi kalendarda hali yo'q (doktor sahifasidan bajariladi).
+9. Hafta kalendari uchun `from&to` endpoint'i yo'q (D6) — hafta 7 ta kunlik so'rovdan yig'iladi.
 
 ## 10. Testlar
 
@@ -304,14 +323,33 @@ OTP kirish (qayta yuborish hisoblagichi, TOTP bosqichi), xodim + TOTP; guard'lar
 hisoblagich; so'rovni shifokor tanlab tasdiqlash va `booking.expired`; to'lov formasi validatsiyasi
 va bir xil Idempotency-Key bilan qayta urinish; menyuni huquqlar bo'yicha filtrlash; admin klinikani
 tasdiqlashi (Rejected → Approved, `statusReason`, `admin.invalid_status_transition`), o'zini bloklash tugmasi yo'qligi va break-glass sarlavhasi; klinika sozlash ekranlari (`clinicSetup.test.tsx`: qat'iy yo'nalishlar, filial doirasidagi `catalog.manage`/`branch.manage`, vaqt mintaqalari va koordinata juftligi, shifokor `userId` va `staff.manage`, `schedule.hours_overlap`, muddati o'tgan taklif, profil sababi); yo'nalish kalitlari ↔ API.md §2.1 (`lib/categories.test.ts`); Mini App kirishi (mock `window.Telegram`), tema, til,
-MainButton va Telegram'dan tashqari holat.
+MainButton va Telegram'dan tashqari holat; filial almashganda eski raqam ko'rinmasligi (J4,
+`clinic.test.tsx`); kalendar yo'laklari (`calendarLayout.test.ts`).
+
+**Playwright UI to'plami** (`npm run e2e`, `web/e2e/ui.spec.ts`): landing, katalog, klinika sahifasi,
+login, klinika dashboard'i, so'rovlar, kalendar, admin dashboard va klinikalar — 360 / 768 / 1280 px,
+qorong'i rejim va reduced-motion loyihalarida axe WCAG 2.2 AA (serious/critical = 0) va gorizontal
+skrol yo'qligi; har biriga to'liq sahifa skrinshoti (`test-results/`). API mock'lari fiktiv
+(`e2e/support/mockApi.ts`, faqat QA). Real backend bilan foydalanuvchi yo'llari (`e2e/journeys`,
+`E2E_BACKEND=1`) hali yozilmagan — backend kerak.
 
 ## 11. Ma'lum cheklovlar
 
-- Ishlayotgan backend'ga qarshi tekshirilmagan (backend parallel yozilmoqda) — faqat kontrakt
-  (API.md §1.1/§2.1/§4.1/§5.1, C# DTO'lar bilan solishtirilgan) va mock'lar.
+- Qayta dizayn ishlayotgan backend'ga qarshi E2E bilan tekshirilmagan — faqat kontrakt, vitest va
+  Playwright mock'lari (backend uchun `.env`/user-secrets yoki Docker kerak).
 - Haqiqiy Telegram klientlarida va haqiqiy bot bilan Login Widget sinab ko'rilmagan.
-- 360/768/1280 px moslashuvchanlik CSS'da yozilgan, lekin haqiqiy brauzerda vizual tekshirilmagan.
-- Uchala til katalogi boshlang'ich chunk'da (alohida til yuklash yo'q).
+- Barcha til kataloglari boshlang'ich chunk'da (alohida til yuklash yo'q) — boshlang'ich JS ~181 kB gzip
+  (maqsad ≤ 180); ru/en ni lazy yuklash ~8 kB tejaydi.
+- Klinika dashboard'i sekin mobil'da LCP ≈ 2.8 s (so'rovlar zanjiri: /me → filiallar → dashboard).
 - `/api/dev/*` (Fake SMS va h.k.) uchun UI yo'q — lokal sinovda to'g'ridan-to'g'ri chaqiriladi.
 - Kalendar bir kun ichidagi bloklarni ko'rsatadi; yarim tundan o'tadigan bloklar kesiladi.
+
+## 12. Dizayn tizimi ("Moviy klinika")
+
+Yo'nalish, tokenlar va referens bilan to'qnashuvlar jadvali — `docs/FRONTEND_PHASE_A.md` §0. Asosiy
+qoidalar: holat har doim rang + ikonka + matn; pul — satr/BigInt, grafiklarda ham ko'rsatiladigan
+summa API satridan formatlanadi; moliya atamalari `FinanceTerm` ((i) ta'rif) bilan; saqlash natijasi
+Toast'da, xato va muhim yo'riqnomalar sahifada qoladi; xavfli amallar `danger` dialog + sabab (yoki
+qaytarib bo'lmaydiganlarda "Tushundim" belgisi); jadvallar 640 px dan kichikda yorliq/qiymat
+kartochkaga aylanadi (`table--stack` + `data-label`); grafik ranglari (`--c-data-1/2`) dataviz
+validatoridan o'tgan, qorong'i rejim uchun alohida qiymatlar bilan.

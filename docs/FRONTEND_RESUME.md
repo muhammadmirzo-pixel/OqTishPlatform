@@ -1,6 +1,7 @@
 # Frontend qayta dizayni — davom ettirish yo‘riqnomasi (Claude uchun)
 
-Oxirgi yangilanish: 2026-10-19. Phase D tugadi (`acf54d5` … `c27f61f`, 5 commit). Keyingi: **Phase E**.
+Oxirgi yangilanish: 2026-10-19. Phase D, E tugadi; Phase F’ning backend’siz qismi tugadi (oxirgi commit — `git log -1`).
+Keyingi: **real backend bilan E2E** (§5). Yakuniy hisobot: `docs/FRONTEND_YAKUNIY_HISOBOT.md`.
 `global.json` dagi lokal o‘zgarish (SDK 11 RC) egasiniki — commit qilinmaydi.
 Bu fayl yangi sessiya (boshqa akkaunt ham bo‘lishi mumkin) ishni aynan shu joydan davom ettirishi uchun.
 
@@ -16,7 +17,7 @@ Bu fayl yangi sessiya (boshqa akkaunt ham bo‘lishi mumkin) ishni aynan shu joy
 OqTish (stomatologiya klinikalariga onlayn yozilish platformasi) uchun premium, ishlaydigan, haqiqiy API’ga ulangan,
 responsive, a11y’ga mos, testlanadigan frontend. Fazalar: A discovery ✅ → B dizayn tizimi ✅ → C bemor qismi ✅ →
 **D klinika paneli ✅ →
-**E platforma admini (hozir shu)** → F integratsiya, sayqal, testlar.
+E platforma admini ✅ → **F integratsiya (qisman: backend’siz qismi ✅, real backend E2E ⏳)**.
 Egasi referens maket bergan: ko‘k `#2563EB`, yashil-teal `#10B981`, binafsha `#8B5CF6`, Inter shrifti, oq kartochkalar,
 to‘q ko‘k (navy) sidebar, mobil’da pastki tab bar. Egasi o‘zbekcha **kirill** tilini ham qo‘shishni so‘radi (qilingan).
 
@@ -89,21 +90,19 @@ Backend ishga tushirish: `docs/ISHGA_TUSHIRISH.md`. Klinika/admin sahifalarini s
   Saqlash natijalari Toast’da; xato/eskirgan holat va muhim yo‘riqnomalar sahifada qoladi.
   J4 testi: `test/flows/clinic.test.tsx` → "branch switch (J4)".
 
-## 5. KEYINGI QADAM — Phase E (platforma admini), shu tartibda
+## 5. KEYINGI QADAM — Phase F’ning qolgan qismi
 
-1. `ui/ReasonDialog.tsx`: `ReasonDialog`/`ConfirmDialog` ga `danger` → `Dialog tone="danger"`, ogohlantirish ikonkasi,
-   qizil tugma. Xavfli amallar: klinikani rad etish/to‘xtatish, foydalanuvchini bloklash, sharhni yashirish,
-   hisob-kitobni bekor qilish (void) va yakunlash (finalize — qaytarib bo‘lmaydi), komissiya qoidasini tugatish,
-   break-glass (tenant-data) — har biri sabab + aniq tasdiq. Server qoidalari o‘zgarmaydi.
-2. Admin sahifalari (`features/admin/*`): PageHeader ikonkasi (`app/menuMeta.ts` dagi ikonalar), jadvallar
-   `table--stack` + `data-label`, bo‘sh holat ikonkalari, natija Toast’da, AdminDashboard metrikalari ikonka bilan.
-3. Audit sahifalari: filtrlar bir qatorda, `AuditTable` (allaqachon `table--stack`), bildirishnomalar holati ikonka+matn.
-4. Har qadamdan keyin typecheck + lint + tegishli vitest (`src/test/flows/admin.test.tsx`), commit "FE Phase E (n/m): …".
+Bajarilgan (F): to‘liq vitest 112/112; `npm run e2e` (web/e2e/ui.spec.ts, mock API, 9 ekran × 360/768/1280/qorong‘i/
+reduced-motion, axe WCAG 2.2 AA + gorizontal skrol) 90/90; `e2e/perf.spec.ts` (E2E_PERF=1) taxminiy Web Vitals;
+`patient` lazy chunk (boshlang‘ich JS ~181 kB gz); uz apostroflari normallashtirildi (C12); FRONTEND.md yangilandi.
 
-Keyin **Phase F** (Playwright E2E `web/e2e/` — FRONTEND_PHASE_A.md §4 J1–J8 va prompt §16 dagi 9 ta yo‘l,
-`@axe-core/playwright` a11y, 360/768/1280 skrinshotlar, reduced-motion, Lighthouse o‘lchovi, to‘liq `npm test` bir marta,
-FRONTEND.md yangilash, yakuniy hisobot). Phase F’da yana: eski bo‘limlardagi uz matnlarida `'` → `‘` normallashtirish (C12;
-`clinicOps.ts`, `finance.ts` va boshqalarda hali ASCII apostrof bor).
+Qolgani (backend kerak — bu kompyuterda Docker o‘chiq, `.env`/user-secrets yo‘q, PostgreSQL paroli noma’lum):
+1. Backend’ni ishga tushirish (egasidan): Docker Desktop + `compose.dev.yaml`, yoki `.env` dagi `OQTISH_HOSTDB_CONNECTION`.
+2. `web/e2e/journeys/*.spec.ts` (`E2E_BACKEND=1`, mock’siz): FRONTEND_PHASE_A §4 J1–J8 — katalogdan klinika topish,
+   so‘rov yuborish (idempotency, 409), Pending → holat, filial almashish, tasdiqlash + shifokor, to‘lov, huquqsiz 403,
+   tarmoq xatosi. Kirish: dev OTP (`/api/dev/sms?phone=…`, ISHGA_TUSHIRISH §7.1).
+3. Telegram Mini App’ni Telegram ichida tekshirish.
+4. Ixtiyoriy: ru/en kataloglarini lazy yuklash (boshlang‘ich JS < 180 kB), klinika dashboard so‘rovlar zanjiri (LCP 2.8 s).
 
 ## 6. Ma’lum ochiq masalalar
 
