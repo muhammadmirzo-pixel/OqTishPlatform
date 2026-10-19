@@ -48,7 +48,7 @@ export function BookingPage() {
 
   const here = `/book/${clinicId}?${params.toString()}`
   return (
-    <div className="page narrow">
+    <div className="page booking-page">
       <BookingWizard
         clinicId={clinicId}
         state={state}

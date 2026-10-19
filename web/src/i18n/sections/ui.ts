@@ -31,6 +31,20 @@ const uz = {
   'console.sectionFinance': 'Moliya',
   'console.sectionPlatform': 'Platforma',
   'console.platformBadge': 'Platforma',
+  'bookFlow.service': 'Xizmat',
+  'bookFlow.time': 'Sana va vaqt',
+  'bookFlow.confirm': 'Tasdiqlash',
+  'bookFlow.summary': 'Sizning tanlovingiz',
+  'bookFlow.notChosen': 'Hali tanlanmagan',
+  'bookFlow.doctor': 'Shifokorni klinika biriktiradi',
+  'bookFlow.payAtClinic': 'To‘lov klinikada amalga oshiriladi',
+  'clinicPage.openNow': "Hozir ochiq · {close} gacha",
+  'clinicPage.closedNow': "Hozir yopiq",
+  'clinicPage.chooseBranch': "Filial",
+  'clinicPage.choose': "Tanlash",
+  'clinicPage.about': "Klinika haqida",
+  'clinicPage.servicesCount': "{count} ta xizmat",
+  'clinicPage.today': "Bugun",
 } as const
 
 type Keys = keyof typeof uz
@@ -66,6 +80,20 @@ const ru: Record<Keys, string> = {
   'console.sectionFinance': 'Финансы',
   'console.sectionPlatform': 'Платформа',
   'console.platformBadge': 'Платформа',
+  'bookFlow.service': 'Услуга',
+  'bookFlow.time': 'Дата и время',
+  'bookFlow.confirm': 'Подтверждение',
+  'bookFlow.summary': 'Ваш выбор',
+  'bookFlow.notChosen': 'Ещё не выбрано',
+  'bookFlow.doctor': 'Врача назначит клиника',
+  'bookFlow.payAtClinic': 'Оплата — в клинике',
+  'clinicPage.openNow': "Сейчас открыто · до {close}",
+  'clinicPage.closedNow': "Сейчас закрыто",
+  'clinicPage.chooseBranch': "Филиал",
+  'clinicPage.choose': "Выбрать",
+  'clinicPage.about': "О клинике",
+  'clinicPage.servicesCount': "Услуг: {count}",
+  'clinicPage.today': "Сегодня",
 }
 
 const en: Record<Keys, string> = {
@@ -99,6 +127,20 @@ const en: Record<Keys, string> = {
   'console.sectionFinance': 'Finance',
   'console.sectionPlatform': 'Platform',
   'console.platformBadge': 'Platform',
+  'bookFlow.service': 'Service',
+  'bookFlow.time': 'Date & time',
+  'bookFlow.confirm': 'Confirm',
+  'bookFlow.summary': 'Your selection',
+  'bookFlow.notChosen': 'Not chosen yet',
+  'bookFlow.doctor': 'The clinic assigns the dentist',
+  'bookFlow.payAtClinic': 'You pay at the clinic',
+  'clinicPage.openNow': "Open now · until {close}",
+  'clinicPage.closedNow': "Closed now",
+  'clinicPage.chooseBranch': "Branch",
+  'clinicPage.choose': "Choose",
+  'clinicPage.about': "About the clinic",
+  'clinicPage.servicesCount': "{count} services",
+  'clinicPage.today': "Today",
 }
 
 export const ui = { uz, ru, en }

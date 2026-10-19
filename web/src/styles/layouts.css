@@ -1061,3 +1061,301 @@
     display: none;
   }
 }
+
+@layer layouts {
+  .wizard__head {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .wizard__head h1 {
+    margin: 0;
+  }
+  .wizard__layout {
+    display: grid;
+    gap: var(--s-4);
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .wizard__panel {
+    min-width: 0;
+  }
+  @media (min-width: 900px) {
+    .wizard__layout:not(.wizard__layout--single) {
+      grid-template-columns: 1fr 300px;
+    }
+    .wizard__layout:not(.wizard__layout--single) .wizard__panel {
+      grid-row: 1;
+      grid-column: 1;
+    }
+    .wizard__summary {
+      grid-row: 1;
+      grid-column: 2;
+      position: sticky;
+      top: 88px;
+    }
+  }
+  .wizard__summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    background: linear-gradient(180deg, var(--c-primary-softer), var(--c-surface) 60%);
+  }
+  .wizard__summary-title {
+    margin: 0;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-primary);
+  }
+  .wizard__facts {
+    margin: 0;
+    display: grid;
+    gap: var(--s-3);
+  }
+  .wizard__facts dt {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: var(--fs-xs);
+    color: var(--c-ink-2);
+  }
+  .wizard__facts dt .icon {
+    width: 14px;
+    height: 14px;
+  }
+  .wizard__facts dd {
+    margin: 2px 0 0;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-md);
+    overflow-wrap: anywhere;
+  }
+  .wizard__price {
+    margin: 0;
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--c-line);
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-bold);
+    color: var(--c-primary);
+  }
+  .wizard__notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    font-size: var(--fs-sm);
+    color: var(--c-ink-2);
+  }
+  .wizard__notes li {
+    display: flex;
+    gap: var(--s-2);
+    align-items: center;
+  }
+  .wizard__notes .icon {
+    width: 15px;
+    height: 15px;
+    color: var(--c-teal-ink);
+  }
+  @media (max-width: 899px) {
+    .wizard__notes {
+      display: none;
+    }
+  }
+}
+
+@layer layouts {
+  .booking-page {
+    max-width: 1040px;
+  }
+}
+
+@layer layouts {
+  .clinic-hero {
+    display: grid;
+    gap: var(--s-5);
+    grid-template-columns: 1fr;
+    padding: var(--s-5);
+    align-items: center;
+  }
+  @media (min-width: 860px) {
+    .clinic-hero {
+      grid-template-columns: auto 1fr auto;
+      padding: var(--s-6);
+    }
+  }
+  .clinic-hero__cover {
+    width: 120px;
+    height: 120px;
+    border-radius: var(--r-lg);
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--c-primary-soft), var(--c-teal-soft));
+  }
+  .clinic-hero__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .clinic-hero__title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-3);
+    align-items: center;
+  }
+  .clinic-hero__title h1 {
+    margin: 0;
+  }
+  .clinic-hero__rating {
+    margin: 0;
+  }
+  .clinic-hero__facts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+    font-size: var(--fs-md);
+    color: var(--c-ink-2);
+  }
+  .clinic-hero__facts li {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .clinic-hero__facts .icon {
+    width: 16px;
+    height: 16px;
+    color: var(--c-primary);
+  }
+  .clinic-hero__actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    align-items: stretch;
+  }
+  .clinic-open {
+    color: var(--c-success);
+    font-weight: var(--fw-semibold);
+  }
+  .clinic-closed {
+    color: var(--c-danger);
+    font-weight: var(--fw-semibold);
+  }
+  .clinic-branches {
+    display: flex;
+    gap: var(--s-2);
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: thin;
+  }
+  .clinic-branches .chip {
+    white-space: nowrap;
+  }
+  .clinic-page__desc {
+    max-width: var(--w-text);
+    white-space: pre-line;
+  }
+  .clinic-branch {
+    display: grid;
+    gap: var(--s-5);
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  @media (min-width: 960px) {
+    .clinic-branch {
+      grid-template-columns: 1fr 340px;
+    }
+    .clinic-branch__side {
+      position: sticky;
+      top: 88px;
+    }
+  }
+  .clinic-branch__main {
+    min-width: 0;
+  }
+  .clinic-branch__addr {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    margin: 0;
+  }
+  .clinic-branch__addr .icon {
+    margin-top: 2px;
+    flex: 0 0 auto;
+  }
+  .service-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-2);
+  }
+  .service-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: 'icon info action' 'icon price action';
+    gap: 2px var(--s-3);
+    align-items: center;
+    padding: var(--s-3) var(--s-4);
+    background: var(--c-surface);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-md);
+    transition:
+      border-color var(--d-fast) var(--ease-out),
+      box-shadow var(--d-base) var(--ease-out);
+  }
+  .service-row:hover {
+    border-color: color-mix(in srgb, var(--c-primary) 40%, var(--c-line));
+    box-shadow: var(--e-2);
+  }
+  .service-row > .icon-tile {
+    grid-area: icon;
+  }
+  .service-row__info {
+    grid-area: info;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .service-row__price {
+    grid-area: price;
+    font-weight: var(--fw-bold);
+    color: var(--c-primary);
+    font-size: var(--fs-md);
+  }
+  .service-row > .btn {
+    grid-area: action;
+  }
+  @media (min-width: 640px) {
+    .service-row {
+      grid-template-columns: auto 1fr auto auto;
+      grid-template-areas: 'icon info price action';
+    }
+    .service-row__price {
+      text-align: right;
+      white-space: nowrap;
+    }
+  }
+  .hours-table th {
+    font-weight: var(--fw-medium);
+    color: var(--c-ink-2);
+    background: transparent;
+  }
+  .hours-table__today th,
+  .hours-table__today td {
+    color: var(--c-primary);
+    font-weight: var(--fw-bold);
+  }
+}
+
+@layer layouts {
+  @media (max-width: 899px) {
+    .wizard__summary--empty {
+      display: none;
+    }
+  }
+}

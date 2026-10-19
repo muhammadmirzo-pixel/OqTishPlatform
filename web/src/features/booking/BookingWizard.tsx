@@ -1,3 +1,4 @@
+import { CalendarClock, Check, MapPin, Stethoscope, UserRoundCheck, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { isApiError } from '../../api/client'
@@ -15,7 +16,8 @@ import { addDays, localDate, weekdayOf } from '../../lib/time'
 import { Field, FormError, Notice } from '../../ui/forms'
 import { ApiErrorState, EmptyState, LoadingState } from '../../ui/states'
 import { Details } from '../../ui/widgets'
-import { HORIZON_DAYS, bookingSteps, effectiveStep, type BookingState, type BookingStep, type SubmitControlProps } from './bookingState'
+import { Monogram } from '../../ui/Monogram'
+import { HORIZON_DAYS, effectiveStep, type BookingState, type BookingStep, type SubmitControlProps } from './bookingState'
 export type { BookingState, BookingStep, SubmitControlProps } from './bookingState'
 import { useNow } from '../../hooks/useNow'
 
@@ -104,22 +106,30 @@ export function BookingWizard({
     }
   }
 
-  const index = bookingSteps.indexOf(step)
+  // Five logical steps are shown as three visual stages (service · date & time · confirm).
+  const stage = stageOf[step]
 
   return (
     <div className="wizard">
-      <h1 className="wizard__clinic">{clinic.data.name}</h1>
+      <header className="wizard__head">
+        <Monogram name={clinic.data.name} seed={clinic.data.id} size={44} />
+        <h1 className="wizard__clinic">{clinic.data.name}</h1>
+      </header>
       <ol className="steps" aria-label={t('book.progress')}>
-        {bookingSteps.map((s, i) => (
-          <li key={s} className={i < index ? 'steps__item steps__item--done' : i === index ? 'steps__item steps__item--current' : 'steps__item'} aria-current={i === index ? 'step' : undefined}>
+        {stages.map((s, i) => (
+          <li key={s} className={i < stage ? 'steps__item steps__item--done' : i === stage ? 'steps__item steps__item--current' : 'steps__item'} aria-current={i === stage ? 'step' : undefined}>
             <span className="steps__num" aria-hidden="true">
-              {i + 1}
+              {i < stage ? <Check className="icon" /> : i + 1}
             </span>
-            <span className="steps__label">{t(stepLabels[s])}</span>
+            <span className="steps__label">{t(s)}</span>
           </li>
         ))}
       </ol>
 
+      <div className={step === 'summary' ? 'wizard__layout wizard__layout--single' : 'wizard__layout'}>
+      {step !== 'summary' && (
+        <BookingSummary clinicName={clinic.data.name} branch={branch} service={service} startsAt={state.startsAt} showBranch={clinic.data.branches.length > 1} />
+      )}
       <section className="card stack wizard__panel" aria-labelledby="wizard-step-title">
         <h2 id="wizard-step-title" tabIndex={-1} ref={headingRef}>
           {t(stepLabels[step])}
@@ -229,7 +239,60 @@ export function BookingWizard({
           </div>
         )}
       </section>
+      </div>
     </div>
+  )
+}
+
+const stages: MessageKey[] = ['bookFlow.service', 'bookFlow.time', 'bookFlow.confirm']
+const stageOf: Record<BookingStep, number> = { branch: 0, service: 0, time: 1, contact: 2, summary: 2 }
+
+/** Persistent summary of what is chosen so far (hidden on the final review, which shows it all). */
+function BookingSummary({ clinicName, branch, service, startsAt, showBranch }: { clinicName: string; branch?: PublicBranch; service?: PublicServiceOffer; startsAt?: string; showBranch: boolean }) {
+  const { t, locale } = useI18n()
+  return (
+    <aside className={service ? 'card wizard__summary' : 'card wizard__summary wizard__summary--empty'} aria-label={t('bookFlow.summary')}>
+      <p className="wizard__summary-title">{t('bookFlow.summary')}</p>
+      <dl className="wizard__facts">
+        <div>
+          <dt>
+            <Stethoscope className="icon" aria-hidden="true" />
+            {t('common.service')}
+          </dt>
+          <dd>{service ? `${service.name} · ${t('common.minutes', { minutes: service.durationMinutes })}` : <span className="muted">{t('bookFlow.notChosen')}</span>}</dd>
+        </div>
+        {(showBranch || branch) && (
+          <div>
+            <dt>
+              <MapPin className="icon" aria-hidden="true" />
+              {t('common.branch')}
+            </dt>
+            <dd>{branch ? `${branch.name} — ${branch.address}` : <span className="muted">{t('bookFlow.notChosen')}</span>}</dd>
+          </div>
+        )}
+        <div>
+          <dt>
+            <CalendarClock className="icon" aria-hidden="true" />
+            {t('book.when')}
+          </dt>
+          <dd>
+            {startsAt && branch ? `${formatDate(localDate(startsAt, branch.timeZone), locale)}, ${formatTime(startsAt, branch.timeZone, locale)}` : <span className="muted">{t('bookFlow.notChosen')}</span>}
+          </dd>
+        </div>
+      </dl>
+      {service && <p className="wizard__price">{priceText(service, locale, t)}</p>}
+      <ul className="wizard__notes">
+        <li>
+          <UserRoundCheck className="icon" aria-hidden="true" />
+          {t('bookFlow.doctor')}
+        </li>
+        <li>
+          <Wallet className="icon" aria-hidden="true" />
+          {t('bookFlow.payAtClinic')}
+        </li>
+      </ul>
+      <span className="visually-hidden">{clinicName}</span>
+    </aside>
   )
 }
 
