@@ -3,27 +3,20 @@ import type { RouteObject } from 'react-router'
 import { LoginPage } from '../auth/LoginPage'
 import { RequireAuth, RequirePermission, RequirePlatform, RequirePlatformPermission } from '../auth/guards'
 import { TelegramCallbackPage } from '../auth/TelegramCallbackPage'
-import { AccountLayout } from '../features/account/AccountLayout'
-import { InvitationsPage } from '../features/account/InvitationsPage'
-import { ProfilePage } from '../features/account/ProfilePage'
-import { SecurityPage } from '../features/account/SecurityPage'
-import { BookingPage } from '../features/booking/BookingPage'
 import { Perm, PlatformPerm } from '../features/clinic/permissions'
-import { AppointmentDetailPage } from '../features/patient/AppointmentDetailPage'
-import { MyAppointmentsPage } from '../features/patient/MyAppointmentsPage'
 import { ClinicPage } from '../features/public/ClinicPage'
 import { CatalogPage } from '../features/public/CatalogPage'
 import { LandingPage } from '../features/public/LandingPage'
 import { NotFoundPage } from '../ui/states'
 import { from } from './lazyRoute'
-import { ClinicChooserPage } from '../features/clinic/ClinicChooserPage'
-import { RegisterClinicPage } from '../features/clinic/RegisterClinicPage'
 import { PublicLayout } from './PublicLayout'
 
+const patient = from(() => import('./chunks/patient'))
 const clinic = from(() => import('./chunks/clinic'))
 const admin = from(() => import('./chunks/admin'))
 const tg = from(() => import('./chunks/telegram'))
-const devGallery = lazy(() => import('../dev/UiGallery').then((m) => ({ default: m.UiGallery })))
+// Defined only in development so the gallery chunk is not emitted in production builds.
+const devGallery = import.meta.env.DEV ? lazy(() => import('../dev/UiGallery').then((m) => ({ default: m.UiGallery }))) : null
 
 const perm = (anyOf: string[], element: ReactNode) => <RequirePermission anyOf={anyOf}>{element}</RequirePermission>
 const platform = (anyOf: string[], element: ReactNode) => <RequirePlatformPermission anyOf={anyOf}>{element}</RequirePlatformPermission>
@@ -36,27 +29,27 @@ export const routes: RouteObject[] = [
       { index: true, element: <LandingPage /> },
       { path: 'clinics', element: <CatalogPage /> },
       { path: 'clinics/:clinicId', element: <ClinicPage /> },
-      { path: 'book/:clinicId', element: <BookingPage /> },
+      { path: 'book/:clinicId', element: patient('BookingPage') },
       { path: 'login', element: <LoginPage /> },
       { path: 'login/telegram', element: <TelegramCallbackPage /> },
       // Development-only component gallery; the branch is removed from production builds.
-      ...(import.meta.env.DEV ? [{ path: '__ui', element: <Suspense>{createElement(devGallery)}</Suspense> }] : []),
+      ...(devGallery ? [{ path: '__ui', element: <Suspense>{createElement(devGallery)}</Suspense> }] : []),
       {
         element: <RequireAuth />,
         children: [
           {
             path: 'me',
-            element: <AccountLayout />,
+            element: patient('AccountLayout'),
             children: [
-              { index: true, element: <ProfilePage /> },
-              { path: 'security', element: <SecurityPage /> },
-              { path: 'invitations', element: <InvitationsPage /> },
+              { index: true, element: patient('ProfilePage') },
+              { path: 'security', element: patient('SecurityPage') },
+              { path: 'invitations', element: patient('InvitationsPage') },
             ],
           },
-          { path: 'me/appointments', element: <MyAppointmentsPage /> },
-          { path: 'me/appointments/:id', element: <AppointmentDetailPage /> },
-          { path: 'clinic', element: <ClinicChooserPage /> },
-          { path: 'clinic/register', element: <RegisterClinicPage /> },
+          { path: 'me/appointments', element: patient('MyAppointmentsPage') },
+          { path: 'me/appointments/:id', element: patient('AppointmentDetailPage') },
+          { path: 'clinic', element: patient('ClinicChooserPage') },
+          { path: 'clinic/register', element: patient('RegisterClinicPage') },
         ],
       },
       { path: '*', element: <NotFoundPage /> },
