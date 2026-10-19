@@ -1,3 +1,4 @@
+import { Building2, Store } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router'
 import { useApi } from '../api/context'
@@ -7,6 +8,7 @@ import { useBranchParam } from '../features/clinic/branchParam'
 import { clinicMenu, roleNeedsTotp, visibleMenu } from '../features/clinic/permissions'
 import { useQuery } from '../hooks/useQuery'
 import { useI18n } from '../i18n/context'
+import { ContextChip } from '../ui/ContextChip'
 import { ApiErrorState, ForbiddenState, LoadingState, TotpRequiredState } from '../ui/states'
 import { ConsoleShell } from './ConsoleShell'
 
@@ -64,29 +66,23 @@ export function ClinicLayout() {
   const topbar = (
     <>
       {me.memberships.length > 1 && (
-        <label className="field field--inline">
-          <span>{t('common.clinic')}</span>
-          <select value={membership.clinicId} onChange={(e) => navigate(`/clinic/${e.target.value}`)}>
-            {me.memberships.map((m) => (
-              <option key={m.clinicId} value={m.clinicId}>
-                {m.clinicName}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ContextChip
+          icon={Building2}
+          label={t('common.clinic')}
+          value={membership.clinicId}
+          options={me.memberships.map((m) => ({ value: m.clinicId, label: m.clinicName }))}
+          onChange={(id) => navigate(`/clinic/${id}`)}
+        />
       )}
       {ctx && ctx.branches.length > 0 && (
-        <label className="field field--inline">
-          <span>{t('common.branch')}</span>
-          <select value={branch ?? ''} onChange={(e) => setBranch(e.target.value || undefined)}>
-            <option value="">{t('common.allBranches')}</option>
-            {ctx.branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        // Every branch-dependent query key includes the branch, so the previous branch's data is never shown after a switch.
+        <ContextChip
+          icon={Store}
+          label={t('common.branch')}
+          value={branch ?? ''}
+          options={[{ value: '', label: t('common.allBranches') }, ...ctx.branches.map((b) => ({ value: b.id, label: b.name }))]}
+          onChange={(id) => setBranch(id || undefined)}
+        />
       )}
     </>
   )

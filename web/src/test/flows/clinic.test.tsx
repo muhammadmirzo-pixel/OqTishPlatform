@@ -9,7 +9,7 @@ import { ClinicContext, makeClinicContext } from '../../features/clinic/clinicCo
 import { RecordPaymentForm } from '../../features/finance/RecordPaymentForm'
 import { I18nProvider } from '../../i18n/I18n'
 import { appointment, membership, staffMe } from '../fixtures'
-import { meHandler, mockFetch, problem, renderApp, type FetchMock } from '../harness'
+import { json, meHandler, mockFetch, problem, renderApp, type FetchMock } from '../harness'
 
 const branch: BranchDto = { id: 'b1', name: 'Markaziy filial', district: 'Yunusobod', address: 'Test 1', latitude: null, longitude: null, phone: '+998711234567', timeZone: 'Asia/Tashkent', isActive: true, hours: [] }
 const receptionist = ['appointment.view', 'appointment.triage', 'appointment.cancel', 'appointment.outcome', 'appointment.create_walkin', 'payment.record', 'schedule.manage']
@@ -148,5 +148,30 @@ describe('record payment form', () => {
     await screen.findByText('Payment of 5,000 UZS recorded.')
     const [first, second] = fetchMock.find('POST', '/clinics/c1/appointments/a1/payments')
     expect(second!.headers['Idempotency-Key']).toBe(first!.headers['Idempotency-Key'])
+  })
+})
+
+describe('branch switch (J4)', () => {
+  it('never shows the previous branch figures while the new branch loads', async () => {
+    const user = userEvent.setup()
+    const branch2: BranchDto = { ...branch, id: 'b2', name: 'Chilonzor filiali' }
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const dash = (confirmed: number) => ({ date: '2026-10-19', branchId: null, pending: 0, confirmed, completed: 0, noShow: 0, collected: null })
+    const fetchMock = mockFetch([
+      meHandler(staffMe(receptionist)),
+      ['GET', '/clinics/c1/branches', { body: [branch, branch2] }],
+      ['GET', '/clinics/c1/appointments', page([])],
+      ['GET', '/clinics/c1/dashboard', (call) => (call.search.get('branchId') === 'b2' ? () => gate.then(() => json(dash(3))) : { body: dash(7) })],
+    ])
+    renderApp('/clinic/c1?branch=b1', fetchMock)
+    expect(await screen.findByText('7')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Branch'), 'b2')
+    expect(screen.queryByText('7')).not.toBeInTheDocument()
+
+    release()
+    expect(await screen.findByText('3')).toBeInTheDocument()
+    expect(fetchMock.find('GET', '/clinics/c1/dashboard').at(-1)!.search.get('branchId')).toBe('b2')
   })
 })

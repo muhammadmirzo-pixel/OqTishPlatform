@@ -82,13 +82,19 @@ export function ConsoleShell({
             )
           })}
         </nav>
+        <div className="console__prefs console__prefs--menu">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
       </aside>
       <div className="console__body">
         <header className="console__topbar">
           {topbar}
           <span className="spacer" />
-          <LanguageSwitcher />
-          <ThemeSwitcher />
+          <div className="console__prefs console__prefs--top">
+            <LanguageSwitcher />
+            <ThemeSwitcher />
+          </div>
           <Link to="/me" className="btn btn--ghost btn--small">
             <UserRound className="icon" aria-hidden="true" />
             <span className="console__user">{me?.displayName || t('nav.account')}</span>

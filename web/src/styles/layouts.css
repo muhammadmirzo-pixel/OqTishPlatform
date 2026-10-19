@@ -1981,3 +1981,118 @@
     margin-bottom: var(--s-3);
   }
 }
+
+/* ------------------------------------------------------------ console context chips + prefs */
+@layer layouts {
+  .context-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: var(--h-control-sm);
+    padding: 0 var(--s-2) 0 var(--s-3);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-pill);
+    background: var(--c-surface);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    max-width: 100%;
+    transition:
+      border-color var(--d-fast) var(--ease-out),
+      background var(--d-fast) var(--ease-out);
+  }
+  .context-chip:hover {
+    border-color: color-mix(in srgb, var(--c-primary) 40%, var(--c-line));
+  }
+  .context-chip:focus-within {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+  .context-chip__icon {
+    color: var(--c-primary);
+    flex: none;
+  }
+  .context-chip__label {
+    color: var(--c-ink-2);
+  }
+  .context-chip__label::after {
+    content: ':';
+  }
+  /* The native select carries the value; it is restyled to read as the chip's text. */
+  .console__topbar .context-chip__select,
+  .context-chip__select {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0 var(--s-5) 0 0;
+    margin-right: calc(-1 * var(--s-5));
+    min-height: 0;
+    width: auto;
+    max-width: 12rem;
+    font: inherit;
+    font-weight: var(--fw-semibold);
+    color: var(--c-ink);
+    text-overflow: ellipsis;
+    cursor: pointer;
+    outline: none;
+  }
+  .context-chip__chev {
+    width: 16px;
+    height: 16px;
+    color: var(--c-ink-3);
+    pointer-events: none;
+    flex: none;
+  }
+  .context-chip__pulse {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: chip-pulse var(--d-slow) var(--ease-out) 2;
+  }
+  @keyframes chip-pulse {
+    from {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-primary) 45%, transparent);
+    }
+    to {
+      box-shadow: 0 0 0 8px color-mix(in srgb, var(--c-primary) 0%, transparent);
+    }
+  }
+  @media (max-width: 599px) {
+    .context-chip__label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .context-chip__select {
+      max-width: 9.5rem;
+    }
+  }
+  .console__prefs {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .console__prefs--menu {
+    display: none;
+  }
+  @media (max-width: 599px) {
+    .console__prefs--top {
+      display: none;
+    }
+    .console__sidebar--open .console__prefs--menu {
+      display: flex;
+      padding-top: var(--s-3);
+      border-top: 1px solid rgb(255 255 255 / 12%);
+    }
+    .console__prefs--menu .btn--ghost {
+      color: #e6edff;
+      border-color: rgb(255 255 255 / 25%);
+      background: transparent;
+    }
+  }
+}

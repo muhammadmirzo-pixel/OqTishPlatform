@@ -56,11 +56,11 @@ export const clinicMenu: readonly MenuItem[] = [
   { path: 'services', label: 'clinicNav.services', anyOf: [Perm.catalogManage] },
   { path: 'branches', label: 'clinicNav.branches', anyOf: [Perm.branchManage] },
   { path: 'staff', label: 'clinicNav.staff', anyOf: [Perm.staffManage] },
+  { path: 'profile', label: 'clinicNav.profile', anyOf: [] },
   { path: 'payments', label: 'clinicNav.payments', anyOf: [Perm.paymentRecord, Perm.reportView] },
   { path: 'reports', label: 'clinicNav.reports', anyOf: [Perm.reportView] },
   { path: 'settlements', label: 'clinicNav.settlements', anyOf: [Perm.settlementView] },
   { path: 'audit', label: 'clinicNav.audit', anyOf: [Perm.auditView] },
-  { path: 'profile', label: 'clinicNav.profile', anyOf: [] },
 ]
 
 export const adminMenu: readonly MenuItem[] = [
