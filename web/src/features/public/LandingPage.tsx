@@ -2,6 +2,7 @@ import { ArrowRight, BadgeCheck, CalendarCheck, CalendarClock, ChevronDown, Hour
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/context'
+import { useSession } from '../../auth/session'
 import { serviceCategories } from '../../api/types'
 import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
@@ -16,6 +17,7 @@ export function LandingPage() {
   const { t } = useI18n()
   useTitle(t('landing.title'))
   const api = useApi()
+  const { me } = useSession()
   const navigate = useNavigate()
   const facets = useQuery('facets', () => api.public.facets())
   const clinics = useQuery('landing:clinics', () => api.public.searchClinics({ sort: 'rating', page: 1, pageSize: 3 }))
@@ -53,6 +55,7 @@ export function LandingPage() {
       <section className="lp-hero">
         <div className="lp-hero__inner">
           <div className="lp-hero__copy">
+            {me?.displayName && <p className="lp-hero__greeting">{t('landing.greeting', { name: me.displayName })}</p>}
             <h1 className="lp-hero__title">
               {t('landing.title')} <span>{t('landing.titleAccent')}</span>
             </h1>
@@ -154,7 +157,7 @@ export function LandingPage() {
         </section>
 
         {(clinics.loading || (clinics.data && clinics.data.items.length > 0)) && (
-          <section className="stack" aria-labelledby="lp-clinics">
+          <section className="stack lp-clinics" aria-labelledby="lp-clinics">
             <div className="section-head">
               <div>
                 <h2 id="lp-clinics">{t('landing.clinicsTitle')}</h2>

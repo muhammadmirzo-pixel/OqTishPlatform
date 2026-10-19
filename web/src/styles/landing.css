@@ -39,6 +39,11 @@
     margin: 0;
     max-width: 18ch;
   }
+  .lp-hero__greeting {
+    margin: 0;
+    font-weight: var(--fw-semibold);
+    color: var(--c-primary);
+  }
   .lp-hero__title span {
     display: block;
     color: var(--c-primary);
@@ -431,5 +436,100 @@
     --btn-bg: #eaf1fe;
     --btn-fg: #1d4fd8;
     --btn-border: #eaf1fe;
+  }
+}
+
+/* Phone layout (reference part 02 "patient mobile home"): compact, app-like home — categories and
+   clinics scroll sideways instead of stacking, steps and reasons become short rows. */
+@layer features {
+  @media (max-width: 599px) {
+    .lp-hero__inner {
+      padding-block: var(--s-6) var(--s-7);
+      gap: var(--s-5);
+    }
+    .lp-hero__title {
+      font-size: 1.75rem;
+    }
+    .lp-hero__lead {
+      font-size: var(--fs-base);
+    }
+    .lp-features {
+      grid-template-columns: 1fr 1fr;
+      gap: var(--s-3);
+    }
+    .lp-features small {
+      display: none;
+    }
+    .lp-sections {
+      gap: var(--s-7);
+      padding-top: var(--s-7);
+    }
+    .lp-categories,
+    .lp-clinics .card-grid {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      margin-inline: calc(-1 * var(--gutter));
+      padding: 2px var(--gutter) var(--s-2);
+      scroll-padding-inline: var(--gutter);
+    }
+    .lp-categories > li {
+      flex: 0 0 104px;
+      scroll-snap-align: start;
+    }
+    .lp-category {
+      height: 100%;
+      flex-direction: column;
+      justify-content: flex-start;
+      text-align: center;
+      gap: var(--s-2);
+      padding: var(--s-3) var(--s-2);
+      font-size: var(--fs-sm);
+      min-height: 108px;
+    }
+    .lp-clinics .card-grid > li {
+      flex: 0 0 82%;
+      scroll-snap-align: start;
+    }
+    .lp-clinics .card-grid > li > * {
+      height: 100%;
+    }
+    .lp-how {
+      padding: var(--s-5) var(--s-4);
+    }
+    .lp-steps {
+      gap: var(--s-4);
+    }
+    .lp-steps li {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      column-gap: var(--s-3);
+      row-gap: 2px;
+    }
+    .lp-steps__num {
+      grid-row: span 2;
+    }
+    .lp-steps h3 {
+      margin: 0;
+      align-self: end;
+    }
+    .lp-trust {
+      gap: var(--s-3);
+    }
+    .lp-trust .card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: var(--s-3);
+      row-gap: 2px;
+      padding: var(--s-4);
+    }
+    .lp-trust .card > .icon-tile {
+      grid-row: span 2;
+    }
+    .lp-trust h3 {
+      margin: 0;
+      align-self: end;
+    }
   }
 }
