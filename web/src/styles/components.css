@@ -259,7 +259,7 @@
   }
   .btn--subtle {
     --btn-bg: var(--c-primary-soft);
-    --btn-fg: var(--c-primary);
+    --btn-fg: var(--c-primary-on-soft);
     --btn-border: transparent;
   }
   .btn--subtle:hover:not(:disabled) {
@@ -537,7 +537,7 @@
   .badge--info,
   .badge--primary {
     background: var(--c-primary-soft);
-    color: var(--c-primary);
+    color: var(--c-primary-on-soft);
   }
   .badge--success {
     background: var(--c-success-soft);

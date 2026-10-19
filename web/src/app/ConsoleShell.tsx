@@ -95,7 +95,8 @@ export function ConsoleShell({
             <LanguageSwitcher />
             <ThemeSwitcher />
           </div>
-          <Link to="/me" className="btn btn--ghost btn--small">
+          {/* The name is hidden on phones, so the link keeps an accessible name of its own. */}
+          <Link to="/me" className="btn btn--ghost btn--small" aria-label={me?.displayName || t('nav.account')}>
             <UserRound className="icon" aria-hidden="true" />
             <span className="console__user">{me?.displayName || t('nav.account')}</span>
           </Link>

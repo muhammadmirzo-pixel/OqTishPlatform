@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { searchForWorkspaceRoot } from 'vite'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 // Dev server proxies API and health calls to the locally running API (dotnet run → :5080),
 // mirroring the nginx routing used in containers.
@@ -20,5 +20,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Playwright suites (npm run e2e) live in e2e/.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })

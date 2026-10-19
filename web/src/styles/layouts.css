@@ -256,7 +256,7 @@
     align-items: center;
     gap: 2px;
     padding: 0.55rem 0.25rem 0.5rem;
-    color: var(--c-ink-3);
+    color: var(--c-ink-2);
     text-decoration: none;
     font-size: 0.7rem;
     font-weight: var(--fw-medium);
@@ -393,7 +393,8 @@
   }
   .sidenav a.active {
     background: var(--c-primary);
-    color: #ffffff;
+    /* White on light-theme blue, dark ink on the lighter dark-theme blue (both ≥ 4.5:1). */
+    color: var(--c-primary-ink);
     box-shadow: 0 4px 14px rgb(37 99 235 / 35%);
   }
   .sidenav__count {
@@ -901,7 +902,7 @@
     text-align: center;
     font-size: var(--fs-xs);
     font-weight: var(--fw-bold);
-    color: #fff;
+    color: var(--c-danger-ink);
     background: var(--c-danger);
     border-radius: 6px;
     font-variant-numeric: tabular-nums;

@@ -10,6 +10,8 @@
     --c-primary-ink: #ffffff;
     --c-primary-soft: #eaf1fe;
     --c-primary-softer: #f3f7ff;
+    /* Primary text on --c-primary-soft (AA in both themes). */
+    --c-primary-on-soft: #2563eb;
     --c-teal: #10b981;
     --c-teal-ink: #047857;
     --c-teal-soft: #e6f8f1;
@@ -163,6 +165,7 @@
       --c-primary-ink: #071331;
       --c-primary-soft: #182a52;
       --c-primary-softer: #121f3d;
+      --c-primary-on-soft: #8fb0ff;
       --c-teal: #34d399;
       --c-teal-ink: #6ee7b7;
       --c-teal-soft: #12352b;
@@ -208,6 +211,7 @@
     --c-primary-ink: #071331;
     --c-primary-soft: #182a52;
     --c-primary-softer: #121f3d;
+    --c-primary-on-soft: #8fb0ff;
     --c-teal: #34d399;
     --c-teal-ink: #6ee7b7;
     --c-teal-soft: #12352b;
