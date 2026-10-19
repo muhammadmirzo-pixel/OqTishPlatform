@@ -6,7 +6,7 @@ import { Dialog } from './Dialog'
 import { Checkbox, Field, FormError, SubmitButton } from './forms'
 
 /** Warning strip on top of a dangerous dialog: icon + the caller's explanation. */
-function DangerNote({ children }: { children: ReactNode }) {
+export function DangerNote({ children }: { children: ReactNode }) {
   return (
     <div className="danger-note">
       <AlertTriangle className="icon" aria-hidden="true" />

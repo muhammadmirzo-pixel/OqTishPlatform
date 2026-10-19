@@ -1,3 +1,4 @@
+import { KeyRound, ShieldAlert } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
 import type { AppointmentDto, Page } from '../../api/types'
@@ -47,8 +48,11 @@ export function TenantDataPage() {
 
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.tenantData')} />
-      <p className="alert alert--warning">{t('adm.breakGlass')}</p>
+      <PageHeader icon={KeyRound} title={t('adminNav.tenantData')} />
+      <div className="danger-note" role="note">
+        <ShieldAlert className="icon" aria-hidden="true" />
+        <p>{t('adm.breakGlass')}</p>
+      </div>
       <form className="card stack" onSubmit={submit} noValidate>
         <ClinicPicker
           value={clinicId}
@@ -77,11 +81,11 @@ export function TenantDataPage() {
       </form>
       {result &&
         (result.items.length === 0 ? (
-          <EmptyState />
+          <EmptyState icon={KeyRound} />
         ) : (
           <>
             <div className="table-wrap">
-              <table className="table">
+              <table className="table table--stack">
                 <thead>
                   <tr>
                     <th scope="col">{t('common.time')}</th>
@@ -94,14 +98,14 @@ export function TenantDataPage() {
                 <tbody>
                   {result.items.map((a) => (
                     <tr key={a.id}>
-                      <td>{formatDateTime(a.startsAt, a.timeZone, locale)}</td>
-                      <td>
+                      <td data-label={t('common.time')}>{formatDateTime(a.startsAt, a.timeZone, locale)}</td>
+                      <td data-label={t('common.patient')}>
                         {a.contactName}
-                        <div className="muted small">{formatPhone(a.contactPhone)}</div>
+                        <div className="muted small nowrap">{formatPhone(a.contactPhone)}</div>
                       </td>
-                      <td>{a.serviceName}</td>
-                      <td>{a.branchName}</td>
-                      <td>
+                      <td data-label={t('common.service')}>{a.serviceName}</td>
+                      <td data-label={t('common.branch')}>{a.branchName}</td>
+                      <td data-label={t('common.status')}>
                         <StatusBadge status={a.status} />
                       </td>
                     </tr>

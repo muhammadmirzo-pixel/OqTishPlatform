@@ -1,3 +1,4 @@
+import { CalendarX2, Percent, Plus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { useApi } from '../../api/context'
@@ -10,8 +11,10 @@ import { formatInstantDate, formatMoney } from '../../lib/format'
 import { fractionToPercent, isPositive, parseAmount, percentToFraction, uzs } from '../../lib/money'
 import { DEFAULT_TIME_ZONE, isValidDate, localDate, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
-import { Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
+import { DangerNote } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { ClinicPicker } from './ClinicPicker'
 import { useNow } from '../../hooks/useNow'
@@ -26,28 +29,28 @@ export function CommissionPage() {
   const rules = useQuery(clinicId ? `commission:${clinicId}` : null, () => api.admin.commissionRules(clinicId))
   const [creating, setCreating] = useState(false)
   const [ending, setEnding] = useState<CommissionRuleDto | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   const tz = DEFAULT_TIME_ZONE
 
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.commission')} subtitle={t('comm.intro')} />
+      <PageHeader icon={Percent} title={t('adminNav.commission')} subtitle={t('comm.intro')} />
       <ClinicPicker value={clinicId} onChange={(id) => setParams(id ? { clinic: id } : {})} />
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       {clinicId && (
         <>
           <div>
             <button type="button" className="btn" onClick={() => setCreating(true)}>
+              <Plus className="icon" aria-hidden="true" />
               {t('comm.add')}
             </button>
           </div>
           <QueryView query={rules}>
             {(list) =>
               list.length === 0 ? (
-                <EmptyState title={t('comm.none')} />
+                <EmptyState title={t('comm.none')} icon={Percent} />
               ) : (
                 <div className="table-wrap">
-                  <table className="table">
+                  <table className="table table--stack">
                     <thead>
                       <tr>
                         <th scope="col">{t('comm.basis')}</th>
@@ -61,16 +64,17 @@ export function CommissionPage() {
                     <tbody>
                       {list.map((r) => (
                         <tr key={r.id}>
-                          <td>{t(`comm.basis.${r.basis}`)}</td>
-                          <td>{r.rate !== null ? `${fractionToPercent(r.rate)} %` : r.fixedFee ? formatMoney(r.fixedFee, locale) : '—'}</td>
-                          <td>{formatInstantDate(r.effectiveFrom, tz, locale)}</td>
-                          <td>{r.effectiveTo ? formatInstantDate(r.effectiveTo, tz, locale) : <Badge tone="success">{t('comm.open')}</Badge>}</td>
-                          <td>
+                          <td data-label={t('comm.basis')}>{t(`comm.basis.${r.basis}`)}</td>
+                          <td data-label={t('comm.value')}>{r.rate !== null ? `${fractionToPercent(r.rate)} %` : r.fixedFee ? formatMoney(r.fixedFee, locale) : '—'}</td>
+                          <td data-label={t('comm.from')}>{formatInstantDate(r.effectiveFrom, tz, locale)}</td>
+                          <td data-label={t('comm.to')}>{r.effectiveTo ? formatInstantDate(r.effectiveTo, tz, locale) : <Badge tone="success">{t('comm.open')}</Badge>}</td>
+                          <td data-label={t('comm.contract')}>
                             <code>{r.contractReference}</code>
                           </td>
-                          <td>
+                          <td data-label={t('common.actions')}>
                             {!r.effectiveTo && (
                               <button type="button" className="btn btn--ghost btn--small" onClick={() => setEnding(r)}>
+                                <CalendarX2 className="icon" aria-hidden="true" />
                                 {t('comm.end')}
                               </button>
                             )}
@@ -90,7 +94,7 @@ export function CommissionPage() {
           clinicId={clinicId}
           onDone={() => {
             setCreating(false)
-            setNotice(t('common.saved'))
+            toast({ title: t('common.saved') })
             rules.reload()
           }}
           onClose={() => setCreating(false)}
@@ -102,7 +106,7 @@ export function CommissionPage() {
           rule={ending}
           onDone={() => {
             setEnding(null)
-            setNotice(t('common.saved'))
+            toast({ title: t('common.saved') })
             rules.reload()
           }}
           onClose={() => setEnding(null)}
@@ -197,22 +201,27 @@ function EndDialog({ clinicId, rule, onDone, onClose }: { clinicId: string; rule
   const api = useApi()
   const tz = DEFAULT_TIME_ZONE
   const [date, setDate] = useState(localDate(now, tz))
+  const [acknowledged, setAcknowledged] = useState(false)
   const end = useAction((effectiveTo: string) => api.admin.endCommissionRule(clinicId, rule.id, effectiveTo))
+  // Rules are never edited, only ended, so ending is irreversible: it needs an explicit acknowledgement.
   return (
-    <Dialog title={t('comm.end')} onClose={onClose}>
+    <Dialog title={`${t('comm.end')}: ${rule.contractReference}`} onClose={onClose} tone="danger">
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault()
-          if (!isValidDate(date)) return
+          if (!isValidDate(date) || !acknowledged) return
           const r = await end.run(zonedToUtc(date, '00:00', tz))
           if (r.ok) onDone()
         }}
       >
-        <p className="muted">{t('comm.endIntro', { contract: rule.contractReference })}</p>
+        <DangerNote>
+          <p>{t('comm.endIntro', { contract: rule.contractReference })}</p>
+        </DangerNote>
         <Field label={t('comm.to')}>{(p) => <input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}</Field>
+        <Checkbox label={t('adm.ack')} checked={acknowledged} onChange={setAcknowledged} />
         <FormError error={end.error} />
-        <SubmitButton pending={end.pending} className="btn btn--danger">
+        <SubmitButton pending={end.pending} className="btn btn--danger" disabled={!acknowledged}>
           {t('comm.end')}
         </SubmitButton>
       </form>
