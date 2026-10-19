@@ -71,7 +71,7 @@ describe('clinic requests', () => {
 
 describe('clinic console menu', () => {
   it('is filtered by the membership permissions from /api/me, not by role', async () => {
-    renderApp('/clinic/c1', mockFetch([meHandler(staffMe(receptionist)), ['GET', '/clinics/c1/branches', { body: [branch] }], ['GET', '/clinics/c1/dashboard', { body: { date: '2026-10-19', branchId: null, pending: 2, confirmed: 5, completed: 1, noShow: 0, collected: null } }]]))
+    renderApp('/clinic/c1', mockFetch([meHandler(staffMe(receptionist)), ['GET', '/clinics/c1/branches', { body: [branch] }], ['GET', '/clinics/c1/dashboard', { body: { date: '2026-10-19', branchId: null, pending: 2, confirmed: 5, completed: 1, noShow: 0, collected: null } }], ['GET', '/clinics/c1/appointments', page([])]]))
     const nav = await screen.findByRole('navigation', { name: 'Menu' })
     for (const name of ['Dashboard', 'Requests', 'Appointments', 'Day calendar', 'New booking', 'Doctors', 'Payments']) expect(nav).toHaveTextContent(name)
     for (const name of ['Reports', 'Staff', 'Settlements', 'Audit log', 'Services & prices']) expect(nav).not.toHaveTextContent(name)

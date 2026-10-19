@@ -146,3 +146,21 @@ export function remaining(deadlineIso: string, nowMs: number): string | null {
   const seconds = totalSeconds % 60
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
+
+const compactUnits: Record<Locale, [string, string, string]> = {
+  uz: ['ming', 'mln', 'mlrd'],
+  'uz-Cyrl': ['минг', 'млн', 'млрд'],
+  ru: ['тыс.', 'млн', 'млрд'],
+  en: ['K', 'M', 'B'],
+}
+
+/** Short axis label for a whole-so‘m value ("500 ming", "1,5 mln", "2M"). Chart ticks only — never for amounts shown as money. */
+export function formatCompactNumber(value: number, locale: Locale): string {
+  const abs = Math.abs(value)
+  const [k, m, b] = compactUnits[locale]
+  const [scaled, unit] = abs >= 1e9 ? [value / 1e9, b] : abs >= 1e6 ? [value / 1e6, m] : abs >= 1e3 ? [value / 1e3, k] : [value, '']
+  const rounded = Math.round(scaled * 10) / 10
+  const text = String(rounded).replace('.', locale === 'en' ? '.' : ',')
+  if (!unit) return text
+  return locale === 'en' ? `${text}${unit}` : `${text} ${unit}`
+}

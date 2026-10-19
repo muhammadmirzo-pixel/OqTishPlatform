@@ -44,6 +44,9 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  .nowrap {
+    white-space: nowrap;
+  }
   .list-plain {
     list-style: none;
     margin: 0;
@@ -1220,23 +1223,29 @@
   .stats {
     display: grid;
     gap: var(--s-4);
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 156px), 1fr));
   }
+  @media (max-width: 599px) {
+    .stats {
+      gap: var(--s-3);
+    }
+  }
+  /* Icon tile on top, then label and value: five metrics fit one row next to the sidebar, two per row on phones. */
   .stat {
     background: var(--c-surface);
     border: 1px solid var(--c-line);
     border-radius: var(--r-md);
-    padding: var(--s-4) var(--s-5);
+    padding: var(--s-4);
     display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-areas: 'icon label' 'icon value' 'hint hint';
-    align-items: center;
-    column-gap: var(--s-3);
-    row-gap: 2px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'icon' 'label' 'value' 'hint';
+    align-content: start;
+    row-gap: 4px;
     box-shadow: var(--e-1);
   }
   .stat > .icon-tile {
     grid-area: icon;
+    margin-bottom: var(--s-2);
   }
   .stat__label {
     grid-area: label;
@@ -1251,7 +1260,6 @@
     font-size: clamp(1.25rem, 1rem + 0.8vw, var(--fs-2xl));
     font-weight: var(--fw-bold);
     letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
     line-height: 1.2;
   }
@@ -1262,8 +1270,13 @@
     margin-top: var(--s-2);
   }
   .stat:not(:has(> .icon-tile)) {
-    grid-template-columns: 1fr;
     grid-template-areas: 'label' 'value' 'hint';
+  }
+  .stat__unit {
+    font-size: var(--fs-md);
+    font-weight: var(--fw-medium);
+    color: var(--c-ink-2);
+    letter-spacing: 0;
   }
   .stat--warning {
     border-color: color-mix(in srgb, var(--c-warning) 40%, var(--c-line));
