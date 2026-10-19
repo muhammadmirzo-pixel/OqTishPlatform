@@ -6,12 +6,12 @@ const uz = {
   'tg.tabClinics': 'Klinikalar',
   'tg.tabMine': 'Qabullarim',
   'tg.tabStaff': 'Klinika',
-  'tg.staffTitle': "Klinika so'rovlari",
-  'tg.staffHint': "Tasdiqlash uchun shifokorni tanlang. To'liq boshqaruv — klinika panelida.",
+  'tg.staffTitle': 'Klinika so‘rovlari',
+  'tg.staffHint': 'Tasdiqlash uchun shifokorni tanlang. To‘liq boshqaruv — klinika panelida.',
   'tg.openPanel': 'Klinika panelini ochish',
   'tg.noClinics': "Siz klinika xodimi emassiz.",
   'tg.today': 'Bugungi qabullar',
-  'tg.noToday': "Bugun qabul yo'q.",
+  'tg.noToday': 'Bugun qabul yo‘q.',
 } as const
 
 type Keys = keyof typeof uz

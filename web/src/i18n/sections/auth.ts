@@ -24,10 +24,10 @@ const uz = {
   'login.forgot': 'Parolni unutdingizmi?',
   'login.totpNote': "Klinika egasi, moliya menejeri va platforma adminlari uchun ikki bosqichli tasdiqlash (TOTP) majburiy.",
   'login.resetTitle': 'Parolni tiklash',
-  'login.resetIntro': "Email manzilingizni kiriting. Agar hisob mavjud bo'lsa, tasdiqlangan telefon raqamingizga kod yuboriladi.",
-  'login.resetSent': "Agar bunday hisob mavjud bo'lsa, tasdiqlangan telefon raqamiga kod yuborildi.",
+  'login.resetIntro': 'Email manzilingizni kiriting. Agar hisob mavjud bo‘lsa, tasdiqlangan telefon raqamingizga kod yuboriladi.',
+  'login.resetSent': 'Agar bunday hisob mavjud bo‘lsa, tasdiqlangan telefon raqamiga kod yuborildi.',
   'login.newPassword': 'Yangi parol',
-  'login.resetSubmit': "Parolni o'rnatish",
+  'login.resetSubmit': 'Parolni o‘rnatish',
   'login.resetDone': "Parol yangilandi. Barcha seanslar yopildi — yangi parol bilan kiring.",
   'login.backToLogin': 'Kirish sahifasiga qaytish',
 } as const
