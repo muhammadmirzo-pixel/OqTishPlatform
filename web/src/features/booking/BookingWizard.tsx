@@ -371,7 +371,7 @@ function TimeStep({
               aria-label={`${formatDate(d, locale)}${closed ? ` — ${t('clinic.closed')}` : ''}`}
               onClick={() => onDate(d)}
             >
-              <span className="date-chip__weekday">{label.weekday}</span>
+              <span className="date-chip__weekday">{d === today ? t('clinicPage.today') : label.weekday}</span>
               <span className="date-chip__day">{label.day}</span>
             </button>
           )
