@@ -65,7 +65,6 @@ const uz = {
   'cal.free': "Bo'sh",
   'cal.timeOff': 'Dam olish',
   'cal.hold': "Vaqtincha band (javob kutilmoqda)",
-  'cal.legend': "Ranglar: ko'k — tasdiqlangan, sariq — javob kutilmoqda, kulrang — dam olish.",
 
   'chooser.none': "Siz hali birorta klinika jamoasida emassiz.",
   'chooser.inviteHint': "Klinika sizni telefon raqamingiz orqali taklif qilgan bo'lsa, «Takliflar» bo'limida qabul qiling.",
@@ -108,6 +107,19 @@ const uz = {
   'req.count': "Javob kutmoqda: {count}",
   'req.keys': "Klaviatura: ro‘yxat ichida J / K — keyingi / oldingi so‘rov, Enter — so‘rovni ochish.",
   'req.contact': "Bemor bilan bog‘lanish",
+  'cal.view': "Ko‘rinish",
+  'cal.viewDay': "Kun",
+  'cal.viewWeek': "Hafta",
+  'cal.viewList': "Ro‘yxat",
+  'cal.prevWeek': "Oldingi hafta",
+  'cal.nextWeek': "Keyingi hafta",
+  'cal.now': "Hozir {time}",
+  'cal.otherBranch': "Boshqa filialda band",
+  'cal.offHours': "Ish vaqtidan tashqari",
+  'cal.emptyDay': "Bu kunda yozuv yo‘q.",
+  'cal.openDay': "{day} kunini ochish",
+  'cal.legendTitle': "Belgilar",
+  'cal.what': "Nima",
 } as const
 
 type Keys = keyof typeof uz
@@ -177,7 +189,6 @@ const ru: Record<Keys, string> = {
   'cal.free': 'Свободно',
   'cal.timeOff': 'Отсутствие',
   'cal.hold': 'Временно занято (ждёт ответа)',
-  'cal.legend': 'Цвета: синий — подтверждено, жёлтый — ждёт ответа, серый — отсутствие.',
 
   'chooser.none': 'Вы пока не состоите в команде ни одной клиники.',
   'chooser.inviteHint': 'Если клиника пригласила вас по номеру телефона, примите приглашение в разделе «Приглашения».',
@@ -220,6 +231,19 @@ const ru: Record<Keys, string> = {
   'req.count': "Ждут ответа: {count}",
   'req.keys': "Клавиатура: в списке J / K — следующая / предыдущая заявка, Enter — открыть заявку.",
   'req.contact': "Связаться с пациентом",
+  'cal.view': "Вид",
+  'cal.viewDay': "День",
+  'cal.viewWeek': "Неделя",
+  'cal.viewList': "Список",
+  'cal.prevWeek': "Предыдущая неделя",
+  'cal.nextWeek': "Следующая неделя",
+  'cal.now': "Сейчас {time}",
+  'cal.otherBranch': "Занят в другом филиале",
+  'cal.offHours': "Нерабочее время",
+  'cal.emptyDay': "В этот день записей нет.",
+  'cal.openDay': "Открыть день {day}",
+  'cal.legendTitle': "Обозначения",
+  'cal.what': "Что",
 }
 
 const en: Record<Keys, string> = {
@@ -287,7 +311,6 @@ const en: Record<Keys, string> = {
   'cal.free': 'Free',
   'cal.timeOff': 'Time off',
   'cal.hold': 'Held (awaiting reply)',
-  'cal.legend': 'Colours: blue — confirmed, yellow — awaiting reply, grey — time off.',
 
   'chooser.none': 'You are not on any clinic team yet.',
   'chooser.inviteHint': 'If a clinic invited you by phone number, accept it under "Invitations".',
@@ -330,6 +353,19 @@ const en: Record<Keys, string> = {
   'req.count': "Waiting for a reply: {count}",
   'req.keys': "Keyboard: inside the list, J / K — next / previous request, Enter — open the request.",
   'req.contact': "Contact the patient",
+  'cal.view': "View",
+  'cal.viewDay': "Day",
+  'cal.viewWeek': "Week",
+  'cal.viewList': "List",
+  'cal.prevWeek': "Previous week",
+  'cal.nextWeek': "Next week",
+  'cal.now': "Now {time}",
+  'cal.otherBranch': "Busy at another branch",
+  'cal.offHours': "Outside working hours",
+  'cal.emptyDay': "Nothing booked on this day.",
+  'cal.openDay': "Open {day}",
+  'cal.legendTitle': "Legend",
+  'cal.what': "What",
 }
 
 export const clinicOps = { uz, ru, en }
