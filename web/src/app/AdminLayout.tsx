@@ -1,3 +1,4 @@
+import { ShieldCheck } from 'lucide-react'
 import { Link, Outlet } from 'react-router'
 import { useSession } from '../auth/session'
 import { adminMenu, visibleMenu } from '../features/clinic/permissions'
@@ -11,6 +12,12 @@ export function AdminLayout() {
   return (
     <ConsoleShell
       title={t('console.adminTitle')}
+      subtitle={
+        <span className="badge badge--danger">
+          <ShieldCheck className="icon" aria-hidden="true" />
+          {t('console.platformBadge')}
+        </span>
+      }
       base="/admin"
       variant="admin"
       items={items}

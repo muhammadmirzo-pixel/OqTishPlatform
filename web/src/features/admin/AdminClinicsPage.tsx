@@ -111,7 +111,7 @@ export function AdminClinicsPage() {
                           {c.phone || '—'}
                         </td>
                         <td data-label={t('common.status')}>
-                          <Badge tone={c.verificationStatus === 'Approved' ? 'success' : c.verificationStatus === 'Pending' ? 'warning' : 'neutral'}>{t(`verification.${c.verificationStatus}`)}</Badge>
+                          <Badge tone={c.verificationStatus === 'Approved' ? 'success' : c.verificationStatus === 'Pending' ? 'warning' : c.verificationStatus === 'Suspended' ? 'danger' : 'neutral'}>{t(`verification.${c.verificationStatus}`)}</Badge>
                           {c.statusReason && (c.verificationStatus === 'Rejected' || c.verificationStatus === 'Suspended') && (
                             <div className="muted small">{t('adm.statusReason', { reason: c.statusReason })}</div>
                           )}

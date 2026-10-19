@@ -776,22 +776,40 @@
       padding: var(--s-3) var(--s-4);
       border-bottom: 1px solid var(--c-line);
     }
+    /* Label on the left; everything in the cell stacks on the right (a cell may hold a name and a
+       secondary line, a badge and a reason, or a row of buttons). */
     .table--stack td,
     .table--stack th {
       border: 0;
-      padding: 3px 0;
-      text-align: left;
-      display: flex;
-      justify-content: space-between;
-      gap: var(--s-3);
+      padding: 4px 0;
+      text-align: right;
+      display: grid;
+      grid-template-columns: minmax(6rem, 38%) minmax(0, 1fr);
+      column-gap: var(--s-3);
+      row-gap: 2px;
+      align-items: baseline;
     }
-    .table--stack td[data-label]::before {
+    .table--stack td > *,
+    .table--stack th > * {
+      grid-column: 2;
+      justify-self: end;
+    }
+    .table--stack td:not([data-label]),
+    .table--stack th:not([data-label]) {
+      display: block;
+      text-align: left;
+    }
+    .table--stack [data-label]::before {
       content: attr(data-label);
+      grid-column: 1;
+      grid-row: 1 / span 4;
+      text-align: left;
       color: var(--c-ink-2);
       font-size: var(--fs-sm);
+      font-weight: var(--fw-regular);
     }
-    .table--stack .num {
-      text-align: right;
+    .table--stack .row {
+      justify-content: flex-end;
     }
   }
 

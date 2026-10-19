@@ -1,3 +1,4 @@
+import { Ban, Bell, CheckCircle2, FileClock, Hourglass, LoaderCircle, RotateCcw, Search, SkipForward, XCircle, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useApi } from '../../api/context'
 import { notificationStatuses, type NotificationStatus } from '../../api/types'
@@ -10,6 +11,7 @@ import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { FormError } from '../../ui/forms'
 import { Pagination } from '../../ui/Pagination'
 import { EmptyState, QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { AuditTable } from '../finance/AuditTable'
 
@@ -26,7 +28,7 @@ export function AdminAuditPage() {
   )
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.audit')} />
+      <PageHeader icon={FileClock} title={t('adminNav.audit')} />
       <form
         className="filters"
         onSubmit={(e) => {
@@ -44,6 +46,7 @@ export function AdminAuditPage() {
           <input value={action} placeholder="clinic.approved" onChange={(e) => setAction(e.target.value)} />
         </label>
         <button type="submit" className="btn btn--ghost">
+          <Search className="icon" aria-hidden="true" />
           {t('common.search')}
         </button>
       </form>
@@ -53,6 +56,7 @@ export function AdminAuditPage() {
 }
 
 const tone: Record<NotificationStatus, string> = { Pending: 'warning', Processing: 'info', Sent: 'success', Failed: 'danger', Skipped: 'neutral', Cancelled: 'neutral' }
+const icon: Record<NotificationStatus, LucideIcon> = { Pending: Hourglass, Processing: LoaderCircle, Sent: CheckCircle2, Failed: XCircle, Skipped: SkipForward, Cancelled: Ban }
 
 export function NotificationsPage() {
   const { t, locale } = useI18n()
@@ -62,9 +66,10 @@ export function NotificationsPage() {
   const [page, setPage] = useState(1)
   const list = useQuery(`admin-notifications:${status}:${page}`, () => api.admin.notifications({ status: status || undefined, page }))
   const retry = useAction((id: string) => api.admin.retryNotification(id))
+  const toast = useToast()
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.notifications')} subtitle={t('adm.outboxIntro')} />
+      <PageHeader icon={Bell} title={t('adminNav.notifications')} subtitle={t('adm.outboxIntro')} />
       <label className="field field--inline">
         <span>{t('common.status')}</span>
         <select
@@ -86,11 +91,11 @@ export function NotificationsPage() {
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (
-            <EmptyState />
+            <EmptyState icon={Bell} />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('common.createdAt')}</th>
@@ -102,39 +107,49 @@ export function NotificationsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.items.map((n) => (
-                      <tr key={n.id}>
-                        <td>{formatFullDateTime(n.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
-                        <td>
-                          <code>{n.type}</code>
-                          <div className="muted small">{[t(`adm.audience.${n.audience}`), n.channel].filter(Boolean).join(' · ')}</div>
-                        </td>
-                        <td>
-                          <Badge tone={tone[n.status]}>{t(`adm.outbox.${n.status}`)}</Badge>
-                        </td>
-                        <td>{n.attempts}</td>
-                        <td className="small">
-                          {n.lastErrorCode ? <code>{n.lastErrorCode}</code> : '—'}
-                          {n.lastError && <div className="muted">{n.lastError}</div>}
-                          {n.sentAt && <div className="muted">{t('adm.sentAt')}: {formatFullDateTime(n.sentAt, DEFAULT_TIME_ZONE, locale)}</div>}
-                        </td>
-                        <td>
-                          {n.status === 'Failed' && (
-                            <button
-                              type="button"
-                              className="btn btn--ghost btn--small"
-                              disabled={retry.pending}
-                              onClick={async () => {
-                                const r = await retry.run(n.id)
-                                if (r.ok) list.reload()
-                              }}
-                            >
-                              {t('common.retry')}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {data.items.map((n) => {
+                      const StatusIcon = icon[n.status]
+                      return (
+                        <tr key={n.id}>
+                          <td data-label={t('common.createdAt')}>{formatFullDateTime(n.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
+                          <td data-label={t('adm.outboxType')}>
+                            <code>{n.type}</code>
+                            <div className="muted small">{[t(`adm.audience.${n.audience}`), n.channel].filter(Boolean).join(' · ')}</div>
+                          </td>
+                          <td data-label={t('common.status')}>
+                            <Badge tone={tone[n.status]}>
+                              <StatusIcon className="icon" aria-hidden="true" />
+                              {t(`adm.outbox.${n.status}`)}
+                            </Badge>
+                          </td>
+                          <td data-label={t('adm.attempts')}>{n.attempts}</td>
+                          <td className="small" data-label={t('adm.lastError')}>
+                            {n.lastErrorCode ? <code>{n.lastErrorCode}</code> : '—'}
+                            {n.lastError && <div className="muted">{n.lastError}</div>}
+                            {n.sentAt && <div className="muted">{t('adm.sentAt')}: {formatFullDateTime(n.sentAt, DEFAULT_TIME_ZONE, locale)}</div>}
+                          </td>
+                          <td data-label={t('common.actions')}>
+                            {n.status === 'Failed' && (
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--small"
+                                disabled={retry.pending}
+                                onClick={async () => {
+                                  const r = await retry.run(n.id)
+                                  if (r.ok) {
+                                    toast({ title: t('adm.done') })
+                                    list.reload()
+                                  }
+                                }}
+                              >
+                                <RotateCcw className="icon" aria-hidden="true" />
+                                {t('common.retry')}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
