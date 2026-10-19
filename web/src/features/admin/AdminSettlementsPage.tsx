@@ -10,6 +10,7 @@ import { formatInstantDate, formatMoney } from '../../lib/format'
 import { DEFAULT_TIME_ZONE, isValidDate, localDate, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
 import { SelectField } from '../../ui/Select'
+import { DatePicker, MonthField } from '../../ui/DatePicker'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
 import { useToast } from '../../ui/toastContext'
@@ -157,10 +158,7 @@ function CreateSettlement({ clinicId, onCreated }: { clinicId: string; onCreated
         if (r.ok) onCreated()
       }}
     >
-      <label className="field field--inline">
-        <span>{t('settle.period')}</span>
-        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-      </label>
+      <MonthField inline label={t('settle.period')} value={month} onChange={setMonth} thisMonth={today.slice(0, 7)} />
       <SubmitButton pending={create.pending}>{t('settle.create')}</SubmitButton>
       <FormError error={create.error} />
     </form>
@@ -189,7 +187,7 @@ function MarkPaidDialog({ settlement, onDone, onClose }: { settlement: Settlemen
           if (r.ok) onDone()
         }}
       >
-        <Field label={t('settle.paidAt')}>{(p) => <input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}</Field>
+        <Field label={t('settle.paidAt')}>{(p) => <DatePicker {...p} value={date} onChange={setDate} />}</Field>
         <Field label={t('settle.reference')} error={touched ? error : null}>
           {(p) => <input {...p} maxLength={100} value={reference} onChange={(e) => setReference(e.target.value)} />}
         </Field>

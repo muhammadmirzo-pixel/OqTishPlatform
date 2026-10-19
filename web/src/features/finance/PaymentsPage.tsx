@@ -9,6 +9,7 @@ import { formatDateTime, formatFullDateTime, formatMoney } from '../../lib/forma
 import { addDays, localDate, localRangeToUtc } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
 import { SelectField } from '../../ui/Select'
+import { DateField } from '../../ui/DatePicker'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useBranchParam } from '../clinic/branchParam'
@@ -47,14 +48,8 @@ export function PaymentsPage() {
       <PageHeader icon={Wallet} title={t('clinicNav.payments')} subtitle={t('pay.serverNote')} />
       {can(Perm.paymentRecord) && <QuickRecord onRecorded={list.reload} />}
       <div className="filters">
-        <label className="field">
-          <span>{t('common.from')}</span>
-          <input type="date" value={from} onChange={(e) => set('from', e.target.value)} />
-        </label>
-        <label className="field">
-          <span>{t('common.to')}</span>
-          <input type="date" value={to} min={from} onChange={(e) => set('to', e.target.value)} />
-        </label>
+        <DateField label={t('common.from')} value={from} today={today} onChange={(v) => set('from', v)} />
+        <DateField label={t('common.to')} value={to} min={from} today={today} onChange={(v) => set('to', v)} />
       </div>
       <QueryView query={list}>
         {(data) =>

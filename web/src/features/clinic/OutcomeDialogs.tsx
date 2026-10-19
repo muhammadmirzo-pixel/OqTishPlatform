@@ -9,6 +9,7 @@ import { amountForInput, parseAmount, uzs } from '../../lib/money'
 import { isValidDate, isValidTime, localDate, localTime, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
 import { Select } from '../../ui/Select'
+import { DatePicker, TimeSelect } from '../../ui/DatePicker'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
 
 /** Completed: charged amount pre-filled with the quoted price (OD-F8: any value ≥ 0). */
@@ -80,10 +81,10 @@ export function RescheduleDialog({ clinicId, appointment, onDone, onClose }: { c
         <p className="muted small">{t('act.rescheduleIntro', { tz })}</p>
         <div className="grid-2">
           <Field label={t('common.date')} error={touched ? errors.date : null}>
-            {(p) => <input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
+            {(p) => <DatePicker {...p} value={date} onChange={setDate} />}
           </Field>
           <Field label={t('common.time')} error={touched ? errors.time : null}>
-            {(p) => <input {...p} type="time" step={900} value={time} onChange={(e) => setTime(e.target.value)} />}
+            {(p) => <TimeSelect {...p} value={time} onChange={setTime} />}
           </Field>
         </div>
         <Field label={t('common.doctor')} error={touched ? errors.doctor : null}>

@@ -13,6 +13,7 @@ import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { isValidDate, isValidTime, localDate, zonedToUtc } from '../../lib/time'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
 import { Select } from '../../ui/Select'
+import { DatePicker, TimeSelect } from '../../ui/DatePicker'
 import { PageHeader } from '../../ui/widgets'
 import { useBranchParam } from './branchParam'
 import { useClinic } from './clinicContext'
@@ -105,10 +106,10 @@ export function WalkInPage() {
             )}
           </Field>
           <Field label={t('common.date')} error={err('date')}>
-            {(p) => <input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
+            {(p) => <DatePicker {...p} value={date} onChange={setDate} />}
           </Field>
           <Field label={t('common.time')} hint={t('walkin.timeHint', { tz })} error={err('time')}>
-            {(p) => <input {...p} type="time" step={900} value={time} onChange={(e) => setTime(e.target.value)} />}
+            {(p) => <TimeSelect {...p} value={time} onChange={setTime} />}
           </Field>
         </div>
         {slots.data && slots.data.slots.length > 0 && (

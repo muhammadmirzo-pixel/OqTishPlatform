@@ -12,6 +12,7 @@ import { formatDate, formatLocalDay, formatTime } from '../../lib/format'
 import { addDays, fromMinutes, isValidDate, localDate, localMinutes, toMinutes, weekdayOf } from '../../lib/time'
 import { Skeleton } from '../../ui/Skeleton'
 import { SelectField } from '../../ui/Select'
+import { DatePicker } from '../../ui/DatePicker'
 import { ApiErrorState, EmptyState } from '../../ui/states'
 import { PageHeader, StatusBadge } from '../../ui/widgets'
 import { useBranchParam } from './branchParam'
@@ -126,10 +127,7 @@ export function CalendarPage() {
           >
             <ChevronRight className="icon" aria-hidden="true" />
           </button>
-          <label className="field field--inline">
-            <span className="visually-hidden">{t('common.date')}</span>
-            <input type="date" value={date} onChange={(e) => e.target.value && set({ date: e.target.value })} />
-          </label>
+          <DatePicker variant="small" aria-label={t('common.date')} value={date} today={today} onChange={(d) => d && set({ date: d })} />
         </div>
         <p className="cal-toolbar__range" aria-live="polite">
           {range}

@@ -8,6 +8,7 @@ import { formatDate, formatMoney } from '../../lib/format'
 import { sumMoney } from '../../lib/money'
 import { addDays, isValidDate, localDate } from '../../lib/time'
 import { EmptyState, QueryView } from '../../ui/states'
+import { DateField, MonthField } from '../../ui/DatePicker'
 import { Badge, Details, PageHeader } from '../../ui/widgets'
 import { useBranchParam } from '../clinic/branchParam'
 import { useClinic } from '../clinic/clinicContext'
@@ -42,14 +43,8 @@ function DailyReport() {
     <section className="card stack" aria-labelledby="daily-title">
       <h2 id="daily-title">{t('rep.daily')}</h2>
       <div className="filters">
-        <label className="field">
-          <span>{t('common.from')}</span>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <label className="field">
-          <span>{t('common.to')}</span>
-          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
-        </label>
+        <DateField label={t('common.from')} value={from} today={today} onChange={setFrom} />
+        <DateField label={t('common.to')} value={to} min={from} today={today} onChange={setTo} />
       </div>
       {!valid ? (
         <p className="field__error">{t('rep.rangeInvalid')}</p>
@@ -154,10 +149,7 @@ function MonthlyReport() {
   return (
     <section className="card stack" aria-labelledby="monthly-title">
       <h2 id="monthly-title">{t('rep.monthly')}</h2>
-      <label className="field field--inline">
-        <span>{t('common.month')}</span>
-        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-      </label>
+      <MonthField inline label={t('common.month')} value={month} thisMonth={today.slice(0, 7)} onChange={setMonth} />
       <QueryView query={report}>
         {(r) => (
           <div className="stack">

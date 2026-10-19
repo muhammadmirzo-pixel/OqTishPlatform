@@ -71,6 +71,16 @@ const uz = {
   'clinicPage.bookHere': "Shu filialga yozilish",
   'clinicPage.sections': "Klinika bo‘limlari",
   'clinicPage.reviewsTab': "Sharhlar ({count})",
+  'date.choose': "Sanani tanlang",
+  'date.chooseMonth': "Oyni tanlang",
+  'date.chooseTime': "Vaqtni tanlang",
+  'date.prevMonth': "Oldingi oy",
+  'date.nextMonth': "Keyingi oy",
+  'date.prevYear': "Oldingi yil",
+  'date.nextYear': "Keyingi yil",
+  'date.today': "Bugun",
+  'date.thisMonth': "Shu oy",
+  'date.clear': "Tozalash",
 } as const
 
 type Keys = keyof typeof uz
@@ -146,6 +156,16 @@ const ru: Record<Keys, string> = {
   'clinicPage.bookHere': "Записаться в этот филиал",
   'clinicPage.sections': "Разделы клиники",
   'clinicPage.reviewsTab': "Отзывы ({count})",
+  'date.choose': "Выберите дату",
+  'date.chooseMonth': "Выберите месяц",
+  'date.chooseTime': "Выберите время",
+  'date.prevMonth': "Предыдущий месяц",
+  'date.nextMonth': "Следующий месяц",
+  'date.prevYear': "Предыдущий год",
+  'date.nextYear': "Следующий год",
+  'date.today': "Сегодня",
+  'date.thisMonth': "Этот месяц",
+  'date.clear': "Очистить",
 }
 
 const en: Record<Keys, string> = {
@@ -219,6 +239,16 @@ const en: Record<Keys, string> = {
   'clinicPage.bookHere': "Book at this branch",
   'clinicPage.sections': "Clinic sections",
   'clinicPage.reviewsTab': "Reviews ({count})",
+  'date.choose': "Choose a date",
+  'date.chooseMonth': "Choose a month",
+  'date.chooseTime': "Choose a time",
+  'date.prevMonth': "Previous month",
+  'date.nextMonth': "Next month",
+  'date.prevYear': "Previous year",
+  'date.nextYear': "Next year",
+  'date.today': "Today",
+  'date.thisMonth': "This month",
+  'date.clear': "Clear",
 }
 
 export const ui = { uz, ru, en }

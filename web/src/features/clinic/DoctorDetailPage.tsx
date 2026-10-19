@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n/context'
 import { formatFullDateTime } from '../../lib/format'
 import { addDays, localDate, splitLocalDateTime, zonedToUtc } from '../../lib/time'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
+import { DateTimePicker } from '../../ui/DatePicker'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { EmptyState, ForbiddenState, QueryView } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
@@ -236,10 +237,10 @@ function TimeOff({ doctor }: { doctor: DoctorDto }) {
         <h3>{t('doc.addTimeOff')}</h3>
         <div className="grid-2">
           <Field label={t('common.from')} error={touched ? error : null}>
-            {(p) => <input {...p} type="datetime-local" step={900} value={start} onChange={(ev) => setStart(ev.target.value)} />}
+            {(p) => <DateTimePicker {...p} value={start} onChange={setStart} min={today} />}
           </Field>
           <Field label={t('common.to')}>
-            {(p) => <input {...p} type="datetime-local" step={900} min={start || undefined} value={end} onChange={(ev) => setEnd(ev.target.value)} />}
+            {(p) => <DateTimePicker {...p} value={end} onChange={setEnd} min={start || today} />}
           </Field>
         </div>
         <Field label={t('common.reason')} hint={t('doc.timeOffReasonHint')} optional>

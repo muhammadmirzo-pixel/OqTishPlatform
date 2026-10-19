@@ -1,5 +1,6 @@
 import { weekdays } from '../../api/types'
 import { useI18n } from '../../i18n/context'
+import { TimeSelect } from '../../ui/DatePicker'
 import { hasOverlap, intervalError, type Interval } from './hours'
 
 /** Weekly template editor (branch-local wall-clock times), several intervals per day allowed. */
@@ -21,15 +22,21 @@ export function WeeklyHoursEditor({ value, onChange, legend, showErrors }: { val
                 const err = showErrors ? intervalError(v) : null
                 return (
                   <div key={index} className="hours-editor__row">
-                    <label>
-                      <span className="visually-hidden">{t('hours.start', { day: t(`weekdayLong.${d}`) })}</span>
-                      <input type="time" step={900} value={v.start} aria-invalid={err ? true : undefined} onChange={(e) => update(index, { start: e.target.value })} />
-                    </label>
+                    <TimeSelect
+                      variant="small"
+                      aria-label={t('hours.start', { day: t(`weekdayLong.${d}`) })}
+                      value={v.start}
+                      aria-invalid={err ? true : undefined}
+                      onChange={(start) => update(index, { start })}
+                    />
                     <span aria-hidden="true">–</span>
-                    <label>
-                      <span className="visually-hidden">{t('hours.end', { day: t(`weekdayLong.${d}`) })}</span>
-                      <input type="time" step={900} value={v.end} aria-invalid={err ? true : undefined} onChange={(e) => update(index, { end: e.target.value })} />
-                    </label>
+                    <TimeSelect
+                      variant="small"
+                      aria-label={t('hours.end', { day: t(`weekdayLong.${d}`) })}
+                      value={v.end}
+                      aria-invalid={err ? true : undefined}
+                      onChange={(end) => update(index, { end })}
+                    />
                     <button type="button" className="btn btn--ghost btn--small" onClick={() => onChange(value.filter((_, i) => i !== index))} aria-label={t('hours.removeInterval', { day: t(`weekdayLong.${d}`) })}>
                       ✕
                     </button>

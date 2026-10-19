@@ -170,3 +170,16 @@ export function formatMonthYear(year: number, month: number, locale: Locale): st
   if (isUz(locale)) return `${uzNames(locale).long[month - 1] ?? ''} ${year}`
   return new Intl.DateTimeFormat(intlLocale[locale], { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)))
 }
+
+/** Month name (1–12) for pickers: Uzbek from our tables, others from Intl. */
+export function monthName(month: number, locale: Locale, style: 'short' | 'long' = 'long'): string {
+  if (isUz(locale)) return uzNames(locale)[style][month - 1] ?? ''
+  return new Intl.DateTimeFormat(intlLocale[locale], { month: style, timeZone: 'UTC' }).format(new Date(Date.UTC(2026, month - 1, 1)))
+}
+
+/** Short weekday names Monday → Sunday (calendar headers). */
+export function weekdayNamesShort(locale: Locale): string[] {
+  if (isUz(locale)) return [...uzNames(locale).weekdays]
+  const f = new Intl.DateTimeFormat(intlLocale[locale], { weekday: 'short', timeZone: 'UTC' })
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2026, 9, 19 + i))))
+}

@@ -12,6 +12,7 @@ import { fractionToPercent, isPositive, parseAmount, percentToFraction, uzs } fr
 import { DEFAULT_TIME_ZONE, isValidDate, localDate, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
 import { Select } from '../../ui/Select'
+import { DatePicker } from '../../ui/DatePicker'
 import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
 import { DangerNote } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
@@ -173,10 +174,10 @@ function RuleDialog({ clinicId, onDone, onClose }: { clinicId: string; onDone: (
         )}
         <div className="grid-2">
           <Field label={t('comm.from')} error={touched ? errors.from : null}>
-            {(p) => <input {...p} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />}
+            {(p) => <DatePicker {...p} value={from} onChange={setFrom} />}
           </Field>
           <Field label={t('comm.to')} error={touched ? errors.to : null} optional>
-            {(p) => <input {...p} type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />}
+            {(p) => <DatePicker {...p} value={to} min={from || undefined} clearable onChange={setTo} />}
           </Field>
         </div>
         <Field label={t('comm.contract')} hint={t('comm.contractHint')} error={touched ? errors.contract : null}>
@@ -213,7 +214,7 @@ function EndDialog({ clinicId, rule, onDone, onClose }: { clinicId: string; rule
         <DangerNote>
           <p>{t('comm.endIntro', { contract: rule.contractReference })}</p>
         </DangerNote>
-        <Field label={t('comm.to')}>{(p) => <input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}</Field>
+        <Field label={t('comm.to')}>{(p) => <DatePicker {...p} value={date} onChange={setDate} />}</Field>
         <Checkbox label={t('adm.ack')} checked={acknowledged} onChange={setAcknowledged} />
         <FormError error={end.error} />
         <SubmitButton pending={end.pending} className="btn btn--danger" disabled={!acknowledged}>

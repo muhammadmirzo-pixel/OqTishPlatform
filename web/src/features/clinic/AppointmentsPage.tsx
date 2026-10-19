@@ -10,6 +10,7 @@ import { formatPhone } from '../../lib/phone'
 import { addDays, localDate, localRangeToUtc } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
 import { SelectField } from '../../ui/Select'
+import { DateField } from '../../ui/DatePicker'
 import { EmptyState, QueryView } from '../../ui/states'
 import { PageHeader, StatusBadge } from '../../ui/widgets'
 import { useBranchParam } from './branchParam'
@@ -52,14 +53,8 @@ export function AppointmentsPage() {
     <div className="stack">
       <PageHeader icon={ClipboardList} title={t('clinicNav.appointments')} subtitle={t('appts.tzNote', { tz })} />
       <div className="filters">
-        <label className="field">
-          <span>{t('common.from')}</span>
-          <input type="date" value={from} onChange={(e) => set('from', e.target.value)} />
-        </label>
-        <label className="field">
-          <span>{t('common.to')}</span>
-          <input type="date" value={to} min={from} onChange={(e) => set('to', e.target.value)} />
-        </label>
+        <DateField label={t('common.from')} value={from} today={today} onChange={(v) => set('from', v)} />
+        <DateField label={t('common.to')} value={to} min={from} today={today} onChange={(v) => set('to', v)} />
         <SelectField
           label={t('common.status')}
           value={status ?? ''}

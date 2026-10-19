@@ -1,6 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react'
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { anchoredPosition, useAnchoredPopup, type AnchoredPosition } from './anchored'
 
 export interface SelectOption {
   value: string
@@ -25,17 +26,6 @@ export interface SelectProps {
   'aria-invalid'?: boolean | 'true'
 }
 
-interface Position {
-  left: number
-  minWidth: number
-  maxWidth: number
-  top?: number
-  bottom?: number
-  maxHeight: number
-}
-
-const GAP = 4
-const MAX_HEIGHT = 320
 const TYPEAHEAD_MS = 600
 
 /**
@@ -67,7 +57,7 @@ export function Select({
   const optionId = (i: number) => `${listId}-${i}`
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
-  const [pos, setPos] = useState<Position | null>(null)
+  const [pos, setPos] = useState<AnchoredPosition | null>(null)
   const [listLabel, setListLabel] = useState<string | undefined>(undefined)
   const button = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLUListElement>(null)
@@ -81,20 +71,7 @@ export function Select({
     // A bare trigger sits inside a larger field or chip; the list lines up with that box instead.
     const anchor = variant === 'bare' ? (button.current?.parentElement ?? button.current) : button.current
     const r = anchor?.getBoundingClientRect()
-    if (!r) return
-    const below = window.innerHeight - r.bottom - GAP - 8
-    const above = r.top - GAP - 8
-    const wanted = Math.min(MAX_HEIGHT, options.length * 44 + 8)
-    const up = below < Math.min(wanted, 200) && above > below
-    const minWidth = Math.min(Math.max(r.width, 200), window.innerWidth - 16)
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - minWidth - 8))
-    setPos({
-      left,
-      minWidth,
-      maxWidth: Math.max(minWidth, Math.min(420, window.innerWidth - left - 8)),
-      ...(up ? { bottom: window.innerHeight - r.top + GAP } : { top: r.bottom + GAP }),
-      maxHeight: Math.max(120, Math.min(MAX_HEIGHT, up ? above : below)),
-    })
+    if (r) setPos(anchoredPosition(r, Math.min(320, options.length * 44 + 8)))
   }, [options.length, variant])
 
   function step(from: number, delta: number) {
@@ -220,26 +197,7 @@ export function Select({
   }
 
   // Close on outside press; keep the list attached to the trigger while the page scrolls or resizes.
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (e: PointerEvent) => {
-      const target = e.target as Node
-      if (button.current?.contains(target) || list.current?.contains(target)) return
-      close()
-    }
-    const onMove = (e: Event) => {
-      if (e.target instanceof Node && list.current?.contains(e.target)) return
-      place()
-    }
-    document.addEventListener('pointerdown', onPointer, true)
-    window.addEventListener('scroll', onMove, true)
-    window.addEventListener('resize', onMove)
-    return () => {
-      document.removeEventListener('pointerdown', onPointer, true)
-      window.removeEventListener('scroll', onMove, true)
-      window.removeEventListener('resize', onMove)
-    }
-  }, [open, place])
+  useAnchoredPopup(open, [button, list], close, place)
 
   useLayoutEffect(() => {
     if (!open || active < 0) return

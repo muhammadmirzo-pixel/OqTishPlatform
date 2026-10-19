@@ -1734,3 +1734,146 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* ------------------------------------------------------------ date / month / time pickers (ui/DatePicker.tsx) */
+@layer components {
+  .picker-trigger {
+    gap: var(--s-2);
+  }
+  .picker-trigger__icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--c-ink-2);
+  }
+  .picker-pop {
+    position: fixed;
+    z-index: calc(var(--z-toast) + 10);
+    overflow-y: auto;
+    padding: var(--s-3);
+    background: var(--c-surface);
+    color: var(--c-ink);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-md);
+    box-shadow: var(--e-3);
+    animation: select-in var(--d-fast) var(--ease-out);
+  }
+  .picker-pop--date {
+    width: 312px;
+  }
+  .picker-pop--month {
+    width: 280px;
+  }
+  .picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+    margin-bottom: var(--s-2);
+  }
+  .picker-head__title {
+    margin: 0;
+    font-weight: var(--fw-semibold);
+  }
+  .picker-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .picker-grid th {
+    padding: 4px 0 6px;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--c-ink-2);
+    text-align: center;
+  }
+  .picker-grid td {
+    padding: 1px;
+    text-align: center;
+  }
+  .picker-day,
+  .picker-month {
+    width: 100%;
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--c-ink);
+    font: inherit;
+    font-size: var(--fs-md);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+  .picker-day:hover:not(:disabled),
+  .picker-month:hover {
+    background: var(--c-primary-softer);
+  }
+  .picker-day:focus-visible,
+  .picker-month:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 1px;
+  }
+  .picker-day--outside {
+    color: var(--c-ink-3);
+  }
+  .picker-day--today {
+    border-color: color-mix(in srgb, var(--c-primary) 45%, transparent);
+    font-weight: var(--fw-semibold);
+  }
+  .picker-day--selected,
+  .picker-day--selected:hover:not(:disabled) {
+    background: var(--c-primary);
+    border-color: var(--c-primary);
+    color: var(--c-primary-ink);
+    font-weight: var(--fw-semibold);
+  }
+  .picker-day:disabled {
+    color: var(--c-ink-3);
+    opacity: 0.5;
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+  .picker-months {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .picker-month {
+    min-height: 44px;
+  }
+  .picker-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-2);
+    margin-top: var(--s-2);
+    padding-top: var(--s-2);
+    border-top: 1px solid var(--c-line);
+  }
+  @media (pointer: coarse) {
+    .picker-day {
+      min-height: 40px;
+    }
+  }
+  .datetime {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 8.5rem;
+    gap: var(--s-2);
+  }
+  .datetime__time {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .datetime__time > .icon {
+    position: absolute;
+    left: 12px;
+    width: 18px;
+    height: 18px;
+    color: var(--c-ink-2);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .datetime__time .select {
+    padding-left: 2.4rem;
+  }
+}
