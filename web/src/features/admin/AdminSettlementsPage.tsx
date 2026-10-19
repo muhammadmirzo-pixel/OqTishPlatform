@@ -1,3 +1,4 @@
+import { HandCoins } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
 import { settlementStatuses, type SettlementDto, type SettlementStatus } from '../../api/types'
@@ -8,10 +9,12 @@ import { useI18n } from '../../i18n/context'
 import { formatInstantDate, formatMoney } from '../../lib/format'
 import { DEFAULT_TIME_ZONE, isValidDate, localDate, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
-import { Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Field, FormError, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
+import { useToast } from '../../ui/toastContext'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
+import { FinanceTerm } from '../finance/FinanceTerm'
 import { periodLabel, settlementTone } from '../finance/settlementFormat'
 import { ClinicPicker } from './ClinicPicker'
 import { useNow } from '../../hooks/useNow'
@@ -25,18 +28,18 @@ export function AdminSettlementsPage() {
   const [clinicId, setClinicId] = useState('')
   const [status, setStatus] = useState<SettlementStatus | ''>('')
   const [action, setAction] = useState<Action | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   const list = useQuery(`admin-settlements:${clinicId}:${status}`, () => api.admin.settlements({ clinicId: clinicId || undefined, status: status || undefined }))
   const tz = DEFAULT_TIME_ZONE
   const done = () => {
     setAction(null)
-    setNotice(t('adm.done'))
+    toast({ title: t('adm.done') })
     list.reload()
   }
 
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.settlements')} subtitle={t('settle.adminIntro')} />
+      <PageHeader icon={HandCoins} title={t('adminNav.settlements')} subtitle={t('settle.adminIntro')} />
       <div className="filters">
         <ClinicPicker value={clinicId} onChange={setClinicId} />
         <label className="field">
@@ -52,21 +55,20 @@ export function AdminSettlementsPage() {
         </label>
       </div>
       {clinicId && <CreateSettlement clinicId={clinicId} onCreated={done} />}
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       <QueryView query={list}>
         {(items) =>
           items.length === 0 ? (
-            <EmptyState title={t('settle.none')} />
+            <EmptyState title={t('settle.none')} icon={HandCoins} />
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table table--stack">
                 <thead>
                   <tr>
                     <th scope="col">{t('common.clinic')}</th>
                     <th scope="col">{t('settle.period')}</th>
                     <th scope="col">{t('common.status')}</th>
                     <th scope="col" className="num">
-                      {t('settle.amountDue')}
+                      <FinanceTerm term="amountDue" />
                     </th>
                     <th scope="col">{t('settle.paidAt')}</th>
                     <th scope="col">{t('common.actions')}</th>
@@ -75,15 +77,17 @@ export function AdminSettlementsPage() {
                 <tbody>
                   {items.map((s) => (
                     <tr key={s.id}>
-                      <td>{s.clinicName}</td>
-                      <td>{periodLabel(s.year, s.month, locale)}</td>
-                      <td>
+                      <td data-label={t('common.clinic')}>{s.clinicName}</td>
+                      <td data-label={t('settle.period')}>{periodLabel(s.year, s.month, locale)}</td>
+                      <td data-label={t('common.status')}>
                         <Badge tone={settlementTone[s.status]}>{t(`settle.${s.status}`)}</Badge>
                         {s.voidReason && <div className="muted small">{s.voidReason}</div>}
                       </td>
-                      <td className="num">{formatMoney(s.amountDue, locale)}</td>
-                      <td>{s.paidAt ? `${formatInstantDate(s.paidAt, tz, locale)} · ${s.paidReference ?? ''}` : '—'}</td>
-                      <td>
+                      <td className="num" data-label={t('settle.amountDue')}>
+                        {formatMoney(s.amountDue, locale)}
+                      </td>
+                      <td data-label={t('settle.paidAt')}>{s.paidAt ? `${formatInstantDate(s.paidAt, tz, locale)} · ${s.paidReference ?? ''}` : '—'}</td>
+                      <td data-label={t('common.actions')}>
                         <div className="row">
                           {s.status === 'Draft' && (
                             <>
@@ -111,10 +115,28 @@ export function AdminSettlementsPage() {
         }
       </QueryView>
       {action?.kind === 'finalize' && (
-        <ConfirmDialog title={t('settle.finalize')} body={<p>{t('settle.finalizeBody')}</p>} confirmLabel={t('settle.finalize')} onConfirm={() => api.admin.finalizeSettlement(action.s.id)} onDone={done} onClose={() => setAction(null)} />
+        <ConfirmDialog
+          title={`${t('settle.finalize')}: ${action.s.clinicName}, ${periodLabel(action.s.year, action.s.month, locale)}`}
+          body={<p>{t('settle.finalizeBody')}</p>}
+          confirmLabel={t('settle.finalize')}
+          danger
+          acknowledge={t('adm.ack')}
+          onConfirm={() => api.admin.finalizeSettlement(action.s.id)}
+          onDone={done}
+          onClose={() => setAction(null)}
+        />
       )}
       {action?.kind === 'void' && (
-        <ReasonDialog title={t('settle.void')} label={t('common.reason')} submitLabel={t('settle.void')} onSubmit={(reason) => api.admin.voidSettlement(action.s.id, reason)} onDone={done} onClose={() => setAction(null)} />
+        <ReasonDialog
+          title={`${t('settle.void')}: ${action.s.clinicName}, ${periodLabel(action.s.year, action.s.month, locale)}`}
+          label={t('common.reason')}
+          danger
+          intro={<p>{t('settle.voidBody')}</p>}
+          submitLabel={t('settle.void')}
+          onSubmit={(reason) => api.admin.voidSettlement(action.s.id, reason)}
+          onDone={done}
+          onClose={() => setAction(null)}
+        />
       )}
       {action?.kind === 'pay' && <MarkPaidDialog settlement={action.s} onDone={done} onClose={() => setAction(null)} />}
     </div>

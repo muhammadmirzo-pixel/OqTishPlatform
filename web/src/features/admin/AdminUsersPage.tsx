@@ -1,3 +1,4 @@
+import { Search, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useApi } from '../../api/context'
 import type { AdminUserDto } from '../../api/types'
@@ -7,9 +8,9 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { formatInstantDate } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
-import { Notice } from '../../ui/forms'
 import { Pagination } from '../../ui/Pagination'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
+import { useToast } from '../../ui/toastContext'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
 
@@ -22,17 +23,17 @@ export function AdminUsersPage() {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [action, setAction] = useState<{ kind: 'suspend' | 'reinstate'; user: AdminUserDto } | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   const list = useQuery(`admin-users:${query}:${page}`, () => api.admin.users({ q: query || undefined, page }))
   const done = () => {
     setAction(null)
-    setNotice(t('adm.done'))
+    toast({ title: t('adm.done') })
     list.reload()
   }
 
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.users')} subtitle={t('adm.usersIntro')} />
+      <PageHeader icon={Users} title={t('adminNav.users')} subtitle={t('adm.usersIntro')} />
       <form
         className="filters"
         role="search"
@@ -47,18 +48,18 @@ export function AdminUsersPage() {
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
         <button type="submit" className="btn btn--ghost">
+          <Search className="icon" aria-hidden="true" />
           {t('common.search')}
         </button>
       </form>
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (
-            <EmptyState />
+            <EmptyState icon={Users} />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('common.name')}</th>
@@ -71,17 +72,19 @@ export function AdminUsersPage() {
                   <tbody>
                     {data.items.map((u) => (
                       <tr key={u.id}>
-                        <td>
+                        <td data-label={t('common.name')}>
                           {u.displayName}
                           {u.email && <div className="muted small">{u.email}</div>}
                         </td>
-                        <td>{u.phoneMasked ?? '—'}</td>
-                        <td>
+                        <td data-label={t('common.phone')} className="nowrap">
+                          {u.phoneMasked ?? '—'}
+                        </td>
+                        <td data-label={t('common.status')}>
                           <Badge tone={u.status === 'Active' ? 'success' : 'danger'}>{t(`staff.${u.status}`)}</Badge>
                           {u.status === 'Suspended' && u.statusReason && <div className="muted small">{u.statusReason}</div>}
                         </td>
-                        <td>{formatInstantDate(u.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
-                        <td>
+                        <td data-label={t('common.createdAt')}>{formatInstantDate(u.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
+                        <td data-label={t('common.actions')}>
                           {u.id === me?.id ? (
                             <span className="muted small">{t('doc.you')}</span>
                           ) : u.status === 'Active' ? (
@@ -108,7 +111,8 @@ export function AdminUsersPage() {
         <ReasonDialog
           title={`${t('adm.suspend')}: ${action.user.displayName}`}
           label={t('common.reason')}
-          intro={<p className="muted">{t('adm.suspendUserBody')}</p>}
+          danger
+          intro={<p>{t('adm.suspendUserBody')}</p>}
           submitLabel={t('adm.suspend')}
           maxLength={1000}
           onSubmit={(reason) => api.admin.suspendUser(action.user.id, reason)}

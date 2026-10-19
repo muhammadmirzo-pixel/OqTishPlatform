@@ -1,3 +1,4 @@
+import { Building2, Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/context'
@@ -8,9 +9,9 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { formatInstantDate } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
-import { Notice } from '../../ui/forms'
 import { Pagination } from '../../ui/Pagination'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
+import { useToast } from '../../ui/toastContext'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { PlatformPerm } from '../clinic/permissions'
@@ -30,7 +31,7 @@ export function AdminClinicsPage() {
   const page = Number(params.get('page')) || 1
   const [search, setSearch] = useState(q)
   const [action, setAction] = useState<Action | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   const list = useQuery(`admin-clinics:${status ?? ''}:${q}:${page}`, () => api.admin.clinics({ status, q: q || undefined, page }))
   const set = (k: string, v: string | null) =>
     setParams((prev) => {
@@ -44,13 +45,13 @@ export function AdminClinicsPage() {
   const suspend = perms.includes(PlatformPerm.accountSuspend)
   const done = (msg: string) => {
     setAction(null)
-    setNotice(msg)
+    toast({ title: msg })
     list.reload()
   }
 
   return (
     <div className="stack">
-      <PageHeader title={t('adminNav.clinics')} subtitle={t('adm.clinicsIntro')} />
+      <PageHeader icon={Building2} title={t('adminNav.clinics')} subtitle={t('adm.clinicsIntro')} />
       <form
         className="filters"
         role="search"
@@ -75,18 +76,18 @@ export function AdminClinicsPage() {
           </select>
         </label>
         <button type="submit" className="btn btn--ghost">
+          <Search className="icon" aria-hidden="true" />
           {t('common.search')}
         </button>
       </form>
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (
-            <EmptyState />
+            <EmptyState icon={Building2} />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('common.clinic')}</th>
@@ -99,22 +100,24 @@ export function AdminClinicsPage() {
                   <tbody>
                     {data.items.map((c) => (
                       <tr key={c.id}>
-                        <td>
+                        <td data-label={t('common.clinic')}>
                           <strong>{c.name}</strong>
                           <div className="muted small">
                             {c.legalName && <>{c.legalName} · </>}
                             {t('home.branches', { count: c.branchCount })}
                           </div>
                         </td>
-                        <td>{c.phone || '—'}</td>
-                        <td>
+                        <td data-label={t('common.phone')} className="nowrap">
+                          {c.phone || '—'}
+                        </td>
+                        <td data-label={t('common.status')}>
                           <Badge tone={c.verificationStatus === 'Approved' ? 'success' : c.verificationStatus === 'Pending' ? 'warning' : 'neutral'}>{t(`verification.${c.verificationStatus}`)}</Badge>
                           {c.statusReason && (c.verificationStatus === 'Rejected' || c.verificationStatus === 'Suspended') && (
                             <div className="muted small">{t('adm.statusReason', { reason: c.statusReason })}</div>
                           )}
                         </td>
-                        <td>{formatInstantDate(c.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
-                        <td>
+                        <td data-label={t('common.createdAt')}>{formatInstantDate(c.createdAt, DEFAULT_TIME_ZONE, locale)}</td>
+                        <td data-label={t('common.actions')}>
                           <div className="row">
                             {/* Status machine (DECISIONS.md BE1b-11): approve = Pending/Rejected → Approved; reject = Pending → Rejected. */}
                             {verify && (c.verificationStatus === 'Pending' || c.verificationStatus === 'Rejected') && (
@@ -168,7 +171,8 @@ export function AdminClinicsPage() {
         <ReasonDialog
           title={`${t(action.kind === 'reject' ? 'adm.reject' : 'adm.suspend')}: ${action.clinic.name}`}
           label={t('common.reason')}
-          intro={<p className="muted">{t('adm.reasonAudited')}</p>}
+          danger
+          intro={<p>{t('adm.reasonAudited')}</p>}
           submitLabel={t(action.kind === 'reject' ? 'adm.reject' : 'adm.suspend')}
           maxLength={1000}
           onSubmit={(reason) => (action.kind === 'reject' ? api.admin.rejectClinic(action.clinic.id, reason) : api.admin.suspendClinic(action.clinic.id, reason))}

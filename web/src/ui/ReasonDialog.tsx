@@ -1,18 +1,31 @@
+import { AlertTriangle } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useI18n } from '../i18n/context'
 import { useAction } from '../hooks/useAction'
 import { Dialog } from './Dialog'
-import { Field, FormError, SubmitButton } from './forms'
+import { Checkbox, Field, FormError, SubmitButton } from './forms'
+
+/** Warning strip on top of a dangerous dialog: icon + the caller's explanation. */
+function DangerNote({ children }: { children: ReactNode }) {
+  return (
+    <div className="danger-note">
+      <AlertTriangle className="icon" aria-hidden="true" />
+      <div>{children}</div>
+    </div>
+  )
+}
 
 /**
  * Asks for a free-text reason (or other single text value) and runs the action with it.
- * Closes on success; keeps the dialog open with a localised error otherwise.
+ * Closes on success; keeps the dialog open with a localised error otherwise. `danger` marks a
+ * destructive action: red frame, warning strip around `intro`, red submit button.
  */
 export function ReasonDialog({
   title,
   label,
   submitLabel,
   intro,
+  danger = false,
   maxLength = 500,
   minLength = 3,
   multiline = true,
@@ -24,6 +37,7 @@ export function ReasonDialog({
   label: string
   submitLabel: string
   intro?: ReactNode
+  danger?: boolean
   maxLength?: number
   minLength?: number
   multiline?: boolean
@@ -47,9 +61,9 @@ export function ReasonDialog({
   }
 
   return (
-    <Dialog title={title} onClose={onClose}>
+    <Dialog title={title} onClose={onClose} tone={danger ? 'danger' : undefined}>
       <form onSubmit={submit} noValidate className="stack">
-        {intro}
+        {danger && intro ? <DangerNote>{intro}</DangerNote> : intro}
         <Field label={label} error={touched ? invalid : null}>
           {(p) =>
             multiline ? (
@@ -61,7 +75,9 @@ export function ReasonDialog({
         </Field>
         <FormError error={action.error} />
         <div className="row">
-          <SubmitButton pending={action.pending}>{submitLabel}</SubmitButton>
+          <SubmitButton pending={action.pending} className={danger ? 'btn btn--danger' : 'btn'}>
+            {submitLabel}
+          </SubmitButton>
           <button type="button" className="btn btn--ghost" onClick={onClose}>
             {t('common.cancel')}
           </button>
@@ -71,12 +87,16 @@ export function ReasonDialog({
   )
 }
 
-/** Yes/no confirmation that runs an action; shows a localised error on failure. */
+/**
+ * Yes/no confirmation that runs an action; shows a localised error on failure. `danger` styles it as
+ * destructive; `acknowledge` adds a checkbox that must be ticked first (for irreversible actions).
+ */
 export function ConfirmDialog({
   title,
   body,
   confirmLabel,
   danger,
+  acknowledge,
   confirmDisabled,
   onConfirm,
   onDone,
@@ -86,6 +106,7 @@ export function ConfirmDialog({
   body: ReactNode
   confirmLabel: string
   danger?: boolean
+  acknowledge?: string
   confirmDisabled?: boolean
   onConfirm: () => Promise<unknown>
   onDone: () => void
@@ -93,16 +114,18 @@ export function ConfirmDialog({
 }) {
   const { t } = useI18n()
   const action = useAction(onConfirm)
+  const [acknowledged, setAcknowledged] = useState(false)
   return (
-    <Dialog title={title} onClose={onClose}>
+    <Dialog title={title} onClose={onClose} tone={danger ? 'danger' : undefined}>
       <div className="stack">
-        <div>{body}</div>
+        {danger ? <DangerNote>{body}</DangerNote> : <div>{body}</div>}
+        {acknowledge && <Checkbox label={acknowledge} checked={acknowledged} onChange={setAcknowledged} />}
         <FormError error={action.error} />
         <div className="row">
           <button
             type="button"
             className={danger ? 'btn btn--danger' : 'btn'}
-            disabled={action.pending || confirmDisabled}
+            disabled={action.pending || confirmDisabled || (!!acknowledge && !acknowledged)}
             onClick={async () => {
               const r = await action.run()
               if (r.ok) onDone()

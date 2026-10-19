@@ -80,6 +80,9 @@ const uz = {
   'adm.statusReason': 'Sabab: {reason}',
   'adm.activeUsers': 'Faol foydalanuvchilar',
   'adm.suspendedUsers': 'Bloklangan foydalanuvchilar',
+  'adm.ack': "Tushundim: bu amalni qaytarib bo‘lmaydi.",
+  'adm.hideBody': "Sharh klinika sahifasidan olib tashlanadi. Sabab audit jurnaliga yoziladi.",
+  'settle.voidBody': "Hisob-kitob bekor qilinadi va endi amal qilmaydi. Sabab audit jurnaliga yoziladi.",
 } as const
 
 type Keys = keyof typeof uz
@@ -164,6 +167,9 @@ const ru: Record<Keys, string> = {
   'adm.statusReason': 'Причина: {reason}',
   'adm.activeUsers': 'Активные пользователи',
   'adm.suspendedUsers': 'Заблокированные пользователи',
+  'adm.ack': "Понимаю: это действие нельзя отменить.",
+  'adm.hideBody': "Отзыв будет убран со страницы клиники. Причина записывается в журнал аудита.",
+  'settle.voidBody': "Взаиморасчёт будет аннулирован и перестанет действовать. Причина записывается в журнал аудита.",
 }
 
 const en: Record<Keys, string> = {
@@ -246,6 +252,9 @@ const en: Record<Keys, string> = {
   'adm.statusReason': 'Reason: {reason}',
   'adm.activeUsers': 'Active users',
   'adm.suspendedUsers': 'Suspended users',
+  'adm.ack': "I understand this cannot be undone.",
+  'adm.hideBody': "The review is removed from the clinic page. The reason is written to the audit log.",
+  'settle.voidBody': "The settlement is voided and no longer applies. The reason is written to the audit log.",
 }
 
 export const admin = { uz, ru, en }

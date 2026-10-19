@@ -1061,6 +1061,23 @@
   .dialog--danger {
     border-top: 4px solid var(--c-danger);
   }
+  .danger-note {
+    display: flex;
+    gap: var(--s-3);
+    align-items: flex-start;
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--r-sm);
+    background: var(--c-danger-soft);
+    color: var(--c-ink);
+  }
+  .danger-note > .icon {
+    flex: none;
+    margin-top: 2px;
+    color: var(--c-danger);
+  }
+  .danger-note p {
+    margin: 0;
+  }
   .dialog__header {
     display: flex;
     justify-content: space-between;
