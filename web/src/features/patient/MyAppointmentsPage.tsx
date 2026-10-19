@@ -5,7 +5,11 @@ import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { Pagination } from '../../ui/Pagination'
-import { ApiErrorState, EmptyState, LoadingState } from '../../ui/states'
+import { CalendarDays } from 'lucide-react'
+import { ApiErrorState, EmptyState } from '../../ui/states'
+import { Skeleton } from '../../ui/Skeleton'
+import { formatLocalDay } from '../../lib/format'
+import { localDate } from '../../lib/time'
 import { PageHeader, StatusBadge } from '../../ui/widgets'
 import { PendingCountdown } from '../appointments/shared'
 import { appointmentWhen } from '../appointments/format'
@@ -30,35 +34,34 @@ export function MyAppointmentsPage() {
           </Link>
         }
       />
-      <label className="field field--inline">
-        <span>{t('common.status')}</span>
-        <select
-          value={status ?? ''}
-          onChange={(e) =>
-            setParams((prev) => {
-              const next = new URLSearchParams(prev)
-              if (e.target.value) next.set('status', e.target.value)
-              else next.delete('status')
-              next.delete('page')
-              return next
-            })
-          }
-        >
-          <option value="">{t('common.all')}</option>
-          {appointmentStatuses.map((s) => (
-            <option key={s} value={s}>
-              {t(`status.${s}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="chip-scroll" role="group" aria-label={t('common.status')}>
+        {([undefined, ...appointmentStatuses] as (AppointmentStatus | undefined)[]).map((s) => (
+          <button
+            key={s ?? 'all'}
+            type="button"
+            className="chip"
+            aria-pressed={status === s}
+            onClick={() =>
+              setParams((prev) => {
+                const next = new URLSearchParams(prev)
+                if (s) next.set('status', s)
+                else next.delete('status')
+                next.delete('page')
+                return next
+              })
+            }
+          >
+            {s ? t(`status.${s}`) : t('myAppts.all')}
+          </button>
+        ))}
+      </div>
 
       {list.error !== undefined ? (
         <ApiErrorState error={list.error} onRetry={list.reload} />
       ) : !list.data ? (
-        <LoadingState />
+        <SkeletonList label={t('common.loading')} />
       ) : list.data.items.length === 0 ? (
-        <EmptyState title={t('appt.empty')}>
+        <EmptyState title={t('appt.empty')} icon={CalendarDays}>
           <Link className="btn" to="/clinics">
             {t('appt.bookNew')}
           </Link>
@@ -69,15 +72,22 @@ export function MyAppointmentsPage() {
             {list.data.items.map((a) => (
               <li key={a.id}>
                 <Link to={`/me/appointments/${a.id}`} className="card card--link appt-card">
-                  <div className="row row--between">
-                    <strong>{a.serviceName}</strong>
-                    <StatusBadge status={a.status} />
+                  <DateBlock iso={a.startsAt} timeZone={a.timeZone} />
+                  <div className="appt-card__info">
+                    <div className="row row--between">
+                      <strong>{a.serviceName}</strong>
+                      <StatusBadge status={a.status} />
+                    </div>
+                    <span className="muted small">
+                      {a.clinicName} · {a.branchName}
+                    </span>
+                    <span className="small">{appointmentWhen(a, locale)}</span>
+                    {a.status === 'Pending' && a.expiresAt && (
+                      <span className="small appt-card__wait">
+                        <PendingCountdown expiresAt={a.expiresAt} />
+                      </span>
+                    )}
                   </div>
-                  <span>
-                    {a.clinicName} · {a.branchName}
-                  </span>
-                  <span className="muted">{appointmentWhen(a, locale)}</span>
-                  {a.status === 'Pending' && a.expiresAt && <PendingCountdown expiresAt={a.expiresAt} />}
                 </Link>
               </li>
             ))}
@@ -96,6 +106,38 @@ export function MyAppointmentsPage() {
           />
         </>
       )}
+    </div>
+  )
+}
+
+/** Calendar-leaf date for list cards, in the branch's time zone. */
+function DateBlock({ iso, timeZone }: { iso: string; timeZone: string }) {
+  const { locale } = useI18n()
+  const day = formatLocalDay(localDate(iso, timeZone), locale)
+  const [num, month] = day.day.split(/[-\s]/)
+  return (
+    <span className="date-block" aria-hidden="true">
+      <span className="date-block__month">{month ?? ''}</span>
+      <span className="date-block__day">{num}</span>
+      <span className="date-block__weekday">{day.weekday}</span>
+    </span>
+  )
+}
+
+function SkeletonList({ label }: { label: string }) {
+  return (
+    <div role="status" aria-live="polite" className="stack">
+      <span className="visually-hidden">{label}</span>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="card appt-card" aria-hidden="true">
+          <Skeleton variant="block" width={64} height={72} />
+          <div className="appt-card__info">
+            <Skeleton variant="title" />
+            <Skeleton width="60%" />
+            <Skeleton width="40%" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

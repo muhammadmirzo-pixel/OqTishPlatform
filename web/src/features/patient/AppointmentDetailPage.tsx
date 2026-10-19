@@ -1,3 +1,4 @@
+import { Star } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { isApiError } from '../../api/client'
@@ -12,9 +13,10 @@ import { formatPhone } from '../../lib/phone'
 import { Field, FormError, Notice, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { QueryView } from '../../ui/states'
-import { Details, StatusBadge } from '../../ui/widgets'
+import { Details } from '../../ui/widgets'
+import { StatusScene } from './StatusScene'
 import { ReportButton } from '../public/ReportButton'
-import { PendingCountdown, StatusHistory } from '../appointments/shared'
+import { StatusHistory } from '../appointments/shared'
 import { appointmentWhen, durationMinutes } from '../appointments/format'
 
 
@@ -24,7 +26,11 @@ export function AppointmentDetailPage({ basePath = '/me/appointments' }: { baseP
   const api = useApi()
   const location = useLocation()
   const justBooked = Boolean((location.state as { justBooked?: boolean } | null)?.justBooked)
-  const query = useQuery(`my-appointment:${id}`, () => api.patient.get(id))
+  // While the request is Pending, poll so the clinic's answer shows up without a reload.
+  const [live, setLive] = useState(false)
+  const query = useQuery(`my-appointment:${id}`, () => api.patient.get(id), { refreshMs: live ? 15_000 : undefined })
+  const isPending = query.data?.status === 'Pending'
+  if (isPending !== live) setLive(isPending)
   useTitle(query.data?.serviceName ?? t('appt.myTitle'))
 
   return (
@@ -55,19 +61,10 @@ export function PatientAppointment({ appointment: a, justBooked, onChanged, comp
             {a.clinicName} · {a.branchName}
           </p>
         </div>
-        <StatusBadge status={a.status} />
       </header>
 
-      {a.status === 'Pending' && a.expiresAt && (
-        <div className="alert alert--info" role="note">
-          <p>
-            <strong>
-              <PendingCountdown expiresAt={a.expiresAt} />
-            </strong>
-          </p>
-          <p className="small">{t('appt.pendingExplain')}</p>
-        </div>
-      )}
+      <StatusScene appointment={a} />
+      {a.status === 'Pending' && <p className="muted small">{t('appt.pendingExplain')}</p>}
 
       <Details
         items={[
@@ -153,7 +150,7 @@ function ReviewForm({ appointmentId }: { appointmentId: string }) {
             {[1, 2, 3, 4, 5].map((n) => (
               <label key={n} className={n <= rating ? 'rating-input__star rating-input__star--on' : 'rating-input__star'}>
                 <input type="radio" name="rating" value={n} checked={rating === n} onChange={() => setRating(n)} />
-                <span aria-hidden="true">★</span>
+                <Star className="icon" aria-hidden="true" />
                 <span className="visually-hidden">{t('review.stars', { count: n })}</span>
               </label>
             ))}

@@ -1359,3 +1359,217 @@
     }
   }
 }
+
+@layer layouts {
+  .scene {
+    display: flex;
+    gap: var(--s-5);
+    align-items: center;
+    padding: var(--s-6);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--c-line);
+    background: var(--c-surface);
+    box-shadow: var(--e-1);
+  }
+  .scene--Pending {
+    background: linear-gradient(135deg, var(--c-warning-soft), var(--c-surface) 65%);
+  }
+  .scene--Confirmed {
+    background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface) 65%);
+  }
+  .scene--Completed {
+    background: linear-gradient(135deg, var(--c-teal-soft), var(--c-surface) 65%);
+  }
+  .scene__visual {
+    flex: 0 0 auto;
+  }
+  .scene__icon {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    animation: pop-in var(--d-slow) var(--ease-out);
+  }
+  .scene__icon .icon {
+    width: 40px;
+    height: 40px;
+  }
+  .scene__text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .scene__text h2 {
+    margin: 0;
+    font-size: var(--fs-xl);
+  }
+  .scene__text p {
+    margin: 0;
+  }
+  .scene__countdown {
+    color: var(--c-warning);
+  }
+  @media (max-width: 559px) {
+    .scene {
+      flex-direction: column;
+      text-align: center;
+      padding: var(--s-5);
+    }
+    .scene__text {
+      align-items: center;
+    }
+  }
+}
+
+@layer layouts {
+  .chip-scroll {
+    display: flex;
+    gap: var(--s-2);
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: none;
+  }
+  .chip-scroll .chip {
+    white-space: nowrap;
+  }
+  .appt-card {
+    display: flex;
+    flex-direction: row;
+    gap: var(--s-4);
+    align-items: center;
+  }
+  .appt-card__info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+  .appt-card__wait {
+    color: var(--c-warning);
+    font-weight: var(--fw-semibold);
+  }
+  .date-block {
+    flex: 0 0 auto;
+    width: 64px;
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    border: 1px solid var(--c-line);
+    background: var(--c-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .date-block__month {
+    width: 100%;
+    background: var(--c-primary);
+    color: var(--c-primary-ink);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    padding: 2px 0;
+  }
+  .date-block__day {
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-bold);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+  .date-block__weekday {
+    font-size: var(--fs-xs);
+    color: var(--c-ink-2);
+    padding-bottom: 4px;
+  }
+}
+
+@layer layouts {
+  .account__layout {
+    display: grid;
+    gap: var(--s-5);
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  @media (min-width: 960px) {
+    .account__layout {
+      grid-template-columns: 280px 1fr;
+    }
+    .account__side {
+      position: sticky;
+      top: 88px;
+    }
+  }
+  .account__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+  .account__main {
+    min-width: 0;
+  }
+  .account__who {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .account__who p {
+    margin: 0;
+  }
+  .avatar--lg {
+    width: 52px;
+    height: 52px;
+    font-size: var(--fs-lg);
+  }
+  .account__menu {
+    padding: var(--s-2);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .account__menu a,
+  .account__signout {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    min-height: 46px;
+    padding: 0 var(--s-3);
+    border-radius: var(--r-sm);
+    color: var(--c-ink);
+    text-decoration: none;
+    font: inherit;
+    font-size: var(--fs-md);
+    font-weight: var(--fw-medium);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+  }
+  .account__menu a .icon,
+  .account__signout .icon {
+    color: var(--c-ink-2);
+  }
+  .account__menu a:hover,
+  .account__signout:hover {
+    background: var(--c-surface-2);
+    color: var(--c-ink);
+  }
+  .account__menu a.active {
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+  }
+  .account__menu a.active .icon {
+    color: var(--c-primary);
+  }
+  .account__menu span {
+    flex: 1;
+  }
+  .account__chev {
+    width: 16px;
+    height: 16px;
+  }
+  .account__signout,
+  .account__signout .icon {
+    color: var(--c-danger);
+  }
+}
