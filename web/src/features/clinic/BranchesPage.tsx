@@ -1,3 +1,4 @@
+import { Clock, MapPin, Pencil, Phone, Plus, Store } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
 import { branchTimeZones, type BranchBody, type BranchDto } from '../../api/types'
@@ -7,8 +8,9 @@ import { useI18n } from '../../i18n/context'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
-import { Checkbox, Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
 import { EmptyState } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useClinic } from './clinicContext'
 import { Perm } from './permissions'
@@ -21,7 +23,7 @@ export function BranchesPage() {
   const { branches, can, canClinicWide, reloadBranches } = useClinic()
   const [editing, setEditing] = useState<BranchDto | 'new' | null>(null)
   const [hoursFor, setHoursFor] = useState<BranchDto | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   // Creating a branch needs branch.manage clinic-wide; editing needs it on that branch (BE1a-8).
   const manage = can(Perm.branchManage)
   const create = canClinicWide(Perm.branchManage)
@@ -29,43 +31,63 @@ export function BranchesPage() {
   return (
     <div className="stack">
       <PageHeader
+        icon={Store}
         title={t('clinicNav.branches')}
         actions={
           create && (
             <button type="button" className="btn" onClick={() => setEditing('new')}>
+              <Plus className="icon" aria-hidden="true" />
               {t('branch.add')}
             </button>
           )
         }
       />
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       {branches.length === 0 ? (
-        <EmptyState title={t('branch.none')} />
+        <EmptyState title={t('branch.none')} icon={Store} />
       ) : (
         <ul className="list-plain stack">
           {branches.map((b) => (
-            <li key={b.id} className="card row row--between">
-              <div>
-                <strong>{b.name}</strong> {!b.isActive && <Badge>{t('common.inactive')}</Badge>}
-                <div className="muted small">
-                  {b.district}, {b.address}
-                  {b.phone && <> · {b.phone}</>} · {b.timeZone}
-                </div>
-                <div className="small">
-                  {b.hours.length === 0
-                    ? t('branch.noHours')
-                    : [...b.hours]
-                        .sort((x, y) => x.weekday - y.weekday)
-                        .map((h) => `${t(`weekday.${h.weekday}`)} ${h.open}–${h.close}`)
-                        .join(' · ')}
-                </div>
+            <li key={b.id} className="card entity">
+              <span className="icon-tile">
+                <Store className="icon" aria-hidden="true" />
+              </span>
+              <div className="entity__body">
+                <h2 className="entity__title">
+                  {b.name} {!b.isActive && <Badge>{t('common.inactive')}</Badge>}
+                </h2>
+                <ul className="entity__facts">
+                  <li>
+                    <MapPin className="icon" aria-hidden="true" />
+                    {b.district}, {b.address}
+                  </li>
+                  {b.phone && (
+                    <li>
+                      <Phone className="icon" aria-hidden="true" />
+                      <span className="nowrap">{b.phone}</span>
+                    </li>
+                  )}
+                  <li>
+                    <Clock className="icon" aria-hidden="true" />
+                    <span>
+                      {b.hours.length === 0
+                        ? t('branch.noHours')
+                        : [...b.hours]
+                            .sort((x, y) => x.weekday - y.weekday)
+                            .map((h) => `${t(`weekday.${h.weekday}`)} ${h.open}–${h.close}`)
+                            .join(' · ')}{' '}
+                      <span className="muted">({b.timeZone})</span>
+                    </span>
+                  </li>
+                </ul>
               </div>
               {manage && (
-                <div className="row">
+                <div className="entity__actions">
                   <button type="button" className="btn btn--ghost btn--small" onClick={() => setEditing(b)}>
+                    <Pencil className="icon" aria-hidden="true" />
                     {t('common.edit')}
                   </button>
                   <button type="button" className="btn btn--ghost btn--small" onClick={() => setHoursFor(b)}>
+                    <Clock className="icon" aria-hidden="true" />
                     {t('branch.hours')}
                   </button>
                 </div>
@@ -79,7 +101,7 @@ export function BranchesPage() {
           branch={editing === 'new' ? null : editing}
           onDone={() => {
             setEditing(null)
-            setNotice(t('common.saved'))
+            toast({ title: t('common.saved') })
             reloadBranches()
           }}
           onClose={() => setEditing(null)}
@@ -90,7 +112,7 @@ export function BranchesPage() {
           branch={hoursFor}
           onDone={() => {
             setHoursFor(null)
-            setNotice(t('common.saved'))
+            toast({ title: t('common.saved') })
             reloadBranches()
           }}
           onClose={() => setHoursFor(null)}

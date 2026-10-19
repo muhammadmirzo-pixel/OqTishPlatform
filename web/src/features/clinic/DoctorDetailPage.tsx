@@ -1,3 +1,4 @@
+import { CalendarOff, Pencil, Stethoscope, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { useApi } from '../../api/context'
@@ -9,9 +10,10 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { formatFullDateTime } from '../../lib/format'
 import { addDays, localDate, splitLocalDateTime, zonedToUtc } from '../../lib/time'
-import { Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Field, FormError, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { EmptyState, ForbiddenState, QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useClinic } from './clinicContext'
 import { DoctorDialog } from './DoctorsPage'
@@ -40,18 +42,20 @@ export function DoctorDetailPage() {
       </nav>
       <QueryView query={doctors}>
         {() => {
-          if (!doctor) return <EmptyState title={t('doc.notFound')} />
+          if (!doctor) return <EmptyState title={t('doc.notFound')} icon={Stethoscope} />
           const own = doctor.userId === me?.id && can(Perm.ownTimeOff)
           if (!manage && !own && !can(Perm.catalogManage)) return <ForbiddenState />
           return (
             <>
               <PageHeader
+                icon={Stethoscope}
                 title={doctor.displayName}
                 subtitle={doctor.branchIds.map(branchName).join(', ')}
                 actions={
                   manage &&
                   services.data && (
                     <button type="button" className="btn btn--ghost" onClick={() => setEditing(true)}>
+                      <Pencil className="icon" aria-hidden="true" />
                       {t('common.edit')}
                     </button>
                   )
@@ -105,12 +109,11 @@ function WorkingHoursForm({ doctor, initial, editable, onSaved }: { doctor: Doct
   const [branchId, setBranchId] = useState(doctorBranches[0]?.id ?? '')
   const [all, setAll] = useState<WorkingHoursEntry[]>(initial)
   const [touched, setTouched] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const toast = useToast()
   const save = useAction((entries: WorkingHoursEntry[]) => api.clinic.setWorkingHours(clinicId, doctor.id, entries))
   const branch = doctorBranches.find((b) => b.id === branchId)
   const current: Interval[] = all.filter((e) => e.branchId === branchId).map((e) => ({ weekday: e.weekday, start: e.start, end: e.end }))
   const setCurrent = (list: Interval[]) => {
-    setSaved(false)
     setAll([...all.filter((e) => e.branchId !== branchId), ...list.map((i) => ({ branchId, ...i }))])
   }
 
@@ -121,7 +124,7 @@ function WorkingHoursForm({ doctor, initial, editable, onSaved }: { doctor: Doct
     if (sent.some((i) => intervalError(i)) || hasOverlap(sent)) return
     const r = await save.run(sent)
     if (r.ok) {
-      setSaved(true)
+      toast({ title: t('common.saved') })
       onSaved()
     }
   }
@@ -147,7 +150,6 @@ function WorkingHoursForm({ doctor, initial, editable, onSaved }: { doctor: Doct
             </p>
           )}
           <FormError error={save.error} />
-          {saved && <Notice>{t('common.saved')}</Notice>}
           <SubmitButton pending={save.pending}>{t('common.save')}</SubmitButton>
         </>
       ) : (
@@ -181,6 +183,7 @@ function TimeOff({ doctor }: { doctor: DoctorDto }) {
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
+  const toast = useToast()
   const add = useAction((body: { startsAt: string; endsAt: string; reason?: string }) => api.clinic.addTimeOff(clinicId, doctor.id, body))
   const s = splitLocalDateTime(start)
   const e2 = splitLocalDateTime(end)
@@ -198,6 +201,7 @@ function TimeOff({ doctor }: { doctor: DoctorDto }) {
       setEnd('')
       setReason('')
       setTouched(false)
+      toast({ title: t('common.saved') })
       list.reload()
     }
   }
@@ -213,11 +217,13 @@ function TimeOff({ doctor }: { doctor: DoctorDto }) {
             <ul className="list-plain stack">
               {items.map((x) => (
                 <li key={x.id} className="row row--between">
-                  <span>
+                  <span className="row">
+                    <CalendarOff className="icon muted" aria-hidden="true" />
                     {formatFullDateTime(x.startsAt, tz, locale)} — {formatFullDateTime(x.endsAt, tz, locale)}
                     {x.reason && <span className="muted"> · {x.reason}</span>}
                   </span>
                   <button type="button" className="btn btn--ghost btn--small" onClick={() => setRemoving(x.id)}>
+                    <Trash2 className="icon" aria-hidden="true" />
                     {t('common.remove')}
                   </button>
                 </li>
@@ -252,6 +258,7 @@ function TimeOff({ doctor }: { doctor: DoctorDto }) {
           onConfirm={() => api.clinic.deleteTimeOff(clinicId, doctor.id, removing)}
           onDone={() => {
             setRemoving(null)
+            toast({ title: t('common.saved') })
             list.reload()
           }}
           onClose={() => setRemoving(null)}

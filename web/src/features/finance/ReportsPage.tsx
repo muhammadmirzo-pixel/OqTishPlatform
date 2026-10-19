@@ -1,3 +1,4 @@
+import { ReceiptText } from 'lucide-react'
 import { useState } from 'react'
 import { useApi } from '../../api/context'
 import { useQuery } from '../../hooks/useQuery'
@@ -10,6 +11,7 @@ import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, Details, PageHeader } from '../../ui/widgets'
 import { useBranchParam } from '../clinic/branchParam'
 import { useClinic } from '../clinic/clinicContext'
+import { FinanceTerm, PeriodState } from './FinanceTerm'
 import { useNow } from '../../hooks/useNow'
 
 export function ReportsPage() {
@@ -17,7 +19,7 @@ export function ReportsPage() {
   useTitle(t('clinicNav.reports'))
   return (
     <div className="stack">
-      <PageHeader title={t('clinicNav.reports')} subtitle={t('rep.note')} />
+      <PageHeader icon={ReceiptText} title={t('clinicNav.reports')} subtitle={t('rep.note')} />
       <DailyReport />
       <MonthlyReport />
     </div>
@@ -55,10 +57,10 @@ function DailyReport() {
         <QueryView query={report}>
           {(rows) =>
             rows.length === 0 ? (
-              <EmptyState title={t('rep.empty')} />
+              <EmptyState title={t('rep.empty')} icon={ReceiptText} />
             ) : (
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('common.date')}</th>
@@ -67,29 +69,41 @@ function DailyReport() {
                         {t('rep.visits')}
                       </th>
                       <th scope="col" className="num">
-                        {t('pay.charged')}
+                        <FinanceTerm term="charged" />
                       </th>
                       <th scope="col" className="num">
-                        {t('rep.collected')}
+                        <FinanceTerm term="collected" />
                       </th>
                       <th scope="col" className="num">
-                        {t('pay.refunded')}
+                        <FinanceTerm term="refunded" />
                       </th>
                       <th scope="col" className="num">
-                        {t('rep.commission')}
+                        <FinanceTerm term="commission" />
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r, i) => (
                       <tr key={`${r.date}-${r.branchId ?? ''}-${i}`}>
-                        <td>{formatDate(r.date, locale)}</td>
-                        {!branch && <td>{r.branchId ? branchName(r.branchId) : t('common.allBranches')}</td>}
-                        <td className="num">{r.visits}</td>
-                        <td className="num">{formatMoney(r.charged, locale)}</td>
-                        <td className="num">{formatMoney(r.collected, locale)}</td>
-                        <td className="num">{formatMoney(r.refunded, locale)}</td>
-                        <td className="num">{formatMoney(r.commission, locale)}</td>
+                        <td data-label={t('common.date')} className="nowrap">
+                          {formatDate(r.date, locale)}
+                        </td>
+                        {!branch && <td data-label={t('common.branch')}>{r.branchId ? branchName(r.branchId) : t('common.allBranches')}</td>}
+                        <td className="num" data-label={t('rep.visits')}>
+                          {r.visits}
+                        </td>
+                        <td className="num" data-label={t('pay.charged')}>
+                          {formatMoney(r.charged, locale)}
+                        </td>
+                        <td className="num" data-label={t('rep.collected')}>
+                          {formatMoney(r.collected, locale)}
+                        </td>
+                        <td className="num" data-label={t('pay.refunded')}>
+                          {formatMoney(r.refunded, locale)}
+                        </td>
+                        <td className="num" data-label={t('rep.commission')}>
+                          {formatMoney(r.commission, locale)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -98,11 +112,21 @@ function DailyReport() {
                       <th scope="row" colSpan={branch ? 1 : 2}>
                         {t('common.total')}
                       </th>
-                      <td className="num">{rows.reduce((n, r) => n + r.visits, 0)}</td>
-                      <td className="num">{formatMoney(sumMoney(rows.map((r) => r.charged)), locale)}</td>
-                      <td className="num">{formatMoney(sumMoney(rows.map((r) => r.collected)), locale)}</td>
-                      <td className="num">{formatMoney(sumMoney(rows.map((r) => r.refunded)), locale)}</td>
-                      <td className="num">{formatMoney(sumMoney(rows.map((r) => r.commission)), locale)}</td>
+                      <td className="num" data-label={t('rep.visits')}>
+                        {rows.reduce((n, r) => n + r.visits, 0)}
+                      </td>
+                      <td className="num" data-label={t('pay.charged')}>
+                        {formatMoney(sumMoney(rows.map((r) => r.charged)), locale)}
+                      </td>
+                      <td className="num" data-label={t('rep.collected')}>
+                        {formatMoney(sumMoney(rows.map((r) => r.collected)), locale)}
+                      </td>
+                      <td className="num" data-label={t('pay.refunded')}>
+                        {formatMoney(sumMoney(rows.map((r) => r.refunded)), locale)}
+                      </td>
+                      <td className="num" data-label={t('rep.commission')}>
+                        {formatMoney(sumMoney(rows.map((r) => r.commission)), locale)}
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -138,6 +162,7 @@ function MonthlyReport() {
         {(r) => (
           <div className="stack">
             <div className="row">
+              <PeriodState locked={r.locked} />
               {r.reconciled ? <Badge tone="success">{t('rep.reconciled')}</Badge> : <Badge tone="danger">{t('rep.notReconciled')}</Badge>}
               {!r.commissionRuleConfigured && <Badge tone="warning">{t('rep.noContract')}</Badge>}
             </div>
@@ -145,10 +170,10 @@ function MonthlyReport() {
             <Details
               items={[
                 [t('rep.visits'), r.visits],
-                [t('pay.charged'), formatMoney(r.charged, locale)],
-                [t('rep.collected'), formatMoney(r.collected, locale)],
-                [t('pay.refunded'), formatMoney(r.refunded, locale)],
-                [t('rep.commission'), formatMoney(r.commission, locale)],
+                [<FinanceTerm key="c" term="charged" />, formatMoney(r.charged, locale)],
+                [<FinanceTerm key="k" term="collected" />, formatMoney(r.collected, locale)],
+                [<FinanceTerm key="r" term="refunded" />, formatMoney(r.refunded, locale)],
+                [<FinanceTerm key="m" term="commission" />, formatMoney(r.commission, locale)],
               ]}
             />
           </div>

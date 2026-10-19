@@ -1,3 +1,4 @@
+import { ScrollText } from 'lucide-react'
 import type { AuditEntryDto, Page } from '../../api/types'
 import { useI18n } from '../../i18n/context'
 import { formatFullDateTime } from '../../lib/format'
@@ -8,11 +9,11 @@ import { EmptyState } from '../../ui/states'
 /** Read-only audit trail (append-only on the server). Times shown in Asia/Tashkent. */
 export function AuditTable({ page, onPage, showClinic }: { page: Page<AuditEntryDto>; onPage: (p: number) => void; showClinic?: boolean }) {
   const { t, locale } = useI18n()
-  if (page.items.length === 0) return <EmptyState title={t('audit.none')} />
+  if (page.items.length === 0) return <EmptyState title={t('audit.none')} icon={ScrollText} />
   return (
     <>
       <div className="table-wrap">
-        <table className="table">
+        <table className="table table--stack">
           <thead>
             <tr>
               <th scope="col">{t('audit.when')}</th>
@@ -25,8 +26,8 @@ export function AuditTable({ page, onPage, showClinic }: { page: Page<AuditEntry
           <tbody>
             {page.items.map((e) => (
               <tr key={e.id}>
-                <td>{formatFullDateTime(e.occurredAt, DEFAULT_TIME_ZONE, locale)}</td>
-                <td>
+                <td data-label={t('audit.when')}>{formatFullDateTime(e.occurredAt, DEFAULT_TIME_ZONE, locale)}</td>
+                <td data-label={t('audit.actor')}>
                   {e.actorKind === 'User' ? (e.actorName ?? t('audit.unknownUser')) : t(`actor.${e.actorKind}`)}
                   {e.actorKind === 'User' && e.actorUserId && (
                     <div className="muted small" title={e.actorUserId}>
@@ -34,11 +35,17 @@ export function AuditTable({ page, onPage, showClinic }: { page: Page<AuditEntry
                     </div>
                   )}
                 </td>
-                <td>
+                <td data-label={t('audit.action')}>
                   <code>{e.action}</code>
                 </td>
-                <td className="small">{e.targetType ? `${e.targetType} ${e.targetId ?? ''}` : '—'}</td>
-                {showClinic && <td className="small">{e.clinicId ?? '—'}</td>}
+                <td className="small" data-label={t('audit.target')}>
+                  {e.targetType ? `${e.targetType} ${e.targetId ?? ''}` : '—'}
+                </td>
+                {showClinic && (
+                  <td className="small" data-label={t('common.clinic')}>
+                    {e.clinicId ?? '—'}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

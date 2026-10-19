@@ -1,3 +1,4 @@
+import { ClipboardList } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/context'
 import { appointmentStatuses, type AppointmentStatus } from '../../api/types'
@@ -48,7 +49,7 @@ export function AppointmentsPage() {
 
   return (
     <div className="stack">
-      <PageHeader title={t('clinicNav.appointments')} subtitle={t('appts.tzNote', { tz })} />
+      <PageHeader icon={ClipboardList} title={t('clinicNav.appointments')} subtitle={t('appts.tzNote', { tz })} />
       <div className="filters">
         <label className="field">
           <span>{t('common.from')}</span>
@@ -84,11 +85,11 @@ export function AppointmentsPage() {
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (
-            <EmptyState title={t('appts.empty')} />
+            <EmptyState title={t('appts.empty')} icon={ClipboardList} />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('common.time')}</th>
@@ -102,17 +103,19 @@ export function AppointmentsPage() {
                   <tbody>
                     {data.items.map((a) => (
                       <tr key={a.id}>
-                        <td>
-                          <Link to={`/clinic/${clinicId}/appointments/${a.id}`}>{formatDateTime(a.startsAt, a.timeZone, locale)}</Link>
+                        <td data-label={t('common.time')}>
+                          <Link to={`/clinic/${clinicId}/appointments/${a.id}`} className="nowrap">
+                            {formatDateTime(a.startsAt, a.timeZone, locale)}
+                          </Link>
                         </td>
-                        <td>
+                        <td data-label={t('common.patient')}>
                           {a.contactName}
-                          <div className="muted small">{formatPhone(a.contactPhone)}</div>
+                          <div className="muted small nowrap">{formatPhone(a.contactPhone)}</div>
                         </td>
-                        <td>{a.serviceName}</td>
-                        <td>{a.doctor?.name ?? '—'}</td>
-                        <td>{a.branchName}</td>
-                        <td>
+                        <td data-label={t('common.service')}>{a.serviceName}</td>
+                        <td data-label={t('common.doctor')}>{a.doctor?.name ?? '—'}</td>
+                        <td data-label={t('common.branch')}>{a.branchName}</td>
+                        <td data-label={t('common.status')}>
                           <StatusBadge status={a.status} />
                         </td>
                       </tr>

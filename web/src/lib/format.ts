@@ -164,3 +164,9 @@ export function formatCompactNumber(value: number, locale: Locale): string {
   if (!unit) return text
   return locale === 'en' ? `${text}${unit}` : `${text} ${unit}`
 }
+
+/** "oktabr 2026" / "октябрь 2026 г." / "October 2026" for a calendar month (no Intl for Uzbek, see above). */
+export function formatMonthYear(year: number, month: number, locale: Locale): string {
+  if (isUz(locale)) return `${uzNames(locale).long[month - 1] ?? ''} ${year}`
+  return new Intl.DateTimeFormat(intlLocale[locale], { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)))
+}

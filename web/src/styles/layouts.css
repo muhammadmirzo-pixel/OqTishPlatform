@@ -285,6 +285,8 @@
     min-height: 100vh;
     display: grid;
     grid-template-columns: 1fr;
+    /* Short pages must not stretch the (mobile) sidebar row. */
+    align-content: start;
     background: var(--c-bg);
   }
   .console__sidebar {
@@ -2093,6 +2095,73 @@
       color: #e6edff;
       border-color: rgb(255 255 255 / 25%);
       background: transparent;
+    }
+  }
+}
+
+/* ------------------------------------------------------------ entity cards (branches, doctors, services, staff) */
+@layer layouts {
+  .entity {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--s-3) var(--s-4);
+    align-items: start;
+  }
+  .entity__body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+  }
+  .entity__title {
+    margin: 0;
+    font-size: var(--fs-lg);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .entity__facts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    color: var(--c-ink-2);
+    font-size: var(--fs-md);
+  }
+  .entity__facts li,
+  .entity__fact {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .entity__facts .icon {
+    flex: none;
+    margin-top: 2px;
+    color: var(--c-ink-3);
+  }
+  .entity__chev {
+    align-self: center;
+    color: var(--c-ink-3);
+  }
+  a.entity {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .entity__actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  @media (min-width: 768px) {
+    .entity {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+    .entity__actions {
+      grid-column: auto;
+      justify-content: flex-end;
     }
   }
 }

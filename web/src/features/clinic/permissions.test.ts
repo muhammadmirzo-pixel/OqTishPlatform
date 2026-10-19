@@ -6,7 +6,7 @@ const paths = (perms: string[], menu = clinicMenu) => visibleMenu(menu, perms).m
 describe('menu filtering by effective permissions', () => {
   it('shows only sections the membership permissions allow', () => {
     const receptionist = ['schedule.manage', 'appointment.view', 'appointment.triage', 'appointment.cancel', 'appointment.outcome', 'appointment.create_walkin', 'payment.record']
-    expect(paths(receptionist)).toEqual(['', 'requests', 'appointments', 'calendar', 'walk-in', 'doctors', 'payments', 'profile'])
+    expect(paths(receptionist)).toEqual(['', 'requests', 'appointments', 'calendar', 'walk-in', 'doctors', 'profile', 'payments'])
   })
 
   it('gives a doctor with only own-time-off the dashboard, calendar and doctors', () => {

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { CalendarClock, CheckCircle2, UserX, XCircle } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { errorMessage } from '../../api/errors'
 import { useApi } from '../../api/context'
@@ -11,8 +12,10 @@ import { formatPhone } from '../../lib/phone'
 import { Notice } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Details, StatusBadge } from '../../ui/widgets'
 import { AppointmentFinance } from '../finance/AppointmentFinance'
+import { FinanceTerm } from '../finance/FinanceTerm'
 import { PendingCountdown, StatusHistory } from '../appointments/shared'
 import { appointmentWhen, cancelReasons } from '../appointments/format'
 import { useClinic } from './clinicContext'
@@ -46,10 +49,13 @@ function AppointmentView({ appointment: a, reload }: { appointment: AppointmentD
   const api = useApi()
   const { clinicId, can } = useClinic()
   const [dialog, setDialog] = useState<DialogKind>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  // Results are echoed in a toast; a stale request (already handled or expired) stays on the page.
+  const [stale, setStale] = useState<string | null>(null)
+  const toast = useToast()
   const done = (message: string) => {
     setDialog(null)
-    setNotice(message)
+    setStale(null)
+    toast({ title: message })
     reload()
   }
   const confirmed = a.status === 'Confirmed'
@@ -66,7 +72,7 @@ function AppointmentView({ appointment: a, reload }: { appointment: AppointmentD
         </div>
         <StatusBadge status={a.status} />
       </header>
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
+      <div aria-live="polite">{stale && <Notice tone="warning">{stale}</Notice>}</div>
 
       <Details
         items={[
@@ -74,7 +80,7 @@ function AppointmentView({ appointment: a, reload }: { appointment: AppointmentD
           [t('common.phone'), <a key="p" href={`tel:${a.contactPhone}`}>{formatPhone(a.contactPhone)}</a>],
           [t('common.doctor'), a.doctor?.name ?? '—'],
           [t('appt.quotedPrice'), formatMoney(a.quotedPrice, locale)],
-          ...(a.chargedAmount ? [[t('appt.charged'), formatMoney(a.chargedAmount, locale)] as [string, string]] : []),
+          ...(a.chargedAmount ? [[<FinanceTerm key="c" term="charged" />, formatMoney(a.chargedAmount, locale)] as [ReactNode, ReactNode]] : []),
           [t('act.source'), t(`source.${a.source}`)],
           [t('common.createdAt'), formatFullDateTime(a.createdAt, a.timeZone, locale)],
         ]}
@@ -92,8 +98,10 @@ function AppointmentView({ appointment: a, reload }: { appointment: AppointmentD
               clinicId={clinicId}
               appointment={a}
               onOutcome={(o) => {
-                setNotice(o.kind === 'stale' ? errorMessage(t, o.error) : t(o.kind === 'confirmed' ? 'req.confirmed' : 'req.rejected'))
-                reload()
+                if (o.kind === 'stale') {
+                  setStale(errorMessage(t, o.error))
+                  reload()
+                } else done(t(o.kind === 'confirmed' ? 'req.confirmed' : 'req.rejected'))
               }}
             />
           ) : (
@@ -107,20 +115,24 @@ function AppointmentView({ appointment: a, reload }: { appointment: AppointmentD
           {can(Perm.outcome) && (
             <>
               <button type="button" className="btn" onClick={() => setDialog('complete')}>
+                <CheckCircle2 className="icon" aria-hidden="true" />
                 {t('act.complete')}
               </button>
               <button type="button" className="btn btn--ghost" onClick={() => setDialog('noShow')}>
+                <UserX className="icon" aria-hidden="true" />
                 {t('act.noShow')}
               </button>
             </>
           )}
           {can(Perm.triage) && (
             <button type="button" className="btn btn--ghost" onClick={() => setDialog('reschedule')}>
+              <CalendarClock className="icon" aria-hidden="true" />
               {t('act.reschedule')}
             </button>
           )}
           {can(Perm.cancel) && (
             <button type="button" className="btn btn--danger" onClick={() => setDialog('cancel')}>
+              <XCircle className="icon" aria-hidden="true" />
               {t('act.cancel')}
             </button>
           )}

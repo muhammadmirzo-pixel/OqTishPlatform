@@ -1,3 +1,4 @@
+import { MailPlus, Pencil, UserMinus, UserPlus, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
 import type { InvitationBody, MembershipScope, StaffBody, StaffMemberDto, StaffRole } from '../../api/types'
@@ -13,6 +14,7 @@ import { Dialog } from '../../ui/Dialog'
 import { CheckboxGroup, Field, FormError, Notice, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useClinic } from './clinicContext'
 import { grantableRoles } from './permissions'
@@ -29,7 +31,9 @@ export function StaffPage() {
   const [removing, setRemoving] = useState<StaffMemberDto | null>(null)
   const [inviting, setInviting] = useState(false)
   const [revoking, setRevoking] = useState<string | null>(null)
+  // The invitation note explains the next step (no SMS is sent), so it stays on the page; plain saves are toasts.
   const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   const roles = grantableRoles(membership.role)
   const canTouch = (s: StaffMemberDto) => s.userId !== me?.id && roles.includes(s.role)
   const scopeText = (scope: MembershipScope, ids: string[]) => (scope === 'Clinic' ? t('scope.Clinic') : ids.map(branchName).join(', '))
@@ -39,24 +43,26 @@ export function StaffPage() {
   return (
     <div className="stack">
       <PageHeader
+        icon={Users}
         title={t('clinicNav.staff')}
         subtitle={t('staff.intro')}
         actions={
           <button type="button" className="btn" onClick={() => setInviting(true)}>
+            <UserPlus className="icon" aria-hidden="true" />
             {t('staff.invite')}
           </button>
         }
       />
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
+      <div aria-live="polite">{notice && <Notice tone="info">{notice}</Notice>}</div>
       <section className="stack" aria-labelledby="members-title">
         <h2 id="members-title">{t('staff.members')}</h2>
         <QueryView query={staff}>
           {(list) =>
             list.length === 0 ? (
-              <EmptyState />
+              <EmptyState icon={Users} />
             ) : (
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('common.name')}</th>
@@ -69,22 +75,24 @@ export function StaffPage() {
                   <tbody>
                     {list.map((s) => (
                       <tr key={s.membershipId}>
-                        <td>
+                        <td data-label={t('common.name')}>
                           {s.displayName} {s.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
-                          {s.phoneMasked && <div className="muted small">{s.phoneMasked}</div>}
+                          {s.phoneMasked && <div className="muted small nowrap">{s.phoneMasked}</div>}
                         </td>
-                        <td>{t(`role.${s.role}`)}</td>
-                        <td>{scopeText(s.scope, s.branchIds)}</td>
-                        <td>
+                        <td data-label={t('staff.role')}>{t(`role.${s.role}`)}</td>
+                        <td data-label={t('staff.scope')}>{scopeText(s.scope, s.branchIds)}</td>
+                        <td data-label={t('common.status')}>
                           <Badge tone={s.status === 'Active' ? 'success' : 'neutral'}>{t(`staff.${s.status}`)}</Badge>
                         </td>
-                        <td>
+                        <td data-label={t('common.actions')}>
                           {canTouch(s) && (
                             <div className="row">
                               <button type="button" className="btn btn--ghost btn--small" onClick={() => setEditing(s)}>
+                                <Pencil className="icon" aria-hidden="true" />
                                 {t('common.edit')}
                               </button>
                               <button type="button" className="btn btn--ghost btn--small" onClick={() => setRemoving(s)}>
+                                <UserMinus className="icon" aria-hidden="true" />
                                 {t('common.remove')}
                               </button>
                             </div>
@@ -110,7 +118,8 @@ export function StaffPage() {
               <ul className="list-plain stack">
                 {list.map((i) => (
                   <li key={i.id} className="card row row--between">
-                    <span>
+                    <span className="row">
+                      <MailPlus className="icon muted" aria-hidden="true" />
                       <strong>{i.phoneMasked}</strong> · {t(`role.${i.role}`)} · {scopeText(i.scope, i.branchIds)}
                       {new Date(i.expiresAt).getTime() <= now ? (
                         <>
@@ -153,7 +162,7 @@ export function StaffPage() {
           onSubmit={(body) => api.clinic.updateStaff(clinicId, editing.membershipId, { role: body.role, scope: body.scope, branchIds: body.branchIds })}
           onDone={() => {
             setEditing(null)
-            setNotice(t('common.saved'))
+            toast({ title: t('common.saved') })
             staff.reload()
           }}
           onClose={() => setEditing(null)}
@@ -168,6 +177,7 @@ export function StaffPage() {
           onConfirm={() => api.clinic.removeStaff(clinicId, removing.membershipId)}
           onDone={() => {
             setRemoving(null)
+            toast({ title: t('common.saved') })
             staff.reload()
           }}
           onClose={() => setRemoving(null)}
@@ -181,6 +191,7 @@ export function StaffPage() {
           onConfirm={() => api.clinic.revokeInvitation(clinicId, revoking)}
           onDone={() => {
             setRevoking(null)
+            toast({ title: t('common.saved') })
             invitations.reload()
           }}
           onClose={() => setRevoking(null)}

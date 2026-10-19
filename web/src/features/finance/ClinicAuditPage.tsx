@@ -1,3 +1,4 @@
+import { ScrollText } from 'lucide-react'
 import { useState } from 'react'
 import { useApi } from '../../api/context'
 import { useQuery } from '../../hooks/useQuery'
@@ -17,7 +18,7 @@ export function ClinicAuditPage() {
   const audit = useQuery(`clinic-audit:${clinicId}:${page}`, () => api.finance.audit(clinicId, page))
   return (
     <div className="stack">
-      <PageHeader title={t('clinicNav.audit')} subtitle={t('audit.clinicIntro')} />
+      <PageHeader icon={ScrollText} title={t('clinicNav.audit')} subtitle={t('audit.clinicIntro')} />
       <QueryView query={audit}>{(p) => <AuditTable page={p} onPage={setPage} />}</QueryView>
     </div>
   )

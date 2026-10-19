@@ -47,6 +47,15 @@
   .nowrap {
     white-space: nowrap;
   }
+  /* A label followed by its (i) definition tip. */
+  .term {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .num .term {
+    justify-content: flex-end;
+  }
   @media (max-width: 767px) {
     .hide-mobile {
       display: none;

@@ -1,3 +1,4 @@
+import { ListChecks, Pencil, Plus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
 import { serviceCategories, type BranchDto, type BranchOfferBody, type BranchOfferDto, type PriceKind, type ServiceBody, type ServiceCategory, type ServiceDto } from '../../api/types'
@@ -9,9 +10,11 @@ import { categoryLabel, isServiceCategory } from '../../lib/categories'
 import { formatMoney } from '../../lib/format'
 import { amountForInput, parseAmount, uzs } from '../../lib/money'
 import { Dialog } from '../../ui/Dialog'
-import { Checkbox, Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
 import { EmptyState, QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
+import { categoryIcon, categoryTone } from '../public/categoryIcons'
 import { useClinic } from './clinicContext'
 import { Perm } from './permissions'
 
@@ -23,84 +26,102 @@ export function ServicesPage() {
   const services = useQuery(`services:${clinicId}`, () => api.clinic.services(clinicId))
   const [editing, setEditing] = useState<ServiceDto | 'new' | null>(null)
   const [offer, setOffer] = useState<{ service: ServiceDto; branch: BranchDto } | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const toast = useToast()
   // Services belong to the whole clinic: create/edit needs catalog.manage clinic-wide; a branch offer
   // (price/duration) needs catalog.manage on that branch (DECISIONS.md BE1b-2).
   const manageServices = canClinicWide(Perm.catalogManage)
   const manageOffers = can(Perm.catalogManage)
   const saved = () => {
-    setNotice(t('common.saved'))
+    toast({ title: t('common.saved') })
     services.reload()
   }
 
   return (
     <div className="stack">
       <PageHeader
+        icon={ListChecks}
         title={t('clinicNav.services')}
         subtitle={t('svc.intro')}
         actions={
           manageServices && (
             <button type="button" className="btn" onClick={() => setEditing('new')}>
+              <Plus className="icon" aria-hidden="true" />
               {t('svc.add')}
             </button>
           )
         }
       />
       {manageOffers && !manageServices && <p className="muted small">{t('svc.clinicWideOnly')}</p>}
-      <div aria-live="polite">{notice && <Notice>{notice}</Notice>}</div>
       <QueryView query={services}>
         {(list) =>
           list.length === 0 ? (
-            <EmptyState title={t('svc.none')} />
+            <EmptyState title={t('svc.none')} icon={ListChecks} />
           ) : (
             <ul className="list-plain stack">
-              {list.map((s) => (
-                <li key={s.id} className="card stack">
-                  <div className="row row--between">
-                    <div>
-                      <strong>{s.name}</strong> <span className="muted">· {categoryLabel(t, s.category)}</span> {!s.isActive && <Badge>{t('common.inactive')}</Badge>}
+              {list.map((s) => {
+                const Icon = isServiceCategory(s.category) ? categoryIcon[s.category] : ListChecks
+                const tone = isServiceCategory(s.category) ? categoryTone[s.category] : ''
+                return (
+                  <li key={s.id} className="card stack">
+                    <div className="entity">
+                      <span className={`icon-tile${tone ? ` icon-tile--${tone}` : ''}`}>
+                        <Icon className="icon" aria-hidden="true" />
+                      </span>
+                      <div className="entity__body">
+                        <h2 className="entity__title">
+                          <span>{s.name}</span> {!s.isActive && <Badge>{t('common.inactive')}</Badge>}
+                        </h2>
+                        <p className="muted small">{categoryLabel(t, s.category)}</p>
+                      </div>
+                      {manageServices && (
+                        <div className="entity__actions">
+                          <button type="button" className="btn btn--ghost btn--small" onClick={() => setEditing(s)}>
+                            <Pencil className="icon" aria-hidden="true" />
+                            {t('common.edit')}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {manageServices && (
-                      <button type="button" className="btn btn--ghost btn--small" onClick={() => setEditing(s)}>
-                        {t('common.edit')}
-                      </button>
-                    )}
-                  </div>
-                  <div className="table-wrap">
-                    <table className="table table--compact">
-                      <thead>
-                        <tr>
-                          <th scope="col">{t('common.branch')}</th>
-                          <th scope="col">{t('clinic.price')}</th>
-                          <th scope="col">{t('clinic.duration')}</th>
-                          <th scope="col">{t('common.status')}</th>
-                          {manageOffers && <th scope="col">{t('common.actions')}</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {branches.map((b) => {
-                          const o = s.offers.find((x) => x.branchId === b.id)
-                          return (
-                            <tr key={b.id}>
-                              <th scope="row">{b.name}</th>
-                              <td>{o ? `${o.priceKind === 'From' ? t('clinic.priceFrom', { price: formatMoney(o.price, locale) }) : formatMoney(o.price, locale)}` : '—'}</td>
-                              <td>{o ? t('common.minutes', { minutes: o.durationMinutes }) : '—'}</td>
-                              <td>{o ? <Badge tone={o.isActive ? 'success' : 'neutral'}>{t(o.isActive ? 'common.active' : 'common.inactive')}</Badge> : <span className="muted">{t('svc.notOffered')}</span>}</td>
-                              {manageOffers && (
-                                <td>
-                                  <button type="button" className="btn btn--ghost btn--small" onClick={() => setOffer({ service: s, branch: b })}>
-                                    {o ? t('common.edit') : t('svc.offer')}
-                                  </button>
+                    <div className="table-wrap">
+                      <table className="table table--compact table--stack">
+                        <thead>
+                          <tr>
+                            <th scope="col">{t('common.branch')}</th>
+                            <th scope="col">{t('clinic.price')}</th>
+                            <th scope="col">{t('clinic.duration')}</th>
+                            <th scope="col">{t('common.status')}</th>
+                            {manageOffers && <th scope="col">{t('common.actions')}</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {branches.map((b) => {
+                            const o = s.offers.find((x) => x.branchId === b.id)
+                            return (
+                              <tr key={b.id}>
+                                <th scope="row" data-label={t('common.branch')}>
+                                  {b.name}
+                                </th>
+                                <td data-label={t('clinic.price')}>{o ? `${o.priceKind === 'From' ? t('clinic.priceFrom', { price: formatMoney(o.price, locale) }) : formatMoney(o.price, locale)}` : '—'}</td>
+                                <td data-label={t('clinic.duration')}>{o ? t('common.minutes', { minutes: o.durationMinutes }) : '—'}</td>
+                                <td data-label={t('common.status')}>
+                                  {o ? <Badge tone={o.isActive ? 'success' : 'neutral'}>{t(o.isActive ? 'common.active' : 'common.inactive')}</Badge> : <span className="muted">{t('svc.notOffered')}</span>}
                                 </td>
-                              )}
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </li>
-              ))}
+                                {manageOffers && (
+                                  <td data-label={t('common.actions')}>
+                                    <button type="button" className="btn btn--ghost btn--small" onClick={() => setOffer({ service: s, branch: b })}>
+                                      {o ? t('common.edit') : t('svc.offer')}
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )
         }

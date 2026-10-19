@@ -1,3 +1,4 @@
+import { Settings2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useApi } from '../../api/context'
 import type { ClinicProfileDto, RegisterClinicBody } from '../../api/types'
@@ -9,6 +10,7 @@ import { useI18n } from '../../i18n/context'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { FormError, Notice, SubmitButton } from '../../ui/forms'
 import { QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useClinic } from './clinicContext'
 import { ClinicProfileFields } from './ClinicProfileFields'
@@ -23,7 +25,7 @@ export function ClinicProfilePage() {
   const profile = useQuery(`clinic-profile:${clinicId}`, () => api.clinic.profile(clinicId))
   return (
     <div className="stack">
-      <PageHeader title={t('clinicNav.profile')} />
+      <PageHeader icon={Settings2} title={t('clinicNav.profile')} />
       <QueryView query={profile}>{(p) => <ProfileForm key={`${p.id}:${p.name}:${p.phone}`} profile={p} onSaved={profile.reload} />}</QueryView>
     </div>
   )
@@ -36,7 +38,7 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
   const { refresh } = useSession()
   const [value, setValue] = useState<RegisterClinicBody>({ name: p.name, legalName: p.legalName, description: p.description, phone: p.phone })
   const [touched, setTouched] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const toast = useToast()
   const save = useAction((body: RegisterClinicBody) => api.clinic.updateProfile(clinicId, body))
   // clinic.profile.manage is clinic-wide only (DECISIONS.md BE1a-8).
   const editable = canClinicWide(Perm.profileManage)
@@ -45,7 +47,6 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
   async function submit(e: FormEvent) {
     e.preventDefault()
     setTouched(true)
-    setSaved(false)
     if (Object.values(errors).some(Boolean)) return
     const r = await save.run({
       name: value.name.trim(),
@@ -54,7 +55,7 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
       phone: value.phone.trim() ? normalizePhone(value.phone) : '',
     })
     if (r.ok) {
-      setSaved(true)
+      toast({ title: t('common.saved') })
       await refresh()
       onSaved()
     }
@@ -70,7 +71,6 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
       )}
       <ClinicProfileFields value={value} onChange={setValue} errors={touched ? errors : {}} disabled={!editable} />
       <FormError error={save.error} />
-      {saved && <Notice>{t('common.saved')}</Notice>}
       {editable ? <SubmitButton pending={save.pending}>{t('common.save')}</SubmitButton> : <p className="muted small">{t('profile.readOnly')}</p>}
     </form>
   )

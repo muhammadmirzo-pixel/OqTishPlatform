@@ -1,3 +1,4 @@
+import { Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/context'
@@ -42,7 +43,7 @@ export function PaymentsPage() {
 
   return (
     <div className="stack">
-      <PageHeader title={t('clinicNav.payments')} subtitle={t('pay.serverNote')} />
+      <PageHeader icon={Wallet} title={t('clinicNav.payments')} subtitle={t('pay.serverNote')} />
       {can(Perm.paymentRecord) && <QuickRecord onRecorded={list.reload} />}
       <div className="filters">
         <label className="field">
@@ -57,11 +58,11 @@ export function PaymentsPage() {
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (
-            <EmptyState title={t('pay.none')} />
+            <EmptyState title={t('pay.none')} icon={Wallet} />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--stack">
                   <thead>
                     <tr>
                       <th scope="col">{t('pay.when')}</th>
@@ -78,21 +79,23 @@ export function PaymentsPage() {
                   <tbody>
                     {data.items.map((p) => (
                       <tr key={p.id}>
-                        <td>{formatFullDateTime(p.recordedAt, timeZoneFor(p.branchId), locale)}</td>
-                        <td>
+                        <td data-label={t('pay.when')}>{formatFullDateTime(p.recordedAt, timeZoneFor(p.branchId), locale)}</td>
+                        <td data-label={t('common.patient')}>
                           {can(Perm.appointmentView) ? <Link to={`/clinic/${clinicId}/appointments/${p.appointmentId}`}>{p.contactName ?? t('pay.appointment')}</Link> : (p.contactName ?? '—')}
                           {p.serviceName && <div className="muted small">{p.serviceName}</div>}
                         </td>
-                        <td>{t(`pay.${p.direction}`)}</td>
-                        <td>
+                        <td data-label={t('pay.type')}>{t(`pay.${p.direction}`)}</td>
+                        <td data-label={t('pay.method')}>
                           {t(`pay.${p.method}`)}
                           {p.externalRef && <div className="muted small">{p.externalRef}</div>}
                         </td>
-                        <td className="num">{formatMoney(p.amount, locale)}</td>
-                        <td>
+                        <td className="num" data-label={t('pay.amount')}>
+                          {formatMoney(p.amount, locale)}
+                        </td>
+                        <td data-label={t('common.status')}>
                           <Badge tone={p.status === 'Recorded' ? 'success' : 'neutral'}>{t(`pay.${p.status}`)}</Badge>
                         </td>
-                        <td>
+                        <td data-label={t('common.actions')}>
                           <PaymentActions payment={p} onChanged={list.reload} />
                         </td>
                       </tr>

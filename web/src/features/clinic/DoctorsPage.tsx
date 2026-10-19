@@ -1,3 +1,4 @@
+import { ChevronRight, ListChecks, Plus, Stethoscope, Store } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { useApi } from '../../api/context'
@@ -9,7 +10,9 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { Dialog } from '../../ui/Dialog'
 import { Checkbox, CheckboxGroup, Field, FormError, SubmitButton } from '../../ui/forms'
+import { Monogram } from '../../ui/Monogram'
 import { EmptyState, QueryView } from '../../ui/states'
+import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useClinic } from './clinicContext'
 import { Perm } from './permissions'
@@ -23,16 +26,19 @@ export function DoctorsPage() {
   const doctors = useQuery(`doctors:${clinicId}`, () => api.clinic.doctors(clinicId))
   const services = useQuery(`services:${clinicId}`, () => api.clinic.services(clinicId))
   const [creating, setCreating] = useState(false)
+  const toast = useToast()
   const manage = can(Perm.scheduleManage)
   const serviceName = (id: string) => services.data?.find((s) => s.id === id)?.name ?? '…'
 
   return (
     <div className="stack">
       <PageHeader
+        icon={Stethoscope}
         title={t('clinicNav.doctors')}
         actions={
           manage && (
             <button type="button" className="btn" onClick={() => setCreating(true)}>
+              <Plus className="icon" aria-hidden="true" />
               {t('doc.add')}
             </button>
           )
@@ -42,17 +48,29 @@ export function DoctorsPage() {
         {(list) => {
           const visible = manage || can(Perm.catalogManage) ? list : list.filter((d) => d.userId === me?.id)
           return visible.length === 0 ? (
-            <EmptyState title={t('doc.none')} />
+            <EmptyState title={t('doc.none')} icon={Stethoscope} />
           ) : (
             <ul className="list-plain stack">
               {visible.map((d) => (
                 <li key={d.id}>
-                  <Link to={`/clinic/${clinicId}/doctors/${d.id}`} className="card card--link stack">
-                    <span>
-                      <strong>{d.displayName}</strong> {!d.isActive && <Badge>{t('common.inactive')}</Badge>} {d.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
+                  <Link to={`/clinic/${clinicId}/doctors/${d.id}`} className="card card--link entity">
+                    <Monogram name={d.displayName} seed={d.id} size={44} />
+                    <span className="entity__body">
+                      <span className="entity__title">
+                        <strong>{d.displayName}</strong> {!d.isActive && <Badge>{t('common.inactive')}</Badge>} {d.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
+                      </span>
+                      <span className="entity__facts">
+                        <span className="entity__fact">
+                          <Store className="icon" aria-hidden="true" />
+                          {d.branchIds.map(branchName).join(', ') || t('doc.noBranches')}
+                        </span>
+                        <span className="entity__fact">
+                          <ListChecks className="icon" aria-hidden="true" />
+                          {d.serviceIds.map(serviceName).join(', ') || t('doc.noServices')}
+                        </span>
+                      </span>
                     </span>
-                    <span className="small">{d.branchIds.map(branchName).join(', ') || t('doc.noBranches')}</span>
-                    <span className="muted small">{d.serviceIds.map(serviceName).join(', ') || t('doc.noServices')}</span>
+                    <ChevronRight className="icon entity__chev" aria-hidden="true" />
                   </Link>
                 </li>
               ))}
@@ -66,6 +84,7 @@ export function DoctorsPage() {
           services={services.data}
           onDone={() => {
             setCreating(false)
+            toast({ title: t('common.saved') })
             doctors.reload()
           }}
           onClose={() => setCreating(false)}

@@ -1,3 +1,4 @@
+import { UserPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { useApi } from '../../api/context'
@@ -71,7 +72,7 @@ export function WalkInPage() {
 
   return (
     <div className="stack">
-      <PageHeader title={t('clinicNav.walkIn')} subtitle={t('walkin.intro')} />
+      <PageHeader icon={UserPlus} title={t('clinicNav.walkIn')} subtitle={t('walkin.intro')} />
       <form className="card stack" onSubmit={submit} noValidate>
         <div className="grid-2">
           <Field label={t('common.branch')} error={err('branch')}>
