@@ -682,7 +682,6 @@
     overflow-x: auto;
     padding: 2px 2px var(--s-2);
     scroll-snap-type: x proximity;
-    scrollbar-width: thin;
   }
   .date-chip {
     flex: 0 0 auto;
@@ -1196,7 +1195,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  @media (max-width: 599px) {
+  /* Below the desktop sidebar the topbar profile button is icon-only (it keeps its aria-label). */
+  @media (max-width: 1023px) {
     .console__user {
       display: none;
     }
