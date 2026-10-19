@@ -9,6 +9,7 @@ import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { Checkbox, CheckboxGroup, Field, FormError, SubmitButton } from '../../ui/forms'
 import { Monogram } from '../../ui/Monogram'
 import { EmptyState, QueryView } from '../../ui/states'
@@ -146,16 +147,16 @@ export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: Do
         {canLink && staff.data && (
           <Field label={t('doc.account')} hint={t('doc.accountHint')} optional>
             {(p) => (
-              <select {...p} value={userId} onChange={(e) => setUserId(e.target.value)}>
-                <option value="">{t('doc.noAccount')}</option>
-                {currentLinkHidden && <option value={doctor!.userId!}>{t('doc.currentAccount')}</option>}
-                {linkable.map((s) => (
-                  <option key={s.userId} value={s.userId}>
-                    {s.displayName}
-                    {s.phoneMasked ? ` (${s.phoneMasked})` : ''} · {t(`role.${s.role}`)}
-                  </option>
-                ))}
-              </select>
+              <Select
+                {...p}
+                value={userId}
+                onChange={setUserId}
+                options={[
+                  { value: '', label: t('doc.noAccount') },
+                  ...(currentLinkHidden ? [{ value: doctor!.userId!, label: t('doc.currentAccount') }] : []),
+                  ...linkable.map((s) => ({ value: s.userId, label: `${s.displayName}${s.phoneMasked ? ` (${s.phoneMasked})` : ''} · ${t(`role.${s.role}`)}` })),
+                ]}
+              />
             )}
           </Field>
         )}

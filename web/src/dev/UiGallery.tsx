@@ -13,6 +13,7 @@ import { Skeleton, SkeletonCards } from '../ui/Skeleton'
 import { EmptyState } from '../ui/states'
 import { useToast } from '../ui/toastContext'
 import { InfoTip } from '../ui/Tooltip'
+import { Select } from '../ui/Select'
 import { Badge, StatCard, Stars, StatusBadge } from '../ui/widgets'
 
 const statuses: AppointmentStatus[] = ['Pending', 'Confirmed', 'Completed', 'Rejected', 'CancelledByPatient', 'CancelledByClinic', 'Expired', 'NoShow']
@@ -67,12 +68,7 @@ export function UiGallery() {
             {(p) => <input {...p} defaultValue="+99890" />}
           </Field>
           <Field label="Xizmat turi">
-            {(p) => (
-              <select {...p}>
-                <option>Terapevtik davolash</option>
-                <option>Implantatsiya</option>
-              </select>
-            )}
+            {(p) => <GallerySelect {...p} options={['Terapevtik davolash', 'Implantatsiya', 'Ortodontiya']} />}
           </Field>
           <Field label="Izoh" optional>{(p) => <textarea {...p} />}</Field>
         </div>
@@ -205,9 +201,14 @@ export function UiGallery() {
       )}
       {drawer && (
         <Drawer title="Filtrlar" onClose={() => setDrawer(false)} footer={<><Button variant="secondary" onClick={() => setDrawer(false)}>Tozalash</Button><Button onClick={() => setDrawer(false)}>Natijalarni ko‘rsatish</Button></>}>
-          <Field label="Tuman">{(p) => <select {...p}><option>Chilonzor</option><option>Yunusobod</option></select>}</Field>
+          <Field label="Tuman">{(p) => <GallerySelect {...p} options={['Chilonzor', 'Yunusobod']} />}</Field>
         </Drawer>
       )}
     </div>
   )
+}
+
+function GallerySelect({ options, ...p }: { options: string[]; id: string; 'aria-describedby'?: string; 'aria-invalid'?: true }) {
+  const [value, setValue] = useState(options[0] ?? '')
+  return <Select {...p} value={value} onChange={setValue} options={options.map((o) => ({ value: o, label: o }))} />
 }

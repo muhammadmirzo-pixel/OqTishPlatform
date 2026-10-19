@@ -111,12 +111,15 @@
     font-size: var(--fs-md);
     box-shadow: none;
   }
-  .lp-search__field select {
-    padding-right: 1.6rem;
+  .lp-search__field .select {
+    min-height: 26px;
+    font-size: var(--fs-md);
   }
+  /* The field draws the focus ring (:focus-within). */
   .lp-search__field input:focus-visible,
-  .lp-search__field select:focus-visible {
+  .lp-search__field .select:focus-visible {
     box-shadow: none;
+    outline: none;
   }
   .lp-search__field:focus-within {
     outline: 2px solid var(--c-focus);

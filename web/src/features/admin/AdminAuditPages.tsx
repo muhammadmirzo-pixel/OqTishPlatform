@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n/context'
 import { formatFullDateTime } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { FormError } from '../../ui/forms'
+import { SelectField } from '../../ui/Select'
 import { Pagination } from '../../ui/Pagination'
 import { EmptyState, QueryView } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
@@ -70,23 +71,16 @@ export function NotificationsPage() {
   return (
     <div className="stack">
       <PageHeader icon={Bell} title={t('adminNav.notifications')} subtitle={t('adm.outboxIntro')} />
-      <label className="field field--inline">
-        <span>{t('common.status')}</span>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as NotificationStatus | '')
-            setPage(1)
-          }}
-        >
-          <option value="">{t('common.all')}</option>
-          {notificationStatuses.map((s) => (
-            <option key={s} value={s}>
-              {t(`adm.outbox.${s}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        inline
+        label={t('common.status')}
+        value={status}
+        onChange={(v) => {
+          setStatus(v as NotificationStatus | '')
+          setPage(1)
+        }}
+        options={[{ value: '', label: t('common.all') }, ...notificationStatuses.map((s) => ({ value: s, label: t(`adm.outbox.${s}`) }))]}
+      />
       <FormError error={retry.error} />
       <QueryView query={list}>
         {(data) =>

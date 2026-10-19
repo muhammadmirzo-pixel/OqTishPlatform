@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n/context'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
 import { EmptyState } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
@@ -199,13 +200,7 @@ function BranchDialog({ branch, onDone, onClose }: { branch: BranchDto | null; o
         </div>
         <Field label={t('branch.timeZone')} hint={t('branch.timeZoneHint')} error={err('timeZone')}>
           {(p) => (
-            <select {...p} value={v.timeZone} onChange={set('timeZone')}>
-              {branchTimeZones.map((z) => (
-                <option key={z} value={z}>
-                  {t(`tz.${z}`)}
-                </option>
-              ))}
-            </select>
+            <Select {...p} value={v.timeZone} onChange={(value) => set('timeZone')({ target: { value } })} options={branchTimeZones.map((z) => ({ value: z, label: t(`tz.${z}`) }))} />
           )}
         </Field>
         <Checkbox label={t('common.active')} checked={v.isActive} onChange={(isActive) => setV({ ...v, isActive })} />

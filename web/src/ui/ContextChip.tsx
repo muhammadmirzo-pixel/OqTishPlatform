@@ -1,10 +1,11 @@
-import { ChevronDown, type LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import { useId, useState } from 'react'
+import { Select } from './Select'
 
 /**
- * Working-context switch (clinic, branch) shown as a pill: icon, label, current value. A native
- * select underneath keeps keyboard and screen-reader behaviour; a user change pulses the pill once
- * so the switch is noticed (no pulse on first render).
+ * Working-context switch (clinic, branch) shown as a pill: icon, label, current value. The value is
+ * a bare Select (combobox + listbox, keyboard and screen-reader friendly); a user change pulses the
+ * pill once so the switch is noticed (no pulse on first render).
  */
 export function ContextChip({
   icon: Icon,
@@ -20,26 +21,25 @@ export function ContextChip({
   onChange: (value: string) => void
 }) {
   const [pulse, setPulse] = useState(0)
+  const id = useId()
   return (
-    <label className="context-chip">
+    <div className="context-chip">
       <Icon className="icon context-chip__icon" aria-hidden="true" />
-      <span className="context-chip__label">{label}</span>
-      <select
+      <label className="context-chip__label" id={`${id}-label`} htmlFor={id}>
+        {label}
+      </label>
+      <Select
+        id={id}
+        variant="bare"
         className="context-chip__select"
         value={value}
-        onChange={(e) => {
+        onChange={(v) => {
           setPulse((n) => n + 1)
-          onChange(e.target.value)
+          onChange(v)
         }}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="icon context-chip__chev" aria-hidden="true" />
+        options={options}
+      />
       {pulse > 0 && <span key={pulse} className="context-chip__pulse" aria-hidden="true" />}
-    </label>
+    </div>
   )
 }

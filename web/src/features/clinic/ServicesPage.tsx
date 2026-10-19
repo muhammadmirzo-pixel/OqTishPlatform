@@ -10,6 +10,7 @@ import { categoryLabel, isServiceCategory } from '../../lib/categories'
 import { formatMoney } from '../../lib/format'
 import { amountForInput, parseAmount, uzs } from '../../lib/money'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
 import { EmptyState, QueryView } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
@@ -179,14 +180,12 @@ function ServiceDialog({ service, onDone, onClose }: { service: ServiceDto | nul
         </Field>
         <Field label={t('home.category')} error={touched ? errors.category : null}>
           {(p) => (
-            <select {...p} value={category} onChange={(e) => setCategory(e.target.value as ServiceCategory | '')}>
-              <option value="">{t('svc.chooseCategory')}</option>
-              {serviceCategories.map((c) => (
-                <option key={c} value={c}>
-                  {t(`category.${c}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              {...p}
+              value={category}
+              onChange={(v) => setCategory(v as ServiceCategory | '')}
+              options={[{ value: '', label: t('svc.chooseCategory') }, ...serviceCategories.map((c) => ({ value: c, label: t(`category.${c}`) }))]}
+            />
           )}
         </Field>
         <Checkbox label={t('common.active')} checked={isActive} onChange={setActive} />
@@ -231,10 +230,15 @@ function OfferDialog({ service, branch, current, onDone, onClose }: { service: S
           </Field>
           <Field label={t('svc.priceKind')}>
             {(p) => (
-              <select {...p} value={priceKind} onChange={(e) => setKind(e.target.value as PriceKind)}>
-                <option value="Fixed">{t('svc.kindFixed')}</option>
-                <option value="From">{t('svc.kindFrom')}</option>
-              </select>
+              <Select
+                {...p}
+                value={priceKind}
+                onChange={(v) => setKind(v as PriceKind)}
+                options={[
+                  { value: 'Fixed', label: t('svc.kindFixed') },
+                  { value: 'From', label: t('svc.kindFrom') },
+                ]}
+              />
             )}
           </Field>
         </div>

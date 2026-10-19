@@ -1490,11 +1490,8 @@
   }
 
   /* ------------------------------------------------------------ language & theme */
-  .lang select {
-    min-height: var(--h-control-sm);
-    padding: 0.25rem 2rem 0.25rem 0.6rem;
-    width: auto;
-    font-size: var(--fs-sm);
+  .lang .select {
+    min-width: 7.5rem;
   }
 
   @keyframes spin {
@@ -1561,5 +1558,179 @@
       opacity: 1;
       transform: scale(1);
     }
+  }
+}
+
+/* ------------------------------------------------------------ Select (ui/Select.tsx) */
+@layer components {
+  .select {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    width: 100%;
+    min-width: 0;
+    min-height: var(--h-control);
+    padding: 0.5rem 0.75rem 0.5rem 0.8rem;
+    font: inherit;
+    font-size: var(--fs-base);
+    text-align: left;
+    color: var(--c-ink);
+    background: var(--c-surface);
+    border: 1px solid var(--c-line-strong);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition:
+      border-color var(--d-fast) var(--ease-out),
+      box-shadow var(--d-fast) var(--ease-out);
+  }
+  .select:hover:not(:disabled) {
+    border-color: var(--c-ink-3);
+  }
+  .select:focus-visible,
+  .select--open {
+    outline: none;
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 3px var(--c-primary-soft);
+  }
+  .select:disabled {
+    background: var(--c-surface-2);
+    color: var(--c-ink-3);
+    cursor: not-allowed;
+  }
+  .select[aria-invalid='true'] {
+    border-color: var(--c-danger);
+  }
+  .select__value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .select__value--placeholder {
+    color: var(--c-ink-3);
+  }
+  .select__chev {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--c-ink-2);
+    transition: transform var(--d-fast) var(--ease-out);
+  }
+  .select--open .select__chev {
+    transform: rotate(180deg);
+  }
+  .select--small {
+    width: auto;
+    max-width: 100%;
+    min-height: var(--h-control-sm);
+    padding: 0.25rem 0.6rem;
+    font-size: var(--fs-sm);
+  }
+  .select--small .select__chev {
+    width: 16px;
+    height: 16px;
+  }
+  .select--bare {
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-weight: var(--fw-semibold);
+  }
+  .select--bare:focus-visible,
+  .select--bare.select--open {
+    box-shadow: none;
+  }
+  .select--bare:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+
+  .select-pop {
+    position: fixed;
+    z-index: calc(var(--z-toast) + 10);
+    width: max-content;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-md);
+    box-shadow: var(--e-3);
+    animation: select-in var(--d-fast) var(--ease-out);
+    transform-origin: top center;
+  }
+  .select-pop--up {
+    transform-origin: bottom center;
+  }
+  @keyframes select-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+  }
+  .select-pop__option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    min-height: 40px;
+    padding: 0.45rem 0.7rem;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-md);
+    cursor: pointer;
+  }
+  .select-pop__option.is-active {
+    background: var(--c-primary-softer);
+  }
+  .select-pop__option[aria-selected='true'] {
+    color: var(--c-primary-on-soft);
+    font-weight: var(--fw-semibold);
+  }
+  .select-pop__option[aria-selected='true'].is-active {
+    background: var(--c-primary-soft);
+  }
+  .select-pop__option[aria-disabled='true'] {
+    color: var(--c-ink-3);
+    cursor: not-allowed;
+  }
+  .select-pop__option .icon {
+    flex: none;
+    width: 16px;
+    height: 16px;
+  }
+  @media (pointer: coarse) {
+    .select-pop__option {
+      min-height: 44px;
+    }
+  }
+  /* Native popups that remain (none in the app; defensive for third-party markup) follow the theme. */
+  option {
+    background-color: var(--c-surface);
+    color: var(--c-ink);
+  }
+}
+
+/* ------------------------------------------------------------ native control theming */
+@layer components {
+  /* Browser autofill keeps the themed surface instead of the UA's yellow/white fill (dark mode). */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--c-ink);
+    caret-color: var(--c-ink);
+    box-shadow: 0 0 0 1000px var(--c-surface) inset;
+    transition: background-color 600000s 0s;
+  }
+  a,
+  button,
+  [role='option'] {
+    -webkit-tap-highlight-color: transparent;
   }
 }

@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n/context'
 import { formatInstantDate } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
+import { SelectField } from '../../ui/Select'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
@@ -29,23 +30,16 @@ export function AdminReportsPage() {
   return (
     <div className="stack">
       <PageHeader icon={MessageSquareWarning} title={t('adminNav.reports')} />
-      <label className="field field--inline">
-        <span>{t('common.status')}</span>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as ReportStatus | '')
-            setPage(1)
-          }}
-        >
-          <option value="">{t('common.all')}</option>
-          {reportStatuses.map((s) => (
-            <option key={s} value={s}>
-              {t(`adm.report.${s}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        inline
+        label={t('common.status')}
+        value={status}
+        onChange={(v) => {
+          setStatus(v as ReportStatus | '')
+          setPage(1)
+        }}
+        options={[{ value: '', label: t('common.all') }, ...reportStatuses.map((s) => ({ value: s, label: t(`adm.report.${s}`) }))]}
+      />
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (
@@ -117,23 +111,16 @@ export function AdminReviewsPage() {
   return (
     <div className="stack">
       <PageHeader icon={Gavel} title={t('adminNav.reviews')} />
-      <label className="field field--inline">
-        <span>{t('common.status')}</span>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as ReviewModerationStatus | '')
-            setPage(1)
-          }}
-        >
-          <option value="">{t('common.all')}</option>
-          {reviewStatuses.map((s) => (
-            <option key={s} value={s}>
-              {t(`adm.review.${s}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        inline
+        label={t('common.status')}
+        value={status}
+        onChange={(v) => {
+          setStatus(v as ReviewModerationStatus | '')
+          setPage(1)
+        }}
+        options={[{ value: '', label: t('common.all') }, ...reviewStatuses.map((s) => ({ value: s, label: t(`adm.review.${s}`) }))]}
+      />
       <QueryView query={list}>
         {(data) =>
           data.items.length === 0 ? (

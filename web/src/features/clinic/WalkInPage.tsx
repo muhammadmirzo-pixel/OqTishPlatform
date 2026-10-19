@@ -12,6 +12,7 @@ import { formatMoney } from '../../lib/format'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { isValidDate, isValidTime, localDate, zonedToUtc } from '../../lib/time'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
+import { Select } from '../../ui/Select'
 import { PageHeader } from '../../ui/widgets'
 import { useBranchParam } from './branchParam'
 import { useClinic } from './clinicContext'
@@ -77,42 +78,30 @@ export function WalkInPage() {
         <div className="grid-2">
           <Field label={t('common.branch')} error={err('branch')}>
             {(p) => (
-              <select
+              <Select
                 {...p}
                 value={branchId}
-                onChange={(e) => {
-                  setBranchId(e.target.value)
+                onChange={(v) => {
+                  setBranchId(v)
                   setServiceId('')
                   setDoctorId('')
                 }}
-              >
-                <option value="">{t('walkin.chooseBranch')}</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+                options={[{ value: '', label: t('walkin.chooseBranch') }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+              />
             )}
           </Field>
           <Field label={t('common.service')} hint={offer ? `${formatMoney(offer.price, locale)} · ${t('common.minutes', { minutes: offer.durationMinutes })}` : undefined} error={err('service')}>
             {(p) => (
-              <select
+              <Select
                 {...p}
                 value={serviceId}
                 disabled={!branchId}
-                onChange={(e) => {
-                  setServiceId(e.target.value)
+                onChange={(v) => {
+                  setServiceId(v)
                   setDoctorId('')
                 }}
-              >
-                <option value="">{t('walkin.chooseService')}</option>
-                {offered.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                options={[{ value: '', label: t('walkin.chooseService') }, ...offered.map((s) => ({ value: s.id, label: s.name }))]}
+              />
             )}
           </Field>
           <Field label={t('common.date')} error={err('date')}>
@@ -136,14 +125,13 @@ export function WalkInPage() {
         )}
         <Field label={t('common.doctor')} hint={serviceId && eligible.length === 0 ? t('walkin.noDoctors') : undefined} error={err('doctor')}>
           {(p) => (
-            <select {...p} value={doctorId} disabled={!serviceId} onChange={(e) => setDoctorId(e.target.value)}>
-              <option value="">{t('req.chooseDoctor')}</option>
-              {eligible.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.displayName}
-                </option>
-              ))}
-            </select>
+            <Select
+              {...p}
+              value={doctorId}
+              disabled={!serviceId}
+              onChange={setDoctorId}
+              options={[{ value: '', label: t('req.chooseDoctor') }, ...eligible.map((d) => ({ value: d.id, label: d.displayName }))]}
+            />
           )}
         </Field>
         <div className="grid-2">

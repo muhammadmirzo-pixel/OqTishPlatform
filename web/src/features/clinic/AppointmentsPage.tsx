@@ -9,6 +9,7 @@ import { formatDateTime } from '../../lib/format'
 import { formatPhone } from '../../lib/phone'
 import { addDays, localDate, localRangeToUtc } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
+import { SelectField } from '../../ui/Select'
 import { EmptyState, QueryView } from '../../ui/states'
 import { PageHeader, StatusBadge } from '../../ui/widgets'
 import { useBranchParam } from './branchParam'
@@ -59,28 +60,18 @@ export function AppointmentsPage() {
           <span>{t('common.to')}</span>
           <input type="date" value={to} min={from} onChange={(e) => set('to', e.target.value)} />
         </label>
-        <label className="field">
-          <span>{t('common.status')}</span>
-          <select value={status ?? ''} onChange={(e) => set('status', e.target.value || null)}>
-            <option value="">{t('common.all')}</option>
-            {appointmentStatuses.map((s) => (
-              <option key={s} value={s}>
-                {t(`status.${s}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>{t('common.doctor')}</span>
-          <select value={doctorId ?? ''} onChange={(e) => set('doctor', e.target.value || null)}>
-            <option value="">{t('common.all')}</option>
-            {doctors.data?.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t('common.status')}
+          value={status ?? ''}
+          onChange={(v) => set('status', v || null)}
+          options={[{ value: '', label: t('common.all') }, ...appointmentStatuses.map((s) => ({ value: s, label: t(`status.${s}`) }))]}
+        />
+        <SelectField
+          label={t('common.doctor')}
+          value={doctorId ?? ''}
+          onChange={(v) => set('doctor', v || null)}
+          options={[{ value: '', label: t('common.all') }, ...(doctors.data ?? []).map((d) => ({ value: d.id, label: d.displayName }))]}
+        />
       </div>
       <QueryView query={list}>
         {(data) =>

@@ -11,6 +11,7 @@ import { formatInstantDate, formatMoney } from '../../lib/format'
 import { fractionToPercent, isPositive, parseAmount, percentToFraction, uzs } from '../../lib/money'
 import { DEFAULT_TIME_ZONE, isValidDate, localDate, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
 import { DangerNote } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
@@ -158,13 +159,7 @@ function RuleDialog({ clinicId, onDone, onClose }: { clinicId: string; onDone: (
       <form className="stack" onSubmit={submit} noValidate>
         <Field label={t('comm.basis')}>
           {(p) => (
-            <select {...p} value={basis} onChange={(e) => setBasis(e.target.value as CommissionBasis)}>
-              {commissionBases.map((b) => (
-                <option key={b} value={b}>
-                  {t(`comm.basis.${b}`)}
-                </option>
-              ))}
-            </select>
+            <Select {...p} value={basis} onChange={(v) => setBasis(v as CommissionBasis)} options={commissionBases.map((b) => ({ value: b, label: t(`comm.basis.${b}`) }))} />
           )}
         </Field>
         {isRate ? (

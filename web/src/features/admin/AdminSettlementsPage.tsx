@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n/context'
 import { formatInstantDate, formatMoney } from '../../lib/format'
 import { DEFAULT_TIME_ZONE, isValidDate, localDate, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
+import { SelectField } from '../../ui/Select'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
 import { useToast } from '../../ui/toastContext'
@@ -42,17 +43,12 @@ export function AdminSettlementsPage() {
       <PageHeader icon={HandCoins} title={t('adminNav.settlements')} subtitle={t('settle.adminIntro')} />
       <div className="filters">
         <ClinicPicker value={clinicId} onChange={setClinicId} />
-        <label className="field">
-          <span>{t('common.status')}</span>
-          <select value={status} onChange={(e) => setStatus(e.target.value as SettlementStatus | '')}>
-            <option value="">{t('common.all')}</option>
-            {settlementStatuses.map((s) => (
-              <option key={s} value={s}>
-                {t(`settle.${s}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t('common.status')}
+          value={status}
+          onChange={(v) => setStatus(v as SettlementStatus | '')}
+          options={[{ value: '', label: t('common.all') }, ...settlementStatuses.map((s) => ({ value: s, label: t(`settle.${s}`) }))]}
+        />
       </div>
       {clinicId && <CreateSettlement clinicId={clinicId} onCreated={done} />}
       <QueryView query={list}>

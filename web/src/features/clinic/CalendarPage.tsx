@@ -11,6 +11,7 @@ import type { MessageKey } from '../../i18n/messages'
 import { formatDate, formatLocalDay, formatTime } from '../../lib/format'
 import { addDays, fromMinutes, isValidDate, localDate, localMinutes, toMinutes, weekdayOf } from '../../lib/time'
 import { Skeleton } from '../../ui/Skeleton'
+import { SelectField } from '../../ui/Select'
 import { ApiErrorState, EmptyState } from '../../ui/states'
 import { PageHeader, StatusBadge } from '../../ui/widgets'
 import { useBranchParam } from './branchParam'
@@ -93,16 +94,7 @@ export function CalendarPage() {
       <PageHeader icon={CalendarDays} title={t('clinicNav.calendar')} subtitle={`${branch.name} · ${tz}`} />
       <div className="cal-toolbar">
         {!branchParam && branches.length > 1 && (
-          <label className="field field--inline">
-            <span>{t('common.branch')}</span>
-            <select value={branch.id} onChange={(e) => setBranch(e.target.value)}>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField inline label={t('common.branch')} value={branch.id} onChange={setBranch} options={branches.map((b) => ({ value: b.id, label: b.name }))} />
         )}
         <div className="segmented" role="group" aria-label={t('cal.view')}>
           {views.map((v) => (
@@ -340,28 +332,22 @@ function WeekView({ branch, weekStart, today, now, onOpenDay }: { branch: Branch
   return (
     <>
       {doctors.length > 1 && (
-        <label className="field field--inline">
-          <span>{t('common.doctor')}</span>
-          <select
-            value={doctorId}
-            onChange={(e) =>
-              setParams(
-                (prev) => {
-                  const next = new URLSearchParams(prev)
-                  next.set('doctor', e.target.value)
-                  return next
-                },
-                { replace: true },
-              )
-            }
-          >
-            {doctors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          inline
+          label={t('common.doctor')}
+          value={doctorId}
+          onChange={(v) =>
+            setParams(
+              (prev) => {
+                const next = new URLSearchParams(prev)
+                next.set('doctor', v)
+                return next
+              },
+              { replace: true },
+            )
+          }
+          options={doctors.map((d) => ({ value: d.id, label: d.name }))}
+        />
       )}
       <TimeGrid
         week

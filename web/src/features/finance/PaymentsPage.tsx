@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n/context'
 import { formatDateTime, formatFullDateTime, formatMoney } from '../../lib/format'
 import { addDays, localDate, localRangeToUtc } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
+import { SelectField } from '../../ui/Select'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useBranchParam } from '../clinic/branchParam'
@@ -132,17 +133,15 @@ function QuickRecord({ onRecorded }: { onRecorded: () => void }) {
   return (
     <section className="card stack" aria-labelledby="quick-pay-title">
       <h2 id="quick-pay-title">{t('pay.quickTitle')}</h2>
-      <label className="field">
-        <span>{t('pay.appointment')}</span>
-        <select value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)}>
-          <option value="">{visits.length ? t('pay.chooseVisit') : t('pay.noVisits')}</option>
-          {visits.map((a) => (
-            <option key={a.id} value={a.id}>
-              {formatDateTime(a.startsAt, a.timeZone, locale)} · {a.contactName} · {a.serviceName}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        label={t('pay.appointment')}
+        value={appointmentId}
+        onChange={setAppointmentId}
+        options={[
+          { value: '', label: visits.length ? t('pay.chooseVisit') : t('pay.noVisits') },
+          ...visits.map((a) => ({ value: a.id, label: `${formatDateTime(a.startsAt, a.timeZone, locale)} · ${a.contactName} · ${a.serviceName}` })),
+        ]}
+      />
       {appointmentId && balance.data && (
         <RecordPaymentForm
           key={`${appointmentId}:${balance.data.outstanding.amount}`}

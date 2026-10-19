@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n/context'
 import { formatInstantDate } from '../../lib/format'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { CheckboxGroup, Field, FormError, Notice, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
@@ -252,22 +253,17 @@ function StaffDialog({
         )}
         <Field label={t('staff.role')} hint={t('staff.roleHint')} error={touched ? errors.role : null}>
           {(p) => (
-            <select {...p} value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
-              <option value="">{t('staff.chooseRole')}</option>
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {t(`role.${r}`)}
-                </option>
-              ))}
-            </select>
+            <Select {...p} value={role} onChange={(v) => setRole(v as StaffRole)} options={[{ value: '', label: t('staff.chooseRole') }, ...roles.map((r) => ({ value: r, label: t(`role.${r}`) }))]} />
           )}
         </Field>
         <Field label={t('staff.scope')}>
           {(p) => (
-            <select {...p} value={scope} onChange={(e) => setScope(e.target.value as MembershipScope)}>
-              <option value="Branches">{t('scope.Branches')}</option>
-              {canGrantClinicWide && <option value="Clinic">{t('scope.Clinic')}</option>}
-            </select>
+            <Select
+              {...p}
+              value={scope}
+              onChange={(v) => setScope(v as MembershipScope)}
+              options={[{ value: 'Branches', label: t('scope.Branches') }, ...(canGrantClinicWide ? [{ value: 'Clinic', label: t('scope.Clinic') }] : [])]}
+            />
           )}
         </Field>
         {scope === 'Branches' && (

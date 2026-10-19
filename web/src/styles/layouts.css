@@ -2045,30 +2045,20 @@
     content: ':';
   }
   /* The native select carries the value; it is restyled to read as the chip's text. */
-  .console__topbar .context-chip__select,
-  .context-chip__select {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    padding: 0 var(--s-5) 0 0;
-    margin-right: calc(-1 * var(--s-5));
-    min-height: 0;
+  .context-chip .select.context-chip__select {
     width: auto;
-    max-width: 12rem;
-    font: inherit;
-    font-weight: var(--fw-semibold);
-    color: var(--c-ink);
-    text-overflow: ellipsis;
-    cursor: pointer;
+    max-width: 13rem;
+    gap: 4px;
+    font-size: var(--fs-sm);
+  }
+  /* The chip draws the focus ring (:focus-within). */
+  .context-chip .select.context-chip__select:focus-visible {
     outline: none;
   }
-  .context-chip__chev {
+  .context-chip .select__chev {
     width: 16px;
     height: 16px;
     color: var(--c-ink-3);
-    pointer-events: none;
-    flex: none;
   }
   .context-chip__pulse {
     position: absolute;
@@ -2094,7 +2084,7 @@
       clip-path: inset(50%);
       white-space: nowrap;
     }
-    .context-chip__select {
+    .context-chip .select.context-chip__select {
       max-width: 9.5rem;
     }
   }

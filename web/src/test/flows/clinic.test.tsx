@@ -9,7 +9,7 @@ import { ClinicContext, makeClinicContext } from '../../features/clinic/clinicCo
 import { RecordPaymentForm } from '../../features/finance/RecordPaymentForm'
 import { I18nProvider } from '../../i18n/I18n'
 import { appointment, membership, staffMe } from '../fixtures'
-import { json, meHandler, mockFetch, problem, renderApp, type FetchMock } from '../harness'
+import { chooseOption, json, meHandler, mockFetch, problem, renderApp, type FetchMock } from '../harness'
 
 const branch: BranchDto = { id: 'b1', name: 'Markaziy filial', district: 'Yunusobod', address: 'Test 1', latitude: null, longitude: null, phone: '+998711234567', timeZone: 'Asia/Tashkent', isActive: true, hours: [] }
 const receptionist = ['appointment.view', 'appointment.triage', 'appointment.cancel', 'appointment.outcome', 'appointment.create_walkin', 'payment.record', 'schedule.manage']
@@ -41,7 +41,7 @@ describe('clinic requests', () => {
     expect(screen.getAllByText('Choose a doctor').length).toBeGreaterThan(0)
     expect(fetchMock.find('POST', '/clinics/c1/appointments/a1/confirm')).toHaveLength(0)
 
-    await user.selectOptions(select, 'd2')
+    await chooseOption(user, select, 'd2')
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     const post = fetchMock.find('POST', '/clinics/c1/appointments/a1/confirm')[0]!
     expect(post.body).toEqual({ doctorId: 'd2' })
@@ -62,7 +62,7 @@ describe('clinic requests', () => {
     ])
     renderApp('/clinic/c1/requests', fetchMock)
     // A single eligible doctor is pre-selected.
-    await waitFor(() => expect(screen.getByLabelText('Doctor')).toHaveValue('d1'))
+    await waitFor(() => expect(screen.getByLabelText('Doctor')).toHaveAttribute('data-value', 'd1'))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(await screen.findByText('The deadline to answer this request has passed.')).toBeInTheDocument()
     await waitFor(() => expect(fetchMock.find('GET', '/clinics/c1/appointments').length).toBeGreaterThanOrEqual(2))
@@ -117,7 +117,7 @@ describe('record payment form', () => {
 
     await user.clear(amount)
     await user.type(amount, '150 000')
-    await user.selectOptions(screen.getByLabelText('Payment method'), 'Cash')
+    await chooseOption(user, screen.getByLabelText('Payment method'), 'Cash')
     await user.click(submit)
     const post = fetchMock.find('POST', '/clinics/c1/appointments/a1/payments')[0]!
     expect(post.body).toEqual({ amount: { amount: '150000.00', currency: 'UZS' }, method: 'Cash' })
@@ -141,7 +141,7 @@ describe('record payment form', () => {
     ])
     renderForm(fetchMock)
     await user.type(screen.getByLabelText('Amount'), '5000')
-    await user.selectOptions(screen.getByLabelText('Payment method'), 'Card')
+    await chooseOption(user, screen.getByLabelText('Payment method'), 'Card')
     await user.click(screen.getByRole('button', { name: 'Record' }))
     expect(await screen.findByText(/No connection to the server/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Record' }))
@@ -167,7 +167,7 @@ describe('branch switch (J4)', () => {
     renderApp('/clinic/c1?branch=b1', fetchMock)
     expect(await screen.findByText('7')).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('Branch'), 'b2')
+    await chooseOption(user, screen.getByLabelText('Branch'), 'b2')
     expect(screen.queryByText('7')).not.toBeInTheDocument()
 
     release()

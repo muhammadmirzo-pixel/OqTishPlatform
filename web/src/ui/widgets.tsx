@@ -5,6 +5,7 @@ import { useI18n } from '../i18n/context'
 import { localeNames, locales, type Locale } from '../i18n/messages'
 import { remaining } from '../lib/format'
 import { useNow } from '../hooks/useNow'
+import { Select } from './Select'
 
 const statusTone: Record<AppointmentStatus, string> = {
   Pending: 'warning',
@@ -65,16 +66,9 @@ export function Countdown({ deadline, render, expiredText }: { deadline: string;
 export function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n()
   return (
-    <label className="lang">
-      <span className="visually-hidden">{t('lang.label')}</span>
-      <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label={t('lang.label')}>
-        {locales.map((l) => (
-          <option key={l} value={l} lang={l}>
-            {localeNames[l]}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="lang">
+      <Select variant="small" aria-label={t('lang.label')} value={locale} onChange={(v) => setLocale(v as Locale)} options={locales.map((l) => ({ value: l, label: localeNames[l] }))} />
+    </div>
   )
 }
 

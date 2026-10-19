@@ -10,6 +10,7 @@ import { useI18n } from '../../i18n/context'
 import { formatInstantDate } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Pagination } from '../../ui/Pagination'
+import { SelectField } from '../../ui/Select'
 import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
 import { useToast } from '../../ui/toastContext'
 import { EmptyState, QueryView } from '../../ui/states'
@@ -64,17 +65,12 @@ export function AdminClinicsPage() {
           <span>{t('common.search')}</span>
           <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
-        <label className="field">
-          <span>{t('common.status')}</span>
-          <select value={status ?? ''} onChange={(e) => set('status', e.target.value || null)}>
-            <option value="">{t('common.all')}</option>
-            {clinicVerifications.map((s) => (
-              <option key={s} value={s}>
-                {t(`verification.${s}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t('common.status')}
+          value={status ?? ''}
+          onChange={(v) => set('status', v || null)}
+          options={[{ value: '', label: t('common.all') }, ...clinicVerifications.map((s) => ({ value: s, label: t(`verification.${s}`) }))]}
+        />
         <button type="submit" className="btn btn--ghost">
           <Search className="icon" aria-hidden="true" />
           {t('common.search')}

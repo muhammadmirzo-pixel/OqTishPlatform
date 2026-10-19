@@ -7,6 +7,7 @@ import { useI18n } from '../../i18n/context'
 import { formatMoney } from '../../lib/format'
 import { amountForInput, compareAmounts, isPositive, parseAmount, uzs } from '../../lib/money'
 import { Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Select } from '../../ui/Select'
 import { validatePayment } from './paymentValidation'
 
 /**
@@ -56,14 +57,7 @@ export function RecordPaymentForm({ clinicId, appointmentId, outstanding, onReco
         </Field>
         <Field label={t('pay.method')} error={touched ? errors.method : null}>
           {(p) => (
-            <select {...p} value={method} onChange={(e) => setMethod(e.target.value)}>
-              <option value="">{t('pay.chooseMethod')}</option>
-              {paymentMethods.map((m) => (
-                <option key={m} value={m}>
-                  {t(`pay.${m}`)}
-                </option>
-              ))}
-            </select>
+            <Select {...p} value={method} onChange={setMethod} options={[{ value: '', label: t('pay.chooseMethod') }, ...paymentMethods.map((m) => ({ value: m, label: t(`pay.${m}`) }))]} />
           )}
         </Field>
       </div>

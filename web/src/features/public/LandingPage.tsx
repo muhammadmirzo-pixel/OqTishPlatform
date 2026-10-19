@@ -9,6 +9,7 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { categoryLabel } from '../../lib/categories'
 import { LogoMark } from '../../ui/Logo'
+import { Select } from '../../ui/Select'
 import { SkeletonCards } from '../../ui/Skeleton'
 import { categoryIcon, categoryTone } from './categoryIcons'
 import { ClinicCardView } from './ClinicCardView'
@@ -66,30 +67,32 @@ export function LandingPage() {
                 <span className="lp-search__label">{t('landing.searchQuery')}</span>
                 <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('landing.searchQuery')} />
               </label>
-              <label className="lp-search__field">
+              <div className="lp-search__field">
                 <MapPin className="icon" aria-hidden="true" />
-                <span className="lp-search__label">{t('landing.searchDistrict')}</span>
-                <select value={district} onChange={(e) => setDistrict(e.target.value)}>
-                  <option value="">{t('landing.searchAnyDistrict')}</option>
-                  {facets.data?.districts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="lp-search__field">
+                <label className="lp-search__label" id="lp-district-label" htmlFor="lp-district">
+                  {t('landing.searchDistrict')}
+                </label>
+                <Select
+                  id="lp-district"
+                  variant="bare"
+                  value={district}
+                  onChange={setDistrict}
+                  options={[{ value: '', label: t('landing.searchAnyDistrict') }, ...(facets.data?.districts ?? []).map((d) => ({ value: d, label: d }))]}
+                />
+              </div>
+              <div className="lp-search__field">
                 <CalendarCheck className="icon" aria-hidden="true" />
-                <span className="lp-search__label">{t('landing.searchCategory')}</span>
-                <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                  <option value="">{t('landing.searchAnyCategory')}</option>
-                  {serviceCategories.map((c) => (
-                    <option key={c} value={c}>
-                      {categoryLabel(t, c)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <label className="lp-search__label" id="lp-category-label" htmlFor="lp-category">
+                  {t('landing.searchCategory')}
+                </label>
+                <Select
+                  id="lp-category"
+                  variant="bare"
+                  value={category}
+                  onChange={setCategory}
+                  options={[{ value: '', label: t('landing.searchAnyCategory') }, ...serviceCategories.map((c) => ({ value: c, label: categoryLabel(t, c) }))]}
+                />
+              </div>
               <button type="submit" className="btn btn--large lp-search__submit">
                 <Search className="icon" aria-hidden="true" />
                 {t('landing.searchSubmit')}

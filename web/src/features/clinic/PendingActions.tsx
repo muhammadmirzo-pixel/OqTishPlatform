@@ -6,6 +6,7 @@ import { useAction } from '../../hooks/useAction'
 import { useQuery } from '../../hooks/useQuery'
 import { useI18n } from '../../i18n/context'
 import { FormError } from '../../ui/forms'
+import { Select } from '../../ui/Select'
 import { rejectReasons } from '../appointments/format'
 import { ReasonCodeDialog } from './ReasonCodeDialog'
 
@@ -54,26 +55,26 @@ export function PendingActions({ clinicId, appointment, onOutcome }: { clinicId:
   return (
     <div className="triage">
       <div className="triage__doctor field">
-        <label htmlFor={selectId}>{t('req.assignDoctor')}</label>
-        <select
+        <label id={`${selectId}-label`} htmlFor={selectId}>
+          {t('req.assignDoctor')}
+        </label>
+        <Select
           id={selectId}
           value={doctorId}
           disabled={!doctors.data || noDoctors}
           aria-invalid={touched && !doctorId ? true : undefined}
-          onChange={(e) => {
-            setDoctorId(e.target.value)
+          onChange={(v) => {
+            setDoctorId(v)
             confirm.clearError()
           }}
-        >
-          <option value="">{doctors.loading && !doctors.data ? t('common.loading') : t('req.chooseDoctor')}</option>
-          {doctors.data?.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-              {d.provisional ? ` · ${t('req.provisionalMark')}` : ''}
-              {d.withinWorkingHours ? '' : ` · ${t('req.outsideHoursMark')}`}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: doctors.loading && !doctors.data ? t('common.loading') : t('req.chooseDoctor') },
+            ...(doctors.data ?? []).map((d) => ({
+              value: d.id,
+              label: `${d.name}${d.provisional ? ` · ${t('req.provisionalMark')}` : ''}${d.withinWorkingHours ? '' : ` · ${t('req.outsideHoursMark')}`}`,
+            })),
+          ]}
+        />
         {doctors.data?.find((d) => d.id === doctorId)?.withinWorkingHours === false && <p className="field__hint">{t('req.outsideHours')}</p>}
         {noDoctors && <p className="field__hint">{t('req.noEligible')}</p>}
         {touched && !doctorId && !noDoctors && <p className="field__error">{t('req.chooseDoctor')}</p>}

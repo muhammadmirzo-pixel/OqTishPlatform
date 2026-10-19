@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { serviceCategories, type BranchDto, type DoctorDto, type InvitationDto, type ServiceDto, type StaffMemberDto } from '../../api/types'
 import { staffMe } from '../fixtures'
-import { meHandler, mockFetch, problem, renderApp, type Handler } from '../harness'
+import { chooseOption, meHandler, mockFetch, optionValues, problem, renderApp, type Handler } from '../harness'
 
 // FICTIONAL data shaped like docs/API.md §4.1.
 const branch = (id: string, name: string): BranchDto => ({
@@ -44,11 +44,10 @@ describe('services (catalog.manage)', () => {
     await user.click(screen.getByRole('button', { name: 'Add service' }))
     const dialog = await screen.findByRole('dialog')
     const select = within(dialog).getByLabelText('Category')
-    const options = within(select).getAllByRole('option').map((o) => o.getAttribute('value'))
-    expect(options).toEqual(['', ...serviceCategories])
+    expect(await optionValues(user, select)).toEqual(['', ...serviceCategories])
     await user.type(within(dialog).getByLabelText('Name'), 'Oqartirish')
-    await user.selectOptions(select, 'whitening')
-    expect(within(select).getByRole('option', { name: 'Whitening and aesthetics' })).toBeInTheDocument()
+    await chooseOption(user, select, 'whitening')
+    expect(select).toHaveTextContent('Whitening and aesthetics')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(fetchMock.find('POST', '/clinics/c1/services')).toHaveLength(1))
     expect(fetchMock.find('POST', '/clinics/c1/services')[0]!.body).toEqual({ name: 'Oqartirish', category: 'whitening', isActive: true })
@@ -95,7 +94,7 @@ describe('branches (branch.manage)', () => {
     await user.click(await screen.findByRole('button', { name: 'Add branch' }))
     const dialog = await screen.findByRole('dialog')
     const tz = within(dialog).getByLabelText('Time zone')
-    expect(within(tz).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['Asia/Tashkent', 'Asia/Samarkand'])
+    expect(await optionValues(user, tz)).toEqual(['Asia/Tashkent', 'Asia/Samarkand'])
     await user.type(within(dialog).getByLabelText('Name'), 'Chilonzor filial')
     await user.type(within(dialog).getByLabelText('District'), 'Chilonzor')
     await user.type(within(dialog).getByLabelText('Address'), 'Test 2')
@@ -105,7 +104,7 @@ describe('branches (branch.manage)', () => {
     expect(fetchMock.find('POST', '/clinics/c1/branches')).toHaveLength(0)
 
     await user.type(within(dialog).getByLabelText(/Longitude/), '69.2034')
-    await user.selectOptions(tz, 'Asia/Samarkand')
+    await chooseOption(user, tz, 'Asia/Samarkand')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(fetchMock.find('POST', '/clinics/c1/branches')).toHaveLength(1))
     expect(fetchMock.find('POST', '/clinics/c1/branches')[0]!.body).toEqual({
@@ -176,10 +175,10 @@ describe('doctors (schedule.manage, userId needs staff.manage)', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
     const dialog = await screen.findByRole('dialog')
     const picker = await within(dialog).findByLabelText(/Staff account/)
-    expect(picker).toHaveValue('u-doc')
+    expect(picker).toHaveAttribute('data-value', 'u-doc')
     // Doctor-role members first, but any member can be linked.
-    expect(within(picker).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['', 'u-doc', 'u-rec'])
-    await user.selectOptions(picker, 'u-rec')
+    expect(await optionValues(user, picker)).toEqual(['', 'u-doc', 'u-rec'])
+    await chooseOption(user, picker, 'u-rec')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     expect(await within(dialog).findByText('This user is already linked to another doctor.')).toBeInTheDocument()
     expect(fetchMock.find('PUT', '/clinics/c1/doctors/d1')[0]!.body).toMatchObject({ userId: 'u-rec' })
@@ -215,9 +214,9 @@ describe('staff (staff.manage)', () => {
     await user.click(screen.getByRole('button', { name: 'Invite staff' }))
     const dialog = await screen.findByRole('dialog')
     const scope = within(dialog).getByLabelText('Access scope')
-    expect(within(scope).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['Branches'])
+    expect(await optionValues(user, scope)).toEqual(['Branches'])
     await user.type(within(dialog).getByLabelText('Phone'), '+998 90 123 45 67')
-    await user.selectOptions(within(dialog).getByLabelText('Role'), 'Receptionist')
+    await chooseOption(user, within(dialog).getByLabelText('Role'), 'Receptionist')
     await user.click(within(dialog).getByLabelText('Markaziy filial'))
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
     expect(await within(dialog).findByText('The owner of this phone number is already a member of the clinic.')).toBeInTheDocument()

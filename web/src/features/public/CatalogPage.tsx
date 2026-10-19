@@ -8,6 +8,7 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { categoryLabel } from '../../lib/categories'
 import { Drawer } from '../../ui/Drawer'
+import { SelectField } from '../../ui/Select'
 import { Checkbox } from '../../ui/forms'
 import { Pagination } from '../../ui/Pagination'
 import { SkeletonCards } from '../../ui/Skeleton'
@@ -222,39 +223,24 @@ function Filters({ facets, params, update }: { facets: Facets | undefined; param
   const services = (facets?.services ?? []).filter((s) => !category || s.category === category)
   return (
     <div className="stack">
-      <label className="field">
-        <span>{t('home.category')}</span>
-        <select value={category} onChange={(e) => update({ category: e.target.value || null, service: null })}>
-          <option value="">{t('common.all')}</option>
-          {facets?.categories.map((c) => (
-            <option key={c.key} value={c.key}>
-              {categoryLabel(t, c.key, c.name)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>{t('home.service')}</span>
-        <select value={params.get('service') ?? ''} onChange={(e) => update({ service: e.target.value || null })}>
-          <option value="">{t('common.all')}</option>
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>{t('home.district')}</span>
-        <select value={params.get('district') ?? ''} onChange={(e) => update({ district: e.target.value || null })}>
-          <option value="">{t('common.all')}</option>
-          {facets?.districts.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        label={t('home.category')}
+        value={category}
+        onChange={(v) => update({ category: v || null, service: null })}
+        options={[{ value: '', label: t('common.all') }, ...(facets?.categories ?? []).map((c) => ({ value: c.key, label: categoryLabel(t, c.key, c.name) }))]}
+      />
+      <SelectField
+        label={t('home.service')}
+        value={params.get('service') ?? ''}
+        onChange={(v) => update({ service: v || null })}
+        options={[{ value: '', label: t('common.all') }, ...services.map((s) => ({ value: s.id, label: s.name }))]}
+      />
+      <SelectField
+        label={t('home.district')}
+        value={params.get('district') ?? ''}
+        onChange={(v) => update({ district: v || null })}
+        options={[{ value: '', label: t('common.all') }, ...(facets?.districts ?? []).map((d) => ({ value: d, label: d }))]}
+      />
       <Checkbox label={t('home.availableSoon')} checked={params.get('soon') === '1'} onChange={(on) => update({ soon: on ? '1' : null })} />
     </div>
   )

@@ -8,6 +8,7 @@ import { formatMoney } from '../../lib/format'
 import { amountForInput, parseAmount, uzs } from '../../lib/money'
 import { isValidDate, isValidTime, localDate, localTime, zonedToUtc } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
 
 /** Completed: charged amount pre-filled with the quoted price (OD-F8: any value ≥ 0). */
@@ -87,14 +88,7 @@ export function RescheduleDialog({ clinicId, appointment, onDone, onClose }: { c
         </div>
         <Field label={t('common.doctor')} error={touched ? errors.doctor : null}>
           {(p) => (
-            <select {...p} value={doctorId} onChange={(e) => setDoctorId(e.target.value)}>
-              <option value="">{t('req.chooseDoctor')}</option>
-              {eligible.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.displayName}
-                </option>
-              ))}
-            </select>
+            <Select {...p} value={doctorId} onChange={setDoctorId} options={[{ value: '', label: t('req.chooseDoctor') }, ...eligible.map((d) => ({ value: d.id, label: d.displayName }))]} />
           )}
         </Field>
         <FormError error={move.error ?? doctors.error} />

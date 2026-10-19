@@ -21,7 +21,7 @@ export function Field({ label, hint, error, optional, className, children }: Fie
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined
   return (
     <div className={`field${error ? ' field--invalid' : ''}${className ? ` ${className}` : ''}`}>
-      <label htmlFor={id}>
+      <label id={`${id}-label`} htmlFor={id}>
         {label}
         {optional && <span className="muted"> ({t('common.optional')})</span>}
       </label>

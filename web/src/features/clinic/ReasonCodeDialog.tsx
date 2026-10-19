@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useI18n } from '../../i18n/context'
 import { useAction } from '../../hooks/useAction'
 import { Dialog } from '../../ui/Dialog'
+import { Select } from '../../ui/Select'
 import { Field, FormError, SubmitButton } from '../../ui/forms'
 import { reasonLabel } from '../appointments/format'
 
@@ -43,14 +44,7 @@ export function ReasonCodeDialog({
       <form className="stack" onSubmit={submit} noValidate>
         <Field label={t('common.reason')} error={touched && !code ? t('valid.required') : null}>
           {(p) => (
-            <select {...p} value={code} onChange={(e) => setCode(e.target.value)}>
-              <option value="">{t('req.chooseReason')}</option>
-              {codes.map((c) => (
-                <option key={c} value={c}>
-                  {reasonLabel(t, c)}
-                </option>
-              ))}
-            </select>
+            <Select {...p} value={code} onChange={setCode} options={[{ value: '', label: t('req.chooseReason') }, ...codes.map((c) => ({ value: c, label: reasonLabel(t, c) }))]} />
           )}
         </Field>
         <FormError error={action.error} />

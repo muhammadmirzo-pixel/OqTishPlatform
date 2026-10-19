@@ -4,6 +4,7 @@ import { useSession } from '../../auth/session'
 import { useQuery } from '../../hooks/useQuery'
 import { useI18n } from '../../i18n/context'
 import { PlatformPerm } from '../clinic/permissions'
+import { SelectField } from '../../ui/Select'
 
 /** Choose a clinic by searching the admin clinic list; falls back to a raw id when not permitted. */
 export function ClinicPicker({ value, onChange, label }: { value: string; onChange: (id: string) => void; label?: string }) {
@@ -28,17 +29,12 @@ export function ClinicPicker({ value, onChange, label }: { value: string; onChan
         <span>{t('adm.searchClinic')}</span>
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} />
       </label>
-      <label className="field">
-        <span>{label ?? t('common.clinic')}</span>
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">{t('adm.chooseClinic')}</option>
-          {clinics.data?.items.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        label={label ?? t('common.clinic')}
+        value={value}
+        onChange={onChange}
+        options={[{ value: '', label: t('adm.chooseClinic') }, ...(clinics.data?.items ?? []).map((c) => ({ value: c.id, label: c.name }))]}
+      />
     </div>
   )
 }

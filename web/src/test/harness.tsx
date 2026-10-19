@@ -74,3 +74,29 @@ export function renderApp(path: string, fetchMock: FetchMock, options: { locale?
   )
   return { ...utils, router }
 }
+
+type User = { click: (element: Element) => Promise<void>; keyboard: (text: string) => Promise<void> }
+
+/** The listbox of a ui/Select (role=combobox), opening it first; it is portalled to <body>. */
+async function listboxOf(user: User, combobox: HTMLElement): Promise<HTMLElement> {
+  if (combobox.getAttribute('aria-expanded') !== 'true') await user.click(combobox)
+  const list = document.getElementById(combobox.getAttribute('aria-controls') ?? '')
+  if (!list) throw new Error('listbox did not open')
+  return list
+}
+
+/** Chooses the option with this value in a ui/Select, as a user would (open, click). */
+export async function chooseOption(user: User, combobox: HTMLElement, value: string) {
+  const list = await listboxOf(user, combobox)
+  const option = [...list.querySelectorAll<HTMLElement>('[role="option"]')].find((o) => o.dataset.value === value)
+  if (!option) throw new Error(`no option with value ${value}`)
+  await user.click(option)
+}
+
+/** Values of all options of a ui/Select (opens the list, reads it, closes it with Escape). */
+export async function optionValues(user: User, combobox: HTMLElement): Promise<string[]> {
+  const list = await listboxOf(user, combobox)
+  const values = [...list.querySelectorAll<HTMLElement>('[role="option"]')].map((o) => o.dataset.value ?? '')
+  await user.keyboard('{Escape}')
+  return values
+}
