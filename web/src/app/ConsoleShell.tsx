@@ -1,4 +1,4 @@
-import { LogOut, Menu, UserRound } from 'lucide-react'
+import { ChevronRight, LogOut, Menu, UserRound } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import { useSession } from '../auth/session'
@@ -21,6 +21,8 @@ export function ConsoleShell({
   banner,
   variant = 'clinic',
   contextSeed,
+  badges,
+  userRole,
   children,
 }: {
   title: string
@@ -32,6 +34,10 @@ export function ConsoleShell({
   banner?: ReactNode
   variant?: 'clinic' | 'admin'
   contextSeed?: string
+  /** Count shown next to a menu item, keyed by its path (e.g. waiting requests). */
+  badges?: Partial<Record<string, number>>
+  /** Shown under the user's name at the bottom of the sidebar. */
+  userRole?: string
   children: ReactNode
 }) {
   const { t } = useI18n()
@@ -71,17 +77,29 @@ export function ConsoleShell({
             const to = item.path ? `${base}/${item.path}` : base
             const Icon = menuIcon[item.label]
             const heading = headings[i]
+            const count = badges?.[item.path]
             return (
               <div key={item.path} className="sidenav__item">
                 {heading && <p className="sidenav__label">{t(heading)}</p>}
                 <NavLink to={`${to}${linkSuffix}`} end={item.path === ''} onClick={() => setOpen(false)}>
                   {Icon && <Icon className="icon" aria-hidden="true" />}
                   {t(item.label)}
+                  {count ? <span className="sidenav__count">{count}</span> : null}
                 </NavLink>
               </div>
             )
           })}
         </nav>
+        {me && (
+          <Link to="/me" className="console__me" onClick={() => setOpen(false)}>
+            <Monogram name={me.displayName || t('nav.account')} seed={me.id} size={36} />
+            <span className="console__me-text">
+              <strong>{me.displayName || t('nav.account')}</strong>
+              {userRole && <small>{userRole}</small>}
+            </span>
+            <ChevronRight className="icon" aria-hidden="true" />
+          </Link>
+        )}
         <div className="console__prefs console__prefs--menu">
           <LanguageSwitcher />
           <ThemeSwitcher />
@@ -96,7 +114,7 @@ export function ConsoleShell({
             <ThemeSwitcher />
           </div>
           {/* The name is hidden on phones, so the link keeps an accessible name of its own. */}
-          <Link to="/me" className="btn btn--ghost btn--small" aria-label={me?.displayName || t('nav.account')}>
+          <Link to="/me" className="btn btn--ghost btn--small console__user-link" aria-label={me?.displayName || t('nav.account')}>
             <UserRound className="icon" aria-hidden="true" />
             <span className="console__user">{me?.displayName || t('nav.account')}</span>
           </Link>

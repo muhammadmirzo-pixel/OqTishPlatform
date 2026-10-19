@@ -5,7 +5,7 @@ import { useApi } from '../api/context'
 import { findMembership, useSession } from '../auth/session'
 import { ClinicContext, makeClinicContext } from '../features/clinic/clinicContext'
 import { useBranchParam } from '../features/clinic/branchParam'
-import { clinicMenu, roleNeedsTotp, visibleMenu } from '../features/clinic/permissions'
+import { clinicMenu, Perm, roleNeedsTotp, visibleMenu } from '../features/clinic/permissions'
 import { useQuery } from '../hooks/useQuery'
 import { useI18n } from '../i18n/context'
 import { ContextChip } from '../ui/ContextChip'
@@ -21,6 +21,10 @@ export function ClinicLayout() {
   const membership = findMembership(me, clinicId)
   const [branch, setBranch] = useBranchParam()
   const branchesQuery = useQuery(membership && !membership.totpSetupRequired ? `branches:${membership.clinicId}` : null, () => api.clinic.branches(membership!.clinicId))
+
+  // Waiting-request count for the sidebar badge (same figure as the dashboard; refreshed every minute).
+  const canTriage = !!membership && !membership.totpSetupRequired && membership.permissions.includes(Perm.triage)
+  const pending = useQuery(canTriage ? `nav-pending:${membership!.clinicId}:${branch ?? ''}` : null, () => api.clinic.dashboard(membership!.clinicId, branch), { refreshMs: 60000 })
 
   const ctx = useMemo(
     () => (membership && branchesQuery.data ? makeClinicContext(membership, branchesQuery.data, branchesQuery.reload) : null),
@@ -90,7 +94,8 @@ export function ClinicLayout() {
   return (
     <ConsoleShell
       title={membership.clinicName}
-      subtitle={<p className="muted small console__role">{t(`role.${membership.role}`)}</p>}
+      userRole={t(`role.${membership.role}`)}
+      badges={{ requests: pending.data?.pending }}
       base={base}
       contextSeed={membership.clinicId}
       items={items}
