@@ -1,5 +1,5 @@
 import { BadgeCheck, CalendarPlus, Clock, ListChecks, MapPin, Navigation, Phone, Star, Store, UserRoundCheck } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useApi } from '../../api/context'
 import type { PublicBranch, PublicServiceOffer, Weekday } from '../../api/types'
@@ -19,6 +19,9 @@ import { Pagination } from '../../ui/Pagination'
 import { ApiErrorState, EmptyState, LoadingState } from '../../ui/states'
 import { Stars } from '../../ui/widgets'
 import { ReportButton } from './ReportButton'
+
+type Tab = 'services' | 'reviews' | 'about'
+const tabs: Tab[] = ['services', 'reviews', 'about']
 
 export function ClinicPage() {
   const { clinicId = '' } = useParams()
@@ -47,6 +50,18 @@ export function ClinicPage() {
   // The selected branch is in the URL; every price, hour and slot below belongs to that branch only.
   const branch = c.branches.find((b) => b.id === params.get('branch')) ?? c.branches[0]
   const minPrice = branch?.services.reduce<PublicServiceOffer | undefined>((m, s) => (!m || compareAmounts(s.price.amount, m.price.amount) < 0 ? s : m), undefined)
+  const tabParam = params.get('tab') as Tab | null
+  const tab: Tab = tabParam && tabs.includes(tabParam) ? tabParam : 'services'
+  const setParam = (key: string, value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set(key, value)
+        return next
+      },
+      { replace: true },
+    )
+  const bookHref = `/book/${c.id}${branch ? `?branch=${branch.id}&step=service` : ''}`
 
   return (
     <div className="page clinic-page">
@@ -95,7 +110,7 @@ export function ClinicPage() {
           )}
         </div>
         <div className="clinic-hero__actions">
-          <Link className="btn btn--large" to={`/book/${c.id}${branch ? `?branch=${branch.id}&step=service` : ''}`}>
+          <Link className="btn btn--large" to={bookHref}>
             <CalendarPlus className="icon" aria-hidden="true" />
             {t('home.book')}
           </Link>
@@ -103,41 +118,105 @@ export function ClinicPage() {
         </div>
       </header>
 
-      {c.branches.length > 1 && (
-        <div className="clinic-branches" role="group" aria-label={t('clinicPage.chooseBranch')}>
-          {c.branches.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className="chip"
-              aria-pressed={b.id === branch?.id}
-              onClick={() => setParams((prev) => {
-                const next = new URLSearchParams(prev)
-                next.set('branch', b.id)
-                return next
-              }, { replace: true })}
-            >
-              <Store className="icon" aria-hidden="true" />
-              {b.name} · {b.district}
-            </button>
-          ))}
+      <div className="clinic-layout">
+        <aside className="clinic-layout__branches card stack" aria-labelledby="branches-title">
+          <h2 id="branches-title" className="card__title">
+            {t('clinicPage.branches', { count: c.branches.length })}
+          </h2>
+          {c.branches.length === 0 ? (
+            <p className="muted">{t('clinic.noBranches')}</p>
+          ) : (
+            <ul className="branch-picker" role="list">
+              {c.branches.map((b) => (
+                <li key={b.id}>
+                  <button type="button" className="branch-picker__item" aria-pressed={b.id === branch?.id} onClick={() => setParam('branch', b.id)}>
+                    <Store className="icon" aria-hidden="true" />
+                    <span>
+                      <strong>{b.name}</strong>
+                      <small>
+                        {b.district}, {b.address}
+                      </small>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {branch && (
+            <Link className="btn btn--block" to={bookHref}>
+              <CalendarPlus className="icon" aria-hidden="true" />
+              {t('clinicPage.bookHere')}
+            </Link>
+          )}
+        </aside>
+
+        <div className="clinic-layout__main stack">
+          <ClinicTabs tab={tab} reviewCount={c.reviewCount} onChange={(next) => setParam('tab', next)} />
+          <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="stack">
+            {tab === 'services' &&
+              (!branch ? (
+                <EmptyState title={t('clinic.noBranches')} />
+              ) : (
+                <>
+                  <p className="alert alert--info">
+                    <UserRoundCheck className="icon" aria-hidden="true" />
+                    <span>{t('clinic.doctorNote')}</span>
+                  </p>
+                  <BranchServices key={branch.id} clinicId={c.id} branch={branch} />
+                </>
+              ))}
+            {tab === 'reviews' && <Reviews clinicId={c.id} />}
+            {tab === 'about' && (
+              <>
+                {c.description ? <p className="lead clinic-page__desc">{c.description}</p> : <p className="muted">—</p>}
+                <p className="alert alert--info">
+                  <UserRoundCheck className="icon" aria-hidden="true" />
+                  <span>{t('clinic.doctorNote')}</span>
+                </p>
+              </>
+            )}
+          </div>
         </div>
-      )}
 
-      {c.description && (
-        <section className="stack stack--sm">
-          <h2>{t('clinicPage.about')}</h2>
-          <p className="lead clinic-page__desc">{c.description}</p>
-        </section>
-      )}
-      <p className="alert alert--info">
-        <UserRoundCheck className="icon" aria-hidden="true" />
-        <span>{t('clinic.doctorNote')}</span>
-      </p>
+        {branch && <BranchInfo key={branch.id} branch={branch} />}
+      </div>
+    </div>
+  )
+}
 
-      {!branch ? <EmptyState title={t('clinic.noBranches')} /> : <BranchSection key={branch.id} clinicId={c.id} branch={branch} />}
-
-      <Reviews clinicId={c.id} />
+/** Tabs (WAI-ARIA pattern): arrow keys move between tabs; the selection lives in the URL (?tab=). */
+function ClinicTabs({ tab, reviewCount, onChange }: { tab: Tab; reviewCount: number; onChange: (tab: Tab) => void }) {
+  const { t } = useI18n()
+  const labels: Record<Tab, string> = {
+    services: t('clinic.services'),
+    reviews: t('clinicPage.reviewsTab', { count: reviewCount }),
+    about: t('clinicPage.about'),
+  }
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const i = tabs.indexOf(tab)
+    const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length] : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length] : undefined
+    if (!next) return
+    e.preventDefault()
+    onChange(next)
+    document.getElementById(`tab-${next}`)?.focus()
+  }
+  return (
+    <div className="tabs" role="tablist" aria-label={t('clinicPage.sections')} onKeyDown={onKeyDown}>
+      {tabs.map((id) => (
+        <button
+          key={id}
+          id={`tab-${id}`}
+          type="button"
+          role="tab"
+          className="tabs__tab"
+          aria-selected={id === tab}
+          aria-controls={`panel-${id}`}
+          tabIndex={id === tab ? 0 : -1}
+          onClick={() => onChange(id)}
+        >
+          {labels[id]}
+        </button>
+      ))}
     </div>
   )
 }
@@ -152,8 +231,55 @@ function OpenNow({ branch }: { branch: PublicBranch }) {
   return open ? <span className="clinic-open">{t('clinicPage.openNow', { close: open.close })}</span> : <span className="clinic-closed">{t('clinicPage.closedNow')}</span>
 }
 
-function BranchSection({ clinicId, branch }: { clinicId: string; branch: PublicBranch }) {
+function BranchServices({ clinicId, branch }: { clinicId: string; branch: PublicBranch }) {
   const { t, locale } = useI18n()
+  return (
+    <section className="stack" aria-labelledby={`branch-${branch.id}`}>
+      <div className="section-head">
+        <h2 id={`branch-${branch.id}`} className="visually-hidden">
+          {t('clinic.services')}
+        </h2>
+        <span className="muted small">{branch.name}</span>
+      </div>
+      {branch.services.length === 0 ? (
+        <EmptyState title={t('clinic.noServices')} />
+      ) : (
+        <ul className="service-list">
+          {branch.services.map((s) => {
+            const cat = isServiceCategory(s.category) ? s.category : 'other'
+            const Icon = categoryIcon[cat]
+            const tone = categoryTone[cat]
+            return (
+              <li key={s.serviceId} className="service-row">
+                <span className={`icon-tile${tone ? ` icon-tile--${tone}` : ''}`}>
+                  <Icon className="icon" aria-hidden="true" />
+                </span>
+                <div className="service-row__info">
+                  <strong>{s.name}</strong>
+                  <span className="muted small">{categoryLabel(t, s.category)}</span>
+                </div>
+                <div className="service-row__price">
+                  {s.priceKind === 'From' ? t('clinic.priceFrom', { price: formatMoney(s.price, locale) }) : formatMoney(s.price, locale)}
+                  <span className="service-row__duration">
+                    <Clock className="icon" aria-hidden="true" />
+                    {t('common.minutes', { minutes: s.durationMinutes })}
+                  </span>
+                </div>
+                <Link className="btn btn--subtle btn--small" to={`/book/${clinicId}?branch=${branch.id}&service=${s.serviceId}&step=time`} aria-label={`${t('clinicPage.choose')}: ${s.name}`}>
+                  {t('clinicPage.choose')}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <p className="muted small">{t('clinic.priceNote')}</p>
+    </section>
+  )
+}
+
+function BranchInfo({ branch }: { branch: PublicBranch }) {
+  const { t } = useI18n()
   const now = useNow(60_000)
   const today = weekdayOf(localDate(now, branch.timeZone))
   const hoursFor = (d: Weekday) => branch.hours.filter((h) => h.weekday === d)
@@ -162,85 +288,47 @@ function BranchSection({ clinicId, branch }: { clinicId: string; branch: PublicB
       ? `https://www.openstreetmap.org/?mlat=${branch.latitude}&mlon=${branch.longitude}#map=17/${branch.latitude}/${branch.longitude}`
       : null
   return (
-    <section className="clinic-branch" aria-labelledby={`branch-${branch.id}`}>
-      <div className="clinic-branch__main stack">
-        <div className="section-head">
-          <h2 id={`branch-${branch.id}`}>{t('clinic.services')}</h2>
-          <span className="muted small">{branch.name}</span>
-        </div>
-        {branch.services.length === 0 ? (
-          <EmptyState title={t('clinic.noServices')} />
-        ) : (
-          <ul className="service-list">
-            {branch.services.map((s) => {
-              const cat = isServiceCategory(s.category) ? s.category : 'other'
-              const Icon = categoryIcon[cat]
-              const tone = categoryTone[cat]
+    <aside className="clinic-layout__info card stack" aria-labelledby={`info-${branch.id}`}>
+      <h2 id={`info-${branch.id}`} className="card__title">
+        {branch.name}
+      </h2>
+      <p className="muted small clinic-branch__addr">
+        <MapPin className="icon" aria-hidden="true" />
+        {branch.district}, {branch.address}
+      </p>
+      <div className="row">
+        {mapUrl && (
+          <a className="btn btn--ghost btn--small" href={mapUrl} target="_blank" rel="noopener noreferrer">
+            <Navigation className="icon" aria-hidden="true" />
+            {t('clinic.map')}
+          </a>
+        )}
+        {branch.phone && (
+          <a className="btn btn--ghost btn--small" href={`tel:${branch.phone}`}>
+            <Phone className="icon" aria-hidden="true" />
+            {t('clinic.call')}
+          </a>
+        )}
+      </div>
+      {branch.phone && <p className="small tabular">{branch.phone}</p>}
+      <div>
+        <h3>{t('clinic.hours')}</h3>
+        <table className="table table--compact hours-table">
+          <tbody>
+            {weekdays.map((d) => {
+              const hs = hoursFor(d)
               return (
-                <li key={s.serviceId} className="service-row">
-                  <span className={`icon-tile${tone ? ` icon-tile--${tone}` : ''}`}>
-                    <Icon className="icon" aria-hidden="true" />
-                  </span>
-                  <div className="service-row__info">
-                    <strong>{s.name}</strong>
-                    <span className="muted small">
-                      {categoryLabel(t, s.category)} · {t('common.minutes', { minutes: s.durationMinutes })}
-                    </span>
-                  </div>
-                  <div className="service-row__price">
-                    {s.priceKind === 'From' ? t('clinic.priceFrom', { price: formatMoney(s.price, locale) }) : formatMoney(s.price, locale)}
-                  </div>
-                  <Link className="btn btn--subtle btn--small" to={`/book/${clinicId}?branch=${branch.id}&service=${s.serviceId}&step=time`} aria-label={`${t('clinicPage.choose')}: ${s.name}`}>
-                    {t('clinicPage.choose')}
-                  </Link>
-                </li>
+                <tr key={d} className={d === today ? 'hours-table__today' : undefined} aria-current={d === today ? 'date' : undefined}>
+                  <th scope="row">{t(`weekdayLong.${d}`)}</th>
+                  <td className="tabular">{hs.length ? hs.map((h) => `${h.open}–${h.close}`).join(', ') : t('clinic.closed')}</td>
+                </tr>
               )
             })}
-          </ul>
-        )}
-        <p className="muted small">{t('clinic.priceNote')}</p>
+          </tbody>
+        </table>
+        <p className="muted small">{t('clinic.timeZone', { tz: branch.timeZone })}</p>
       </div>
-
-      <aside className="clinic-branch__side card stack">
-        <h3 className="card__title">{branch.name}</h3>
-        <p className="muted small clinic-branch__addr">
-          <MapPin className="icon" aria-hidden="true" />
-          {branch.district}, {branch.address}
-        </p>
-        <div className="row">
-          {mapUrl && (
-            <a className="btn btn--ghost btn--small" href={mapUrl} target="_blank" rel="noopener noreferrer">
-              <Navigation className="icon" aria-hidden="true" />
-              {t('clinic.map')}
-            </a>
-          )}
-          {branch.phone && (
-            <a className="btn btn--ghost btn--small" href={`tel:${branch.phone}`}>
-              <Phone className="icon" aria-hidden="true" />
-              {t('clinic.call')}
-            </a>
-          )}
-        </div>
-        {branch.phone && <p className="small tabular">{branch.phone}</p>}
-        <div>
-          <h4>{t('clinic.hours')}</h4>
-          <table className="table table--compact hours-table">
-            <tbody>
-              {weekdays.map((d) => {
-                const hs = hoursFor(d)
-                return (
-                  <tr key={d} className={d === today ? 'hours-table__today' : undefined} aria-current={d === today ? 'date' : undefined}>
-                    <th scope="row">{t(`weekdayLong.${d}`)}</th>
-                    <td className="tabular">{hs.length ? hs.map((h) => `${h.open}–${h.close}`).join(', ') : t('clinic.closed')}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <p className="muted small">{t('clinic.timeZone', { tz: branch.timeZone })}</p>
-        </div>
-      </aside>
-    </section>
+    </aside>
   )
 }
 
@@ -251,7 +339,9 @@ function Reviews({ clinicId }: { clinicId: string }) {
   const reviews = useQuery(`reviews:${clinicId}:${page}`, () => api.public.reviews(clinicId, page))
   return (
     <section aria-labelledby="reviews-title" className="stack">
-      <h2 id="reviews-title">{t('clinic.reviews')}</h2>
+      <h2 id="reviews-title" className="visually-hidden">
+        {t('clinic.reviews')}
+      </h2>
       {reviews.error !== undefined ? (
         <ApiErrorState error={reviews.error} onRetry={reviews.reload} />
       ) : !reviews.data ? (

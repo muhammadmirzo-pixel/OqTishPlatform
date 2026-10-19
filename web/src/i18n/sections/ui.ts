@@ -67,6 +67,10 @@ const uz = {
   'scene.live': "Holat avtomatik yangilanadi",
   'myAppts.all': "Hammasi",
   'myAppts.when': "Qabul vaqti",
+  'clinicPage.branches': "Filiallar ({count})",
+  'clinicPage.bookHere': "Shu filialga yozilish",
+  'clinicPage.sections': "Klinika bo‘limlari",
+  'clinicPage.reviewsTab': "Sharhlar ({count})",
 } as const
 
 type Keys = keyof typeof uz
@@ -138,6 +142,10 @@ const ru: Record<Keys, string> = {
   'scene.live': "Статус обновляется автоматически",
   'myAppts.all': "Все",
   'myAppts.when': "Время приёма",
+  'clinicPage.branches': "Филиалы ({count})",
+  'clinicPage.bookHere': "Записаться в этот филиал",
+  'clinicPage.sections': "Разделы клиники",
+  'clinicPage.reviewsTab': "Отзывы ({count})",
 }
 
 const en: Record<Keys, string> = {
@@ -207,6 +215,10 @@ const en: Record<Keys, string> = {
   'scene.live': "Status updates automatically",
   'myAppts.all': "All",
   'myAppts.when': "Appointment time",
+  'clinicPage.branches': "Branches ({count})",
+  'clinicPage.bookHere': "Book at this branch",
+  'clinicPage.sections': "Clinic sections",
+  'clinicPage.reviewsTab': "Reviews ({count})",
 }
 
 export const ui = { uz, ru, en }

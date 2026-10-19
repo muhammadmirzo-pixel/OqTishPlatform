@@ -1468,37 +1468,15 @@
     color: var(--c-danger);
     font-weight: var(--fw-semibold);
   }
-  .clinic-branches {
-    display: flex;
-    gap: var(--s-2);
-    overflow-x: auto;
-    padding: 2px;
-    scrollbar-width: thin;
-  }
-  .clinic-branches .chip {
-    white-space: nowrap;
-  }
   .clinic-page__desc {
     max-width: var(--w-text);
     white-space: pre-line;
   }
-  .clinic-branch {
-    display: grid;
-    gap: var(--s-5);
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-  @media (min-width: 960px) {
-    .clinic-branch {
-      grid-template-columns: 1fr 340px;
+  /* Phones: the branch card right below carries the booking button for the chosen branch. */
+  @media (max-width: 1023px) {
+    .clinic-hero__actions .btn--large {
+      display: none;
     }
-    .clinic-branch__side {
-      position: sticky;
-      top: 88px;
-    }
-  }
-  .clinic-branch__main {
-    min-width: 0;
   }
   .clinic-branch__addr {
     display: flex;
@@ -2232,5 +2210,104 @@
       text-align: right;
       min-width: 220px;
     }
+  }
+}
+
+/* Clinic page (reference part 04): tabs in the main column; branch picker + booking and branch
+   details on the side. On phones the branch picker comes first because prices depend on it. */
+@layer layouts {
+  .clinic-layout {
+    display: grid;
+    gap: var(--s-5);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'branches' 'main' 'info';
+    align-items: start;
+  }
+  .clinic-layout__branches {
+    grid-area: branches;
+  }
+  .clinic-layout__main {
+    grid-area: main;
+    min-width: 0;
+  }
+  .clinic-layout__info {
+    grid-area: info;
+  }
+  @media (min-width: 1024px) {
+    .clinic-layout {
+      grid-template-columns: minmax(0, 1fr) 340px;
+      grid-template-areas: 'main branches' 'main info';
+      grid-template-rows: auto 1fr;
+    }
+  }
+  .branch-picker {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-2);
+  }
+  .branch-picker__item {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-3);
+    padding: var(--s-3);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: var(--c-surface);
+    color: var(--c-ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color var(--d-fast) var(--ease-out),
+      background var(--d-fast) var(--ease-out);
+  }
+  .branch-picker__item .icon {
+    flex: none;
+    margin-top: 2px;
+    color: var(--c-ink-3);
+  }
+  .branch-picker__item strong {
+    display: block;
+    font-size: var(--fs-md);
+  }
+  .branch-picker__item small {
+    display: block;
+    color: var(--c-ink-2);
+    font-size: var(--fs-sm);
+  }
+  .branch-picker__item:hover {
+    border-color: color-mix(in srgb, var(--c-primary) 40%, var(--c-line));
+  }
+  .branch-picker__item[aria-pressed='true'] {
+    border-color: var(--c-primary);
+    background: var(--c-primary-softer);
+    box-shadow: inset 3px 0 0 var(--c-primary);
+  }
+  .branch-picker__item[aria-pressed='true'] .icon {
+    color: var(--c-primary);
+  }
+  .btn--block {
+    width: 100%;
+  }
+  .service-row__price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .service-row__duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--c-ink-2);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-regular);
+  }
+  .service-row__duration .icon {
+    width: 14px;
+    height: 14px;
   }
 }
