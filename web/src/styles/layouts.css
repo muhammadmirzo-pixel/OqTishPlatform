@@ -2166,3 +2166,71 @@
     }
   }
 }
+
+/* Catalogue list rows (reference part 03): media | details | price and actions from 900 px up. */
+@layer layouts {
+  .clinic-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-4);
+  }
+  .clinic-card--row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: 'media body' 'foot foot';
+    gap: var(--s-3) var(--s-4);
+    align-items: start;
+  }
+  .clinic-card--row .clinic-card__media {
+    grid-area: media;
+  }
+  .clinic-card--row .clinic-card__body {
+    grid-area: body;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .clinic-card--row .clinic-card__meta {
+    margin: 0;
+  }
+  .clinic-card--row .clinic-card__foot {
+    grid-area: foot;
+  }
+  @media (min-width: 900px) {
+    .clinic-card--row {
+      grid-template-columns: 132px minmax(0, 1fr) auto;
+      grid-template-areas: 'media body foot';
+      gap: var(--s-5);
+      align-items: stretch;
+      transition:
+        box-shadow var(--d-base) var(--ease-out),
+        border-color var(--d-base) var(--ease-out);
+    }
+    .clinic-card--row:hover {
+      box-shadow: var(--e-2);
+      border-color: color-mix(in srgb, var(--c-primary) 30%, var(--c-line));
+    }
+    /* Photo slot: the API has no clinic photos yet (D1), so the monogram sits on a tinted tile. */
+    .clinic-card--row .clinic-card__media {
+      display: grid;
+      place-items: center;
+      min-height: 112px;
+      border-radius: var(--r-md);
+      background: linear-gradient(135deg, var(--c-primary-soft), var(--c-teal-soft));
+    }
+    .clinic-card--row .clinic-card__foot {
+      margin: 0;
+      padding: 0 0 0 var(--s-5);
+      border-top: 0;
+      border-left: 1px solid var(--c-line);
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+      text-align: right;
+      min-width: 220px;
+    }
+  }
+}

@@ -180,10 +180,10 @@ export function CatalogPage() {
               <p className="muted" aria-live="polite">
                 {t('home.results', { count: results.data.totalCount })}
               </p>
-              <ul className="card-grid">
+              <ul className="clinic-list">
                 {results.data.items.map((c) => (
                   <li key={c.id}>
-                    <ClinicCardView clinic={c} />
+                    <ClinicCardView clinic={c} layout="row" />
                   </li>
                 ))}
               </ul>
