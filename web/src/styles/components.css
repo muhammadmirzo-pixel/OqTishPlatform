@@ -1453,9 +1453,10 @@
       opacity: 0;
     }
   }
+  /* Entrance motion starts from a visible frame, so content is readable even if animation stalls. */
   @keyframes rise-in {
     from {
-      opacity: 0;
+      opacity: 0.55;
       transform: translateY(8px);
     }
   }

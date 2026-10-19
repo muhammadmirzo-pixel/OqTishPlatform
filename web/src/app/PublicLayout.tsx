@@ -34,6 +34,9 @@ export function PublicLayout() {
           <nav id="site-nav" className={open ? 'topnav topnav--open' : 'topnav'} aria-label={t('nav.menu')}>
             <div className="topnav__links">
               <NavLink to="/" end onClick={close}>
+                {t('nav.home')}
+              </NavLink>
+              <NavLink to="/clinics" onClick={close}>
                 {t('nav.clinics')}
               </NavLink>
               {me && (
@@ -99,7 +102,7 @@ export function PublicLayout() {
             <h2>{t('footer.patients')}</h2>
             <ul>
               <li>
-                <Link to="/">{t('footer.findClinic')}</Link>
+                <Link to="/clinics">{t('footer.findClinic')}</Link>
               </li>
               <li>
                 <Link to="/me/appointments">{t('footer.myAppointments')}</Link>

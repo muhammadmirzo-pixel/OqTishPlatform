@@ -17,10 +17,11 @@ import { publicSite } from './sections/publicSite'
 import { shell } from './sections/shell'
 import { telegram } from './sections/telegram'
 import { ui } from './sections/ui'
+import { landing } from './sections/landing'
 import { latinToCyrillic } from './translit'
 import { uzCyrlOverrides } from './uzCyrlOverrides'
 
-export const sections = { common, errors, shell, auth, publicSite, booking, patient, account, clinicOps, clinicSetup, finance, admin, telegram, ui }
+export const sections = { common, errors, shell, auth, publicSite, booking, patient, account, clinicOps, clinicSetup, finance, admin, telegram, ui, landing }
 
 export const uz = {
   ...common.uz,
@@ -37,6 +38,7 @@ export const uz = {
   ...admin.uz,
   ...telegram.uz,
   ...ui.uz,
+  ...landing.uz,
 }
 
 export type MessageKey = keyof typeof uz
@@ -57,6 +59,7 @@ export const ru: Messages = {
   ...admin.ru,
   ...telegram.ru,
   ...ui.ru,
+  ...landing.ru,
 }
 
 export const en: Messages = {
@@ -74,6 +77,7 @@ export const en: Messages = {
   ...admin.en,
   ...telegram.en,
   ...ui.en,
+  ...landing.en,
 }
 
 /**

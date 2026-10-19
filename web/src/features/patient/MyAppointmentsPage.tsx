@@ -25,7 +25,7 @@ export function MyAppointmentsPage() {
       <PageHeader
         title={t('appt.myTitle')}
         actions={
-          <Link className="btn" to="/">
+          <Link className="btn" to="/clinics">
             {t('appt.bookNew')}
           </Link>
         }
@@ -59,7 +59,7 @@ export function MyAppointmentsPage() {
         <LoadingState />
       ) : list.data.items.length === 0 ? (
         <EmptyState title={t('appt.empty')}>
-          <Link className="btn" to="/">
+          <Link className="btn" to="/clinics">
             {t('appt.bookNew')}
           </Link>
         </EmptyState>

@@ -12,7 +12,8 @@ import { Perm, PlatformPerm } from '../features/clinic/permissions'
 import { AppointmentDetailPage } from '../features/patient/AppointmentDetailPage'
 import { MyAppointmentsPage } from '../features/patient/MyAppointmentsPage'
 import { ClinicPage } from '../features/public/ClinicPage'
-import { HomePage } from '../features/public/HomePage'
+import { CatalogPage } from '../features/public/CatalogPage'
+import { LandingPage } from '../features/public/LandingPage'
 import { NotFoundPage } from '../ui/states'
 import { from } from './lazyRoute'
 import { ClinicChooserPage } from '../features/clinic/ClinicChooserPage'
@@ -32,7 +33,8 @@ export const routes: RouteObject[] = [
   {
     element: <PublicLayout />,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, element: <LandingPage /> },
+      { path: 'clinics', element: <CatalogPage /> },
       { path: 'clinics/:clinicId', element: <ClinicPage /> },
       { path: 'book/:clinicId', element: <BookingPage /> },
       { path: 'login', element: <LoginPage /> },

@@ -34,7 +34,7 @@ export function ClinicPage() {
   return (
     <div className="page">
       <nav className="breadcrumbs" aria-label={t('clinic.breadcrumbs')}>
-        <Link to="/">{t('nav.clinics')}</Link> <span aria-hidden="true">›</span> <span>{c.name}</span>
+        <Link to="/clinics">{t('nav.clinics')}</Link> <span aria-hidden="true">›</span> <span>{c.name}</span>
       </nav>
       <header className="page-header">
         <div>
