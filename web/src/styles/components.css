@@ -47,6 +47,11 @@
   .nowrap {
     white-space: nowrap;
   }
+  @media (max-width: 767px) {
+    .hide-mobile {
+      display: none;
+    }
+  }
   .list-plain {
     list-style: none;
     margin: 0;

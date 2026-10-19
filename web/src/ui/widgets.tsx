@@ -78,12 +78,19 @@ export function LanguageSwitcher() {
   )
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, subtitle, actions, icon: Icon }: { title: string; subtitle?: ReactNode; actions?: ReactNode; icon?: LucideIcon }) {
   return (
     <header className="page-header">
-      <div>
-        <h1>{title}</h1>
-        {subtitle && <p className="muted">{subtitle}</p>}
+      <div className="page-header__title">
+        {Icon && (
+          <span className="icon-tile page-header__icon">
+            <Icon className="icon" aria-hidden="true" />
+          </span>
+        )}
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p className="muted">{subtitle}</p>}
+        </div>
       </div>
       {actions && <div className="page-header__actions">{actions}</div>}
     </header>

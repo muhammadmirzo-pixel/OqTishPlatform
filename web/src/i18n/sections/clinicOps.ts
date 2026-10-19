@@ -104,6 +104,10 @@ const uz = {
   'dash.chartTable': "Jadval ko‘rinishida",
   'dash.chartEmpty': "Oxirgi 14 kunda bajarilgan xizmat ham, to‘lov ham yo‘q.",
   'tip.about': "{term}: batafsil",
+  'req.urgent': "Shoshilinch",
+  'req.count': "Javob kutmoqda: {count}",
+  'req.keys': "Klaviatura: ro‘yxat ichida J / K — keyingi / oldingi so‘rov, Enter — so‘rovni ochish.",
+  'req.contact': "Bemor bilan bog‘lanish",
 } as const
 
 type Keys = keyof typeof uz
@@ -212,6 +216,10 @@ const ru: Record<Keys, string> = {
   'dash.chartTable': "Показать таблицей",
   'dash.chartEmpty': "За последние 14 дней нет ни оказанных услуг, ни платежей.",
   'tip.about': "{term}: подробнее",
+  'req.urgent': "Срочно",
+  'req.count': "Ждут ответа: {count}",
+  'req.keys': "Клавиатура: в списке J / K — следующая / предыдущая заявка, Enter — открыть заявку.",
+  'req.contact': "Связаться с пациентом",
 }
 
 const en: Record<Keys, string> = {
@@ -318,6 +326,10 @@ const en: Record<Keys, string> = {
   'dash.chartTable': "Show as a table",
   'dash.chartEmpty': "No completed services or payments in the last 14 days.",
   'tip.about': "About: {term}",
+  'req.urgent': "Urgent",
+  'req.count': "Waiting for a reply: {count}",
+  'req.keys': "Keyboard: inside the list, J / K — next / previous request, Enter — open the request.",
+  'req.contact': "Contact the patient",
 }
 
 export const clinicOps = { uz, ru, en }
