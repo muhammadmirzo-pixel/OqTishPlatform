@@ -44,7 +44,7 @@ export function DashboardPage() {
         title={name ? t('dash.welcome', { name }) : t('dash.welcomeAnon')}
         subtitle={`${t('console.today', { date: formatDate(today, locale) })} · ${branch ? branchName(branch) : t('common.allBranches')}`}
       />
-      <DashboardStats query={dash} />
+      <DashboardStats query={dash} cards={can(Perm.reportView) ? 5 : 4} />
       <div className={can(Perm.appointmentView) ? 'dash-grid dash-grid--split' : 'dash-grid'}>
         {can(Perm.appointmentView) && <TodayAppointments today={today} tz={tz} />}
         <section className="card stack" aria-labelledby="quick-title">
@@ -67,7 +67,8 @@ function Term({ label, children }: { label: string; children: ReactNode }) {
   return <InfoTip label={t('tip.about', { term: label })}>{children}</InfoTip>
 }
 
-function DashboardStats({ query }: { query: { data: DashboardDto | undefined; error: unknown; reload: () => void } }) {
+/** `cards` = how many metrics will appear, so the skeleton reserves the same space (no layout shift). */
+function DashboardStats({ query, cards }: { query: { data: DashboardDto | undefined; error: unknown; reload: () => void }; cards: number }) {
   const { t, locale } = useI18n()
   const d = query.data
   if (!d && query.error !== undefined) return <ApiErrorState error={query.error} onRetry={query.reload} />
@@ -75,7 +76,7 @@ function DashboardStats({ query }: { query: { data: DashboardDto | undefined; er
     return (
       <div className="stats" role="status" aria-live="polite">
         <span className="visually-hidden">{t('common.loading')}</span>
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: cards }, (_, i) => (
           <div key={i} className="stat" aria-hidden="true">
             <Skeleton variant="circle" width={44} height={44} />
             <Skeleton width="70%" />
@@ -203,8 +204,8 @@ function TodayAppointments({ today, tz }: { today: string; tz: string }) {
     body = (
       <div className="stack" role="status" aria-live="polite">
         <span className="visually-hidden">{t('common.loading')}</span>
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} variant="title" />
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} variant="block" height={52} />
         ))}
       </div>
     )
@@ -249,7 +250,7 @@ function FinanceTrend({ today }: { today: string }) {
       ) : (
         <div role="status" aria-live="polite">
           <span className="visually-hidden">{t('common.loading')}</span>
-          <Skeleton variant="block" height={240} />
+          <Skeleton variant="block" height={320} />
         </div>
       )}
     </section>
