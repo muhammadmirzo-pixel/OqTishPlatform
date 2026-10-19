@@ -50,14 +50,14 @@ export async function ensureWebApp(): Promise<TelegramWebApp | null> {
 }
 
 const themeMap: [keyof TelegramWebApp['themeParams'], string][] = [
-  ['bg_color', '--bg'],
-  ['secondary_bg_color', '--surface'],
-  ['text_color', '--text'],
-  ['hint_color', '--muted'],
-  ['link_color', '--link'],
-  ['button_color', '--accent'],
-  ['button_text_color', '--accent-text'],
-  ['destructive_text_color', '--danger'],
+  ['bg_color', '--c-bg'],
+  ['secondary_bg_color', '--c-surface'],
+  ['text_color', '--c-ink'],
+  ['hint_color', '--c-ink-2'],
+  ['link_color', '--c-primary'],
+  ['button_color', '--c-primary'],
+  ['button_text_color', '--c-primary-ink'],
+  ['destructive_text_color', '--c-danger'],
 ]
 
 /** Copies Telegram theme colours into our CSS variables; returns a cleanup function. */

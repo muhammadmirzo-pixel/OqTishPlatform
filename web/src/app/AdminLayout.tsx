@@ -12,6 +12,7 @@ export function AdminLayout() {
     <ConsoleShell
       title={t('console.adminTitle')}
       base="/admin"
+      variant="admin"
       items={items}
       banner={
         me && (me.totpSetupRequired || !me.totpEnabled) ? (

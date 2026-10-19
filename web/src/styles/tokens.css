@@ -1,0 +1,250 @@
+/* OqTish design tokens — "Moviy klinika" direction (docs/FRONTEND_PHASE_A.md §0).
+   Theme: light by default, dark via prefers-color-scheme unless the user picked one
+   (html[data-theme]). The Telegram Mini App overrides the colour tokens at runtime. */
+
+@layer tokens {
+  :root {
+    /* brand */
+    --c-primary: #2563eb;
+    --c-primary-hover: #1d4fd8;
+    --c-primary-ink: #ffffff;
+    --c-primary-soft: #eaf1fe;
+    --c-primary-softer: #f3f7ff;
+    --c-teal: #10b981;
+    --c-teal-ink: #047857;
+    --c-teal-soft: #e6f8f1;
+    --c-violet: #8b5cf6;
+    --c-violet-soft: #f1ebfe;
+    --c-navy: #0f1e3d;
+    --c-navy-2: #18295a;
+    --c-navy-ink: #e8eefc;
+    --c-navy-muted: #9fb0d6;
+
+    /* neutrals (blue-biased) */
+    --c-bg: #f5f8fd;
+    --c-surface: #ffffff;
+    --c-surface-2: #f1f5fb;
+    --c-surface-3: #e7edf7;
+    --c-ink: #111a2e;
+    --c-ink-2: #5b6578;
+    --c-ink-3: #8a93a6;
+    --c-line: #e2e8f2;
+    --c-line-strong: #cdd6e4;
+    --c-disabled: #b4bccb;
+
+    /* semantic */
+    --c-success: #047857;
+    --c-success-soft: #e6f8f1;
+    --c-warning: #a15c00;
+    --c-warning-soft: #fff4e0;
+    --c-danger: #c42b2b;
+    --c-danger-soft: #fdecec;
+    --c-danger-ink: #ffffff;
+    --c-info: #2563eb;
+    --c-info-soft: #eaf1fe;
+    --c-neutral: #5b6578;
+    --c-neutral-soft: #eef2f7;
+    --c-focus: #2563eb;
+    --c-star: #f5a524;
+
+    /* data visualisation */
+    --c-data-1: #2563eb;
+    --c-data-2: #10b981;
+    --c-data-3: #8b5cf6;
+    --c-data-4: #f59e0b;
+    --c-data-5: #0ea5e9;
+    --c-data-6: #6b7280;
+
+    /* type */
+    --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+    --fs-xs: 0.75rem;
+    --fs-sm: 0.8125rem;
+    --fs-md: 0.875rem;
+    --fs-base: 1rem;
+    --fs-lg: 1.125rem;
+    --fs-xl: 1.25rem;
+    --fs-2xl: 1.5rem;
+    --fs-3xl: 2rem;
+    --fs-4xl: 2.5rem;
+    --fs-5xl: 3.25rem;
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+    --fw-extrabold: 800;
+    --lh-tight: 1.15;
+    --lh-heading: 1.25;
+    --lh-body: 1.55;
+
+    /* spacing (4px base) */
+    --s-1: 4px;
+    --s-2: 8px;
+    --s-3: 12px;
+    --s-4: 16px;
+    --s-5: 20px;
+    --s-6: 24px;
+    --s-7: 32px;
+    --s-8: 40px;
+    --s-9: 48px;
+    --s-10: 64px;
+    --s-11: 80px;
+
+    /* shape */
+    --r-xs: 6px;
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-xl: 28px;
+    --r-pill: 999px;
+
+    /* elevation */
+    --e-1: 0 1px 2px rgb(17 26 46 / 4%), 0 1px 3px rgb(37 99 235 / 5%);
+    --e-2: 0 4px 16px rgb(37 99 235 / 8%), 0 1px 3px rgb(17 26 46 / 5%);
+    --e-3: 0 18px 48px rgb(17 26 46 / 16%), 0 2px 6px rgb(17 26 46 / 6%);
+    --e-primary: 0 6px 18px rgb(37 99 235 / 28%);
+
+    /* layout */
+    --w-text: 68ch;
+    --w-page: 1240px;
+    --w-sidebar: 248px;
+    --h-control: 44px;
+    --h-control-sm: 36px;
+    --gutter: 16px;
+
+    /* layers */
+    --z-sticky: 10;
+    --z-drawer: 40;
+    --z-dialog: 50;
+    --z-toast: 60;
+
+    /* motion */
+    --d-instant: 80ms;
+    --d-fast: 140ms;
+    --d-base: 220ms;
+    --d-slow: 360ms;
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+
+    /* legacy aliases kept so older feature CSS keeps working during the migration */
+    --bg: var(--c-bg);
+    --surface: var(--c-surface);
+    --surface-2: var(--c-surface-2);
+    --text: var(--c-ink);
+    --muted: var(--c-ink-2);
+    --border: var(--c-line);
+    --accent: var(--c-primary);
+    --accent-text: var(--c-primary-ink);
+    --accent-soft: var(--c-primary-soft);
+    --link: var(--c-primary);
+    --danger: var(--c-danger);
+    --danger-soft: var(--c-danger-soft);
+    --warning: var(--c-warning);
+    --warning-soft: var(--c-warning-soft);
+    --success: var(--c-success);
+    --success-soft: var(--c-success-soft);
+    --info: var(--c-info);
+    --info-soft: var(--c-info-soft);
+    --focus: var(--c-focus);
+    --radius: var(--r-sm);
+    --shadow: var(--e-1);
+    --font: var(--font-sans);
+
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --c-primary: #5b8cff;
+      --c-primary-hover: #7aa2ff;
+      --c-primary-ink: #071331;
+      --c-primary-soft: #182a52;
+      --c-primary-softer: #121f3d;
+      --c-teal: #34d399;
+      --c-teal-ink: #6ee7b7;
+      --c-teal-soft: #12352b;
+      --c-violet: #a78bfa;
+      --c-violet-soft: #2a2148;
+      --c-navy: #0a1124;
+      --c-navy-2: #15214a;
+      --c-bg: #0b1222;
+      --c-surface: #121b2f;
+      --c-surface-2: #17223a;
+      --c-surface-3: #1e2b47;
+      --c-ink: #e6ecf7;
+      --c-ink-2: #a3aec4;
+      --c-ink-3: #7c88a1;
+      --c-line: #24314f;
+      --c-line-strong: #33436a;
+      --c-disabled: #4a5675;
+      --c-success: #4ade9b;
+      --c-success-soft: #12352b;
+      --c-warning: #fbbf5a;
+      --c-warning-soft: #3a2a10;
+      --c-danger: #ff8a8a;
+      --c-danger-soft: #3d1a1d;
+      --c-danger-ink: #2a0708;
+      --c-info: #7aa2ff;
+      --c-info-soft: #182a52;
+      --c-neutral: #a3aec4;
+      --c-neutral-soft: #1e2b47;
+      --c-focus: #8fb0ff;
+      --e-1: 0 0 0 1px rgb(255 255 255 / 3%);
+      --e-2: 0 8px 24px rgb(0 0 0 / 35%);
+      --e-3: 0 20px 56px rgb(0 0 0 / 55%);
+      --e-primary: 0 6px 18px rgb(91 140 255 / 25%);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --c-primary: #5b8cff;
+    --c-primary-hover: #7aa2ff;
+    --c-primary-ink: #071331;
+    --c-primary-soft: #182a52;
+    --c-primary-softer: #121f3d;
+    --c-teal: #34d399;
+    --c-teal-ink: #6ee7b7;
+    --c-teal-soft: #12352b;
+    --c-violet: #a78bfa;
+    --c-violet-soft: #2a2148;
+    --c-navy: #0a1124;
+    --c-navy-2: #15214a;
+    --c-bg: #0b1222;
+    --c-surface: #121b2f;
+    --c-surface-2: #17223a;
+    --c-surface-3: #1e2b47;
+    --c-ink: #e6ecf7;
+    --c-ink-2: #a3aec4;
+    --c-ink-3: #7c88a1;
+    --c-line: #24314f;
+    --c-line-strong: #33436a;
+    --c-disabled: #4a5675;
+    --c-success: #4ade9b;
+    --c-success-soft: #12352b;
+    --c-warning: #fbbf5a;
+    --c-warning-soft: #3a2a10;
+    --c-danger: #ff8a8a;
+    --c-danger-soft: #3d1a1d;
+    --c-danger-ink: #2a0708;
+    --c-info: #7aa2ff;
+    --c-info-soft: #182a52;
+    --c-neutral: #a3aec4;
+    --c-neutral-soft: #1e2b47;
+    --c-focus: #8fb0ff;
+    --e-1: 0 0 0 1px rgb(255 255 255 / 3%);
+    --e-2: 0 8px 24px rgb(0 0 0 / 35%);
+    --e-3: 0 20px 56px rgb(0 0 0 / 55%);
+    --e-primary: 0 6px 18px rgb(91 140 255 / 25%);
+    color-scheme: dark;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --d-instant: 0ms;
+      --d-fast: 0ms;
+      --d-base: 0ms;
+      --d-slow: 0ms;
+    }
+  }
+}

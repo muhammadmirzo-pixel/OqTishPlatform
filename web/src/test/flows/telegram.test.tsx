@@ -43,8 +43,8 @@ describe('Telegram Mini App', () => {
     expect(post.headers['X-OqTish-Client']).toBe('tg-miniapp')
     expect(app.ready).toHaveBeenCalled()
     expect(app.expand).toHaveBeenCalled()
-    expect(document.documentElement.style.getPropertyValue('--bg')).toBe('#101418')
-    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#2ea6ff')
+    expect(document.documentElement.style.getPropertyValue('--c-bg')).toBe('#101418')
+    expect(document.documentElement.style.getPropertyValue('--c-primary')).toBe('#2ea6ff')
     expect(app.BackButton.hide).toHaveBeenCalled()
     // The SDK was already present, so no script tag was injected.
     expect(document.querySelector('script[src*="telegram-web-app"]')).toBeNull()

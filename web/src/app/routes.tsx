@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { createElement, lazy, Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
 import { LoginPage } from '../auth/LoginPage'
 import { RequireAuth, RequirePermission, RequirePlatform, RequirePlatformPermission } from '../auth/guards'
@@ -22,6 +22,7 @@ import { PublicLayout } from './PublicLayout'
 const clinic = from(() => import('./chunks/clinic'))
 const admin = from(() => import('./chunks/admin'))
 const tg = from(() => import('./chunks/telegram'))
+const devGallery = lazy(() => import('../dev/UiGallery').then((m) => ({ default: m.UiGallery })))
 
 const perm = (anyOf: string[], element: ReactNode) => <RequirePermission anyOf={anyOf}>{element}</RequirePermission>
 const platform = (anyOf: string[], element: ReactNode) => <RequirePlatformPermission anyOf={anyOf}>{element}</RequirePlatformPermission>
@@ -36,6 +37,8 @@ export const routes: RouteObject[] = [
       { path: 'book/:clinicId', element: <BookingPage /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'login/telegram', element: <TelegramCallbackPage /> },
+      // Development-only component gallery; the branch is removed from production builds.
+      ...(import.meta.env.DEV ? [{ path: '__ui', element: <Suspense>{createElement(devGallery)}</Suspense> }] : []),
       {
         element: <RequireAuth />,
         children: [

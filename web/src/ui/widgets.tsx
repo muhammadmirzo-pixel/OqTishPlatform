@@ -1,3 +1,4 @@
+import { CalendarCheck, CalendarX, CheckCircle2, Hourglass, Star, TimerOff, UserX, XCircle, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import type { AppointmentStatus } from '../api/types'
 import { useI18n } from '../i18n/context'
@@ -16,9 +17,31 @@ const statusTone: Record<AppointmentStatus, string> = {
   NoShow: 'danger',
 }
 
+const statusIcon: Record<AppointmentStatus, LucideIcon> = {
+  Pending: Hourglass,
+  Confirmed: CalendarCheck,
+  Completed: CheckCircle2,
+  Rejected: XCircle,
+  CancelledByPatient: CalendarX,
+  CancelledByClinic: CalendarX,
+  Expired: TimerOff,
+  NoShow: UserX,
+}
+
+export function StatusIcon({ status, className = 'icon' }: { status: AppointmentStatus; className?: string }) {
+  const Icon = statusIcon[status]
+  return <Icon className={className} aria-hidden="true" />
+}
+
+/** Status pill: colour + icon + text, so status never depends on colour alone. */
 export function StatusBadge({ status }: { status: AppointmentStatus }) {
   const { t } = useI18n()
-  return <span className={`badge badge--${statusTone[status]}`}>{t(`status.${status}`)}</span>
+  return (
+    <span className={`badge badge--${statusTone[status]}`}>
+      <StatusIcon status={status} />
+      {t(`status.${status}`)}
+    </span>
+  )
 }
 
 export function Badge({ tone = 'neutral', children }: { tone?: string; children: ReactNode }) {
@@ -67,11 +90,37 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   )
 }
 
-export function StatCard({ label, value, tone }: { label: string; value: ReactNode; tone?: string }) {
+/** Metric card. `icon` sits in a tinted tile; `hint` explains what the number counts. */
+export function StatCard({
+  label,
+  value,
+  tone,
+  icon: Icon,
+  iconTone,
+  hint,
+  info,
+}: {
+  label: string
+  value: ReactNode
+  tone?: string
+  icon?: LucideIcon
+  iconTone?: 'teal' | 'violet' | 'warning' | 'danger' | 'neutral'
+  hint?: ReactNode
+  info?: ReactNode
+}) {
   return (
     <div className={`stat${tone ? ` stat--${tone}` : ''}`}>
-      <span className="stat__label">{label}</span>
+      {Icon && (
+        <span className={`icon-tile${iconTone ? ` icon-tile--${iconTone}` : ''}`}>
+          <Icon className="icon" aria-hidden="true" />
+        </span>
+      )}
+      <span className="stat__label">
+        {label}
+        {info}
+      </span>
       <span className="stat__value">{value}</span>
+      {hint && <span className="stat__hint">{hint}</span>}
     </div>
   )
 }
@@ -81,8 +130,9 @@ export function Stars({ rating, label }: { rating: number | null; label?: string
   const full = Math.round(rating)
   return (
     <span className="stars" aria-label={label ?? String(rating)} role="img">
-      {'★★★★★'.slice(0, full)}
-      <span className="stars__empty">{'★★★★★'.slice(full)}</span>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Star key={i} className={i < full ? 'icon' : 'icon stars__empty'} aria-hidden="true" />
+      ))}
     </span>
   )
 }

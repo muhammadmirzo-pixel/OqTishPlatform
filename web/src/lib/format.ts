@@ -1,8 +1,8 @@
 import type { Locale } from '../i18n/messages'
 import type { Money } from '../api/types'
 
-const intlLocale: Record<Locale, string> = { uz: 'uz-Latn-UZ', ru: 'ru-RU', en: 'en-GB' }
-const currencyLabel: Record<Locale, string> = { uz: "so'm", ru: 'сум', en: 'UZS' }
+const intlLocale: Record<Locale, string> = { uz: 'uz-Latn-UZ', 'uz-Cyrl': 'uz-Cyrl-UZ', ru: 'ru-RU', en: 'en-GB' }
+const currencyLabel: Record<Locale, string> = { uz: "so'm", 'uz-Cyrl': 'сўм', ru: 'сум', en: 'UZS' }
 
 /**
  * Display-only money formatting. The decimal string from the API is split, not converted to a

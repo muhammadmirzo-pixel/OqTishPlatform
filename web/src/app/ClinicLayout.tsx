@@ -96,6 +96,7 @@ export function ClinicLayout() {
       title={membership.clinicName}
       subtitle={<p className="muted small console__role">{t(`role.${membership.role}`)}</p>}
       base={base}
+      contextSeed={membership.clinicId}
       items={items}
       linkSuffix={branch ? `?branch=${encodeURIComponent(branch)}` : ''}
       topbar={topbar}

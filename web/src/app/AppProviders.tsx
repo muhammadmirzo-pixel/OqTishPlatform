@@ -4,12 +4,15 @@ import type { Api } from '../api'
 import { SessionProvider } from '../auth/SessionProvider'
 import { I18nProvider } from '../i18n/I18n'
 import type { Locale } from '../i18n/messages'
+import { ToastProvider } from '../ui/Toast'
 
 export function AppProviders({ api, locale, children }: { api: Api; locale?: Locale; children: ReactNode }) {
   return (
     <I18nProvider initial={locale}>
       <ApiContext.Provider value={api}>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </SessionProvider>
       </ApiContext.Provider>
     </I18nProvider>
   )

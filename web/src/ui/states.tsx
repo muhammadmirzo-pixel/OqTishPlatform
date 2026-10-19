@@ -1,13 +1,23 @@
+import { CloudOff, Compass, Inbox, ShieldAlert, ShieldCheck, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errors'
 import { useI18n } from '../i18n/context'
 
-export function EmptyState({ title, children }: { title?: string; children?: ReactNode }) {
+function StateIcon({ icon: Icon, tone }: { icon: LucideIcon; tone?: string }) {
+  return (
+    <span className={`icon-tile icon-tile--lg${tone ? ` icon-tile--${tone}` : ''}`}>
+      <Icon className="icon" aria-hidden="true" />
+    </span>
+  )
+}
+
+export function EmptyState({ title, children, icon = Inbox }: { title?: string; children?: ReactNode; icon?: LucideIcon }) {
   const { t } = useI18n()
   return (
     <div className="state state--empty">
+      <StateIcon icon={icon} tone="neutral" />
       <p className="state__title">{title ?? t('state.emptyTitle')}</p>
       {children}
     </div>
@@ -27,6 +37,7 @@ export function ForbiddenState({ children }: { children?: ReactNode }) {
   const { t } = useI18n()
   return (
     <div className="state state--forbidden" role="alert">
+      <StateIcon icon={ShieldAlert} tone="danger" />
       <p className="state__title">{t('state.forbiddenTitle')}</p>
       <p>{t('state.forbiddenBody')}</p>
       {children}
@@ -38,6 +49,7 @@ export function TotpRequiredState() {
   const { t } = useI18n()
   return (
     <div className="state state--forbidden" role="alert">
+      <StateIcon icon={ShieldCheck} tone="warning" />
       <p className="state__title">{t('state.totpTitle')}</p>
       <p>{t('state.totpBody')}</p>
       <Link className="btn" to="/me/security">
@@ -51,6 +63,7 @@ export function NotFoundState() {
   const { t } = useI18n()
   return (
     <div className="state">
+      <StateIcon icon={Compass} />
       <p className="state__title">{t('state.notFoundTitle')}</p>
       <p>{t('state.notFoundBody')}</p>
       <Link className="btn" to="/">
@@ -79,6 +92,7 @@ export function ApiErrorState({ error, onRetry }: { error: unknown; onRetry?: ()
   const traceId = error instanceof ApiError ? error.traceId : undefined
   return (
     <div className="state state--error" role="alert">
+      <StateIcon icon={CloudOff} tone="danger" />
       <p className="state__title">{t('state.errorTitle')}</p>
       <p>{errorMessage(t, error)}</p>
       {traceId && <p className="muted small">{t('state.errorTrace', { traceId })}</p>}

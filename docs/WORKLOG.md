@@ -79,3 +79,4 @@ Resume automatically after any interruption without waiting for a new command.
 ## UI/UX qayta dizayn (2026-10-19)
 
 - Phase A (Discovery) tayyor: `docs/FRONTEND_PHASE_A.md`. Egasining tasdig‘i kutilmoqda (yo‘nalish, xarita, foto, `/` landing). Tasdiqdan keyin Phase B (dizayn tizimi) boshlanadi.
+- 2026-10-19: Egasi referens dizaynni berdi → §0 "Moviy klinika" tasdiqlandi. Uzbek kirill (uz-Cyrl, avtomatik transliteratsiya) qo'shildi. Phase B (dizayn tizimi) tugadi: tokens/base/components/layouts CSS, Inter, Lucide, Toast/Drawer/Skeleton/Tooltip/CountdownRing/Monogram/Button, yangi sayt va konsol qobig'i, /__ui galereya (dev). Keyingi: Phase C (landing, katalog /clinics, klinika sahifasi, 3 qadamli booking, holat sahnasi; uz sana formatidagi "M10" xatosi).

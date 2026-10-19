@@ -1,7 +1,47 @@
 # OqTish frontend — Phase A (Discovery)
 
-Sana: 2026-10-19. Holat: **tasdiqlash kutilmoqda**. Bu hujjat Phase B–F uchun asos. Tasdiqlanmaguncha
-katta hajmdagi production UI kodi yozilmaydi.
+Sana: 2026-10-19. Holat: **yo‘nalish tasdiqlandi (§0)**, Phase B tugadi, Phase C davom etmoqda. Til: uz (lotin), uz-Cyrl (kirill, avtomatik), ru, en.
+
+## 0. Tasdiqlangan yo‘nalish — "Moviy klinika" (egasi bergan referens, 2026-10-19)
+
+Egasi referens maket berdi (landing, mobil katalog, klinika sahifasi, 3 qadamli booking, muvaffaqiyat
+ekrani, klinika dashboard’i, xabarlar, profil, dizayn tizimi). **U §2 dagi A/B/C variantlari o‘rnini
+bosadi**; §5 dagi ranglar va shriftlar quyidagilar bilan almashtiriladi (bo‘shliq, motion, komponent
+arxitekturasi va boshqa bo‘limlar o‘z kuchida).
+
+| Element | Qiymat |
+|---|---|
+| Asosiy rang | `#2563EB` (ko‘k) — tugmalar, havolalar, faol holat |
+| Ikkinchi rang | `#10B981` (yashil-teal) — muvaffaqiyat, ikonka fonlari, grafik 2-seriya |
+| Uchinchi rang | `#8B5CF6` (binafsha) — faqat dataviz va ikonka aksentlari |
+| Neytral | `#6B7280` (kulrang matn), fon `#F5F8FD` (juda och ko‘k), kartochka `#FFFFFF` |
+| Klinika sidebar’i | to‘q ko‘k-dengiz `#0F1E3D`, oq matn |
+| Shrift | **Inter** (o‘z serverimizda, `@fontsource-variable/inter`; o‘zbek ‘ va kirill bor) |
+| Shakl | Radius 12–16px kartochkalar, 10px tugma/input, yumshoq ko‘k soyalar, ikonka "plitka"lari (och fon + rangli ikonka) |
+| Ikonlar | Lucide (chiziqli, 1.75 qalinlik) |
+| Logo | Tish konturli belgi + "OqTish" so‘zi, shior "Sog‘lom tabassum — baxtli hayot" |
+| Mobil | Pastki tab bar (Bosh sahifa, Navbatlar, Men), filtr chiplari, kartochka ro‘yxatlari |
+| Qorong‘i rejim | Qo‘lda almashtirish (yorug‘ / qorong‘i / tizim) |
+
+### 0.1 Referensdagi va backend/SRS o‘rtasidagi to‘qnashuvlar (halollik qoidasi bo‘yicha hal qilindi)
+
+| Referensda | Muammo | Qaror |
+|---|---|---|
+| "Navbat muvaffaqiyatli band qilindi! Navbatingiz tasdiqlandi" | So‘rov **Pending** bo‘lib yaratiladi, klinika 30 daqiqada tasdiqlaydi (FR-B3/B4) | Xuddi shu vizual sahna, matn: "So‘rov yuborildi — klinika tasdiqlashini kuting", halqa hisoblagichi; yashil "tasdiqlandi" sahnasi faqat server `Confirmed` qaytarganda |
+| To‘lov usullari (Uzcard, Payme, Click), "Onlayn to‘lov", "Xavfsiz to‘lov" | Platforma onlayn to‘lov qabul qilmaydi (SRS §1 tashqarida) | Ko‘rsatilmaydi. O‘rniga "To‘lov klinikada: naqd, karta yoki o‘tkazma" |
+| Dashboard: "O‘rtacha kutish vaqti", "+12% o‘tgan kunga nisbatan" | Bunday ma’lumot va taqqoslash API’da yo‘q (D9, D10) | Ko‘rsatilmaydi. Kartochkalar: Kutilayotgan, Tasdiqlangan, Bajarilgan, Kelmadi, Yig‘ilgan to‘lovlar (huquq bo‘lsa) |
+| "Jami daromad" grafigi | Atama noaniq (prompt talabi) | "Yig‘ilgan to‘lovlar" va "Bajarilgan xizmatlar" — `reports/daily` dan, faqat `finance.report.view` bilan |
+| "Tajribali shifokorlar — reyting va sharhlar" | Sharh va reyting faqat klinika darajasida; bemor shifokor tanlamaydi | "Tekshirilgan klinikalar — haqiqiy sharhlar" |
+| "Doimiy qo‘llab-quvvatlash 24/7" | Tasdiqlanmagan va’da | Ko‘rsatilmaydi |
+| Klinika fotosuratlari kartochkalarda | API’da rasm yo‘q (D1) | Rasm joyi saqlanadi, hozircha monogramma/illyustratsiya; D1 qo‘shilganda real foto |
+| Hero’dagi bemor fotosi | Litsenziyali foto yo‘q (D2) | Joy tayyor, hozircha o‘zimizning SVG illyustratsiya; egasi foto bersa almashtiriladi |
+| Mobil bosh sahifadagi xarita | Xarita provayderi yo‘q (D3) | Hozircha "Xaritada ochish" havolasi; provayder tanlangach xarita |
+| "Xabarlar" ekrani (bildirishnomalar markazi) | Bemor bildirishnomalari API’da yo‘q (D7) | Phase C’da yashirin; D7 qo‘shilganda yoqiladi |
+| Profil menyusida "To‘lovlar" | Bemor uchun to‘lovlar endpoint’i yo‘q | Ko‘rsatilmaydi |
+| Booking 3 qadam (Xizmat → Sana va vaqt → Tasdiqlash) | Bizda filial va aloqa qadamlari ham bor | 3 vizual qadam: **Xizmat** (filial bitta bo‘lsa avtomatik, aks holda shu qadamda), **Sana va vaqt**, **Tasdiqlash** (aloqa + tekshirish). API oqimi o‘zgarmaydi |
+
+Qolgan qarorlar (egasi javob bermagan, standart bo‘yicha): `/` = landing, katalog `/clinics` da;
+xarita — tashqi havola; foto — joy tayyor, illyustratsiya bilan.
 
 Manbalar: `docs/SRS.md`, `ARCHITECTURE.md`, `SECURITY.md`, `DATABASE.md`, `DECISIONS.md`, `API.md`,
 `FRONTEND.md`, `TESTING.md`, `web/` kodi (React 19, TS strict, Vite 8, react-router 8).

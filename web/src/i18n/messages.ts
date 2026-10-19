@@ -16,8 +16,11 @@ import { patient } from './sections/patient'
 import { publicSite } from './sections/publicSite'
 import { shell } from './sections/shell'
 import { telegram } from './sections/telegram'
+import { ui } from './sections/ui'
+import { latinToCyrillic } from './translit'
+import { uzCyrlOverrides } from './uzCyrlOverrides'
 
-export const sections = { common, errors, shell, auth, publicSite, booking, patient, account, clinicOps, clinicSetup, finance, admin, telegram }
+export const sections = { common, errors, shell, auth, publicSite, booking, patient, account, clinicOps, clinicSetup, finance, admin, telegram, ui }
 
 export const uz = {
   ...common.uz,
@@ -33,6 +36,7 @@ export const uz = {
   ...finance.uz,
   ...admin.uz,
   ...telegram.uz,
+  ...ui.uz,
 }
 
 export type MessageKey = keyof typeof uz
@@ -52,6 +56,7 @@ export const ru: Messages = {
   ...finance.ru,
   ...admin.ru,
   ...telegram.ru,
+  ...ui.ru,
 }
 
 export const en: Messages = {
@@ -68,15 +73,24 @@ export const en: Messages = {
   ...finance.en,
   ...admin.en,
   ...telegram.en,
+  ...ui.en,
 }
 
-export const locales = ['uz', 'ru', 'en'] as const
+/**
+ * Uzbek Cyrillic is derived from the Latin catalogue (i18n/translit.ts); `uzCyrlOverrides` fixes the
+ * few words a rule-based conversion gets wrong (mostly Russian loanwords).
+ */
+export const uzCyrl: Messages = Object.fromEntries(
+  (Object.keys(uz) as MessageKey[]).map((key) => [key, uzCyrlOverrides[key] ?? latinToCyrillic(uz[key])]),
+) as Messages
+
+export const locales = ['uz', 'uz-Cyrl', 'ru', 'en'] as const
 export type Locale = (typeof locales)[number]
 
 export function isLocale(value: string): value is Locale {
   return (locales as readonly string[]).includes(value)
 }
 
-export const catalog: Record<Locale, Messages> = { uz, ru, en }
+export const catalog: Record<Locale, Messages> = { uz, 'uz-Cyrl': uzCyrl, ru, en }
 
-export const localeNames: Record<Locale, string> = { uz: "O'zbekcha", ru: 'Русский', en: 'English' }
+export const localeNames: Record<Locale, string> = { uz: 'O‘zbekcha', 'uz-Cyrl': 'Ўзбекча', ru: 'Русский', en: 'English' }
