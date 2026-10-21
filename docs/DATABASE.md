@@ -1,6 +1,6 @@
 # Database Design
 
-Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2), `Booking` (§2.3), `Finance` (§2.4).
+Status: Phase 1 proposal, partly implemented. Migrations: `InitialExtensions`, `CoreIdentityTenancy` (§2.1), `CatalogScheduling` (§2.2), `Booking` (§2.3), `Finance` (§2.4), `Notifications` (§2.5), `ReviewHardening`, `StoredImages` (§2.6).
 
 PostgreSQL 18 with the `btree_gist` and `citext` extensions. All timestamps are `timestamptz` (UTC).
 Money is `numeric(19,2)` with a `currency char(3)` (v1: UZS). Keys are UUID v7. Schemas: `identity`,
@@ -227,6 +227,23 @@ Notes:
 - `Down` turns `Skipped` rows into `Cancelled` before restoring the old status CHECK.
 - Retention (nightly) deletes from `identity.otp_challenges`, `identity.sessions`, `notify.outbox_messages` (+ attempts by
   cascade), `notify.telegram_link_tokens`, `notify.dev_messages` only — never audit or ledger tables (docs/SERVICES.md §5.7).
+
+## 2.6 Implemented — migration `StoredImages` (2026-10-21)
+
+Uploaded images live in PostgreSQL (no external blob store); API: docs/API.md §10.
+
+| Table / change | Key columns / constraints |
+|---|---|
+| `common.stored_images` (new) | id uuid PK, content_type(32) **CHECK IN ('image/jpeg','image/png','image/webp')** (detected from the magic bytes, never the client's claim), bytes **bytea**, size_bytes int (**CHECK 1..2097152 and = octet_length(bytes)**), sha256 char(64) (lower-case hex; HTTP ETag), created_at. Immutable: a replacement is a new row |
+| `tenancy.clinics` (+1 column) | **logo_image_id** uuid null → stored_images **ON DELETE SET NULL**; ix(logo_image_id) |
+| `identity.users` (+1 column) | **avatar_image_id** uuid null → stored_images **ON DELETE SET NULL**; ix(avatar_image_id) |
+
+Notes:
+- Replacing or removing a logo/avatar deletes the previous row in the same transaction (owner row locked
+  `FOR UPDATE`, so concurrent uploads cannot orphan an image). Account deletion (OD-18) deletes the avatar.
+- No `clinic_id` on `stored_images`: the owner row carries the tenant; images are served anonymously by id
+  (UUID v7, not enumerable).
+- `Down` drops the FKs, the table, the indexes and both columns (plain EF operations).
 
 ## 3. Database roles — implemented in `deploy/postgres/init/01-create-roles.sh`
 

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useSession } from '../../auth/session'
 import { useI18n } from '../../i18n/context'
 import { initials } from '../../lib/initials'
+import { formatPhone } from '../../lib/phone'
 
 /** Account area: profile card + section menu (sidebar on desktop, list on mobile) beside the page. */
 export function AccountLayout() {
@@ -26,7 +27,7 @@ export function AccountLayout() {
             </span>
             <div>
               <strong>{me?.displayName || t('account.title')}</strong>
-              {me?.phoneMasked && <p className="muted small tabular">{me.phoneMasked}</p>}
+              {me?.phoneMasked && <p className="muted small tabular">{formatPhone(me.phoneMasked)}</p>}
             </div>
           </div>
           <nav className="card account__menu" aria-label={t('account.title')}>

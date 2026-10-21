@@ -162,9 +162,12 @@ public sealed class StaffHandlers(IOqTishDb db, IAccessService access, ITransact
     {
         var ids = memberships.Select(m => m.Id).ToList();
         var grants = await db.BranchAccess.AsNoTracking().Where(a => ids.Contains(a.MembershipId)).Select(a => new { a.MembershipId, a.BranchId }).ToListAsync(ct);
-        var people = await StaffRules.PeopleAsync(db, [.. memberships.Select(m => m.UserId).Distinct()], ct);
+        var userIds = memberships.Select(m => m.UserId).Distinct().ToList();
+        var people = await StaffRules.PeopleAsync(db, userIds, ct);
+        var avatars = await StaffRules.AvatarsAsync(db, userIds, ct);
         return [.. memberships.Select(m => new StaffMemberDto(
             m.Id, m.UserId, people.TryGetValue(m.UserId, out var p) ? p.Name : "—", people.TryGetValue(m.UserId, out var q) ? q.PhoneMasked : null,
-            m.Role, m.Scope, [.. grants.Where(a => a.MembershipId == m.Id).Select(a => a.BranchId).Order()], m.Status))];
+            m.Role, m.Scope, [.. grants.Where(a => a.MembershipId == m.Id).Select(a => a.BranchId).Order()], m.Status,
+            avatars.GetValueOrDefault(m.UserId)))];
     }
 }

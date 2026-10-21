@@ -76,7 +76,7 @@ export function ClinicCardView({ clinic, layout = 'card' }: { clinic: ClinicCard
     return (
       <article className="card clinic-card clinic-card--row">
         <div className="clinic-card__media">
-          <Monogram name={clinic.name} seed={clinic.id} size={56} />
+          <Monogram name={clinic.name} seed={clinic.id} imageId={clinic.logoId} size={56} />
         </div>
         <div className="clinic-card__body">
           {title}
@@ -91,7 +91,7 @@ export function ClinicCardView({ clinic, layout = 'card' }: { clinic: ClinicCard
   return (
     <article className="card clinic-card">
       <div className="clinic-card__head">
-        <Monogram name={clinic.name} seed={clinic.id} size={56} />
+        <Monogram name={clinic.name} seed={clinic.id} imageId={clinic.logoId} size={56} />
         {title}
       </div>
       {meta}

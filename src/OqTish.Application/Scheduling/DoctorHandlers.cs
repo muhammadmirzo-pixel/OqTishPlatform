@@ -189,9 +189,11 @@ public sealed class DoctorHandlers(IOqTishDb db, IAccessService access, ITransac
         var ids = doctors.Select(d => d.Id).ToList();
         var branches = await db.DoctorBranches.AsNoTracking().Where(x => ids.Contains(x.DoctorId)).Select(x => new { x.DoctorId, x.BranchId }).ToListAsync(ct);
         var services = await db.DoctorServices.AsNoTracking().Where(x => ids.Contains(x.DoctorId)).Select(x => new { x.DoctorId, x.ServiceId }).ToListAsync(ct);
+        var avatars = await StaffRules.AvatarsAsync(db, [.. doctors.Where(d => d.UserId != null).Select(d => d.UserId!.Value).Distinct()], ct);
         return [.. doctors.Select(d => new DoctorDto(d.Id, d.DisplayName, d.IsActive,
             [.. branches.Where(x => x.DoctorId == d.Id).Select(x => x.BranchId).Order()],
             [.. services.Where(x => x.DoctorId == d.Id).Select(x => x.ServiceId).Order()],
-            d.UserId))];
+            d.UserId,
+            d.UserId is { } u ? avatars.GetValueOrDefault(u) : null))];
     }
 }

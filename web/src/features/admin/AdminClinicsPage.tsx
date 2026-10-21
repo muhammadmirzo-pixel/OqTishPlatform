@@ -16,6 +16,7 @@ import { useToast } from '../../ui/toastContext'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { PlatformPerm } from '../clinic/permissions'
+import { formatPhone } from '../../lib/phone'
 
 type Action = { kind: 'approve' | 'reject' | 'suspend' | 'reinstate'; clinic: AdminClinicDto }
 
@@ -104,7 +105,7 @@ export function AdminClinicsPage() {
                           </div>
                         </td>
                         <td data-label={t('common.phone')} className="nowrap">
-                          {c.phone || '—'}
+                          {formatPhone(c.phone) || '—'}
                         </td>
                         <td data-label={t('common.status')}>
                           <Badge tone={c.verificationStatus === 'Approved' ? 'success' : c.verificationStatus === 'Pending' ? 'warning' : c.verificationStatus === 'Suspended' ? 'danger' : 'neutral'}>{t(`verification.${c.verificationStatus}`)}</Badge>

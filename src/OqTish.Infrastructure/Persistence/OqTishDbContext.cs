@@ -109,6 +109,8 @@ public sealed class OqTishDbContext(DbContextOptions<OqTishDbContext> options) :
 
     public DbSet<IdempotencyRecord> IdempotencyKeys => Set<IdempotencyRecord>();
 
+    public DbSet<StoredImage> StoredImages => Set<StoredImage>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

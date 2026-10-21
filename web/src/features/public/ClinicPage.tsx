@@ -19,6 +19,7 @@ import { Pagination } from '../../ui/Pagination'
 import { ApiErrorState, EmptyState, LoadingState } from '../../ui/states'
 import { Stars } from '../../ui/widgets'
 import { ReportButton } from './ReportButton'
+import { formatPhone } from '../../lib/phone'
 
 type Tab = 'services' | 'reviews' | 'about'
 const tabs: Tab[] = ['services', 'reviews', 'about']
@@ -71,7 +72,7 @@ export function ClinicPage() {
 
       <header className="clinic-hero card">
         <div className="clinic-hero__cover" aria-hidden="true">
-          <Monogram name={c.name} seed={c.id} size={88} />
+          <Monogram name={c.name} seed={c.id} imageId={c.logoId} size={88} />
         </div>
         <div className="clinic-hero__body">
           <div className="clinic-hero__title">
@@ -310,7 +311,7 @@ function BranchInfo({ branch }: { branch: PublicBranch }) {
           </a>
         )}
       </div>
-      {branch.phone && <p className="small tabular">{branch.phone}</p>}
+      {branch.phone && <p className="small tabular">{formatPhone(branch.phone)}</p>}
       <div>
         <h3>{t('clinic.hours')}</h3>
         <table className="table table--compact hours-table">

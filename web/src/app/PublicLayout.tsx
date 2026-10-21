@@ -1,21 +1,21 @@
-import { CalendarDays, Home, LogOut, Menu, UserRound, X } from 'lucide-react'
+import { Building2, CalendarDays, Home, Menu, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 import { useSession } from '../auth/session'
 import { useI18n } from '../i18n/context'
 import { Logo } from '../ui/Logo'
 import { ThemeSwitcher } from '../ui/ThemeSwitcher'
 import { LanguageSwitcher } from '../ui/widgets'
 import { ServerStatus } from './ServerStatus'
+import { UserMenu } from './UserMenu'
 
 export function PublicLayout() {
   const { t } = useI18n()
-  const { me, status, signOut } = useSession()
-  const navigate = useNavigate()
+  const { me, status } = useSession()
   const [open, setOpen] = useState(false)
   const [year] = useState(() => new Date().getFullYear())
   const close = () => setOpen(false)
-  const clinicLink = me && me.memberships.length > 0 ? '/clinic' : '/clinic/register'
+  const isStaff = !!me && me.memberships.length > 0
 
   return (
     <div className="site has-tabbar">
@@ -44,9 +44,6 @@ export function PublicLayout() {
                   {t('nav.myAppointments')}
                 </NavLink>
               )}
-              <NavLink to={clinicLink} onClick={close}>
-                {t('nav.forClinics')}
-              </NavLink>
               {me && me.platformPermissions.length > 0 && (
                 <NavLink to="/admin" onClick={close}>
                   {t('nav.admin')}
@@ -54,27 +51,15 @@ export function PublicLayout() {
               )}
             </div>
             <div className="topnav__actions">
+              {/* Clinic owners get their own entry point, set apart from the patient navigation. */}
+              <NavLink to={isStaff ? '/clinic' : '/clinic/register'} className="btn btn--ghost btn--small topnav__clinic" title={isStaff ? undefined : t('nav.addClinicHint')} onClick={close}>
+                <Building2 className="icon" aria-hidden="true" />
+                {isStaff ? t('nav.clinicPanel') : t('nav.addClinic')}
+              </NavLink>
               <LanguageSwitcher />
               <ThemeSwitcher />
               {status === 'authenticated' && me ? (
-                <>
-                  <NavLink to="/me" end className="btn btn--ghost btn--small" onClick={close}>
-                    <UserRound className="icon" aria-hidden="true" />
-                    {t('nav.account')}
-                  </NavLink>
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--small"
-                    onClick={async () => {
-                      close()
-                      await signOut().catch(() => undefined)
-                      navigate('/')
-                    }}
-                  >
-                    <LogOut className="icon" aria-hidden="true" />
-                    {t('common.signOut')}
-                  </button>
-                </>
+                <UserMenu />
               ) : (
                 status === 'anonymous' && (
                   <NavLink to="/login" className="btn btn--small" onClick={close}>

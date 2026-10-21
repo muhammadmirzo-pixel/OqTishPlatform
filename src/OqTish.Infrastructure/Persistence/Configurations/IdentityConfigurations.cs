@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using OqTish.Domain.Common;
 using OqTish.Domain.Identity;
 
 namespace OqTish.Infrastructure.Persistence.Configurations;
@@ -34,6 +35,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(x => x.StatusReason).HasMaxLength(500);
         b.Ignore(x => x.IsActive);
         b.HasIndex(x => x.Status);
+        b.HasOne<StoredImage>().WithMany().HasForeignKey(x => x.AvatarImageId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

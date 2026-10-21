@@ -32,7 +32,8 @@ public sealed record ClinicCardDto(
     int BranchCount,
     IReadOnlyList<string> Districts,
     decimal? DistanceKm,
-    DateTimeOffset? NextFreeSlot);
+    DateTimeOffset? NextFreeSlot,
+    Guid? LogoId);
 
 public sealed record PublicServiceOfferDto(Guid ServiceId, string Name, string Category, Money Price, PriceKind PriceKind, int DurationMinutes);
 
@@ -48,7 +49,7 @@ public sealed record PublicBranchDto(
     IReadOnlyList<OpeningHoursDto> Hours,
     IReadOnlyList<PublicServiceOfferDto> Services);
 
-public sealed record ClinicDetailDto(Guid Id, string Name, string Description, decimal? Rating, int ReviewCount, IReadOnlyList<PublicBranchDto> Branches);
+public sealed record ClinicDetailDto(Guid Id, string Name, string Description, decimal? Rating, int ReviewCount, IReadOnlyList<PublicBranchDto> Branches, Guid? LogoId);
 
 public sealed record FacetServiceDto(Guid Id, string Name, string Category);
 
@@ -204,6 +205,7 @@ public sealed class PublicCatalogQueries(IOqTishDb db, PublicAvailability availa
                 Name = c.Name,
                 Rating = c.RatingAverage,
                 ReviewCount = c.ReviewCount,
+                LogoId = c.LogoImageId,
                 MinPrice = moffers.Where(o => o.ClinicId == c.Id).Min(o => (decimal?)o.Price),
                 BranchCount = activeBranches.Count(b => b.ClinicId == c.Id),
                 DistanceKm = mb.Where(b => b.ClinicId == c.Id && b.Latitude != null && b.Longitude != null)
@@ -218,6 +220,7 @@ public sealed class PublicCatalogQueries(IOqTishDb db, PublicAvailability availa
                 Name = c.Name,
                 Rating = c.RatingAverage,
                 ReviewCount = c.ReviewCount,
+                LogoId = c.LogoImageId,
                 MinPrice = moffers.Where(o => o.ClinicId == c.Id).Min(o => (decimal?)o.Price),
                 BranchCount = activeBranches.Count(b => b.ClinicId == c.Id),
                 DistanceKm = null,
@@ -240,7 +243,7 @@ public sealed class PublicCatalogQueries(IOqTishDb db, PublicAvailability availa
             [.. page.Items.Select(r => new ClinicCardDto(
                 r.Id, r.Name, r.Rating, r.ReviewCount, r.MinPrice is { } p ? Money.Uzs(p) : null, r.BranchCount,
                 [.. districts.Where(d => d.ClinicId == r.Id).Select(d => d.District).Order(StringComparer.Ordinal)],
-                r.DistanceKm, freeSlots.TryGetValue(r.Id, out var slot) ? slot : (DateTimeOffset?)null))],
+                r.DistanceKm, freeSlots.TryGetValue(r.Id, out var slot) ? slot : (DateTimeOffset?)null, r.LogoId))],
             page.PageNumber, page.PageSize, page.TotalCount);
     }
 
@@ -267,7 +270,8 @@ public sealed class PublicCatalogQueries(IOqTishDb db, PublicAvailability availa
                 b.Id, b.Name, b.District, b.Address, b.Latitude, b.Longitude, b.TimeZone, b.Phone ?? string.Empty,
                 b.ToDto(hours).Hours,
                 [.. offers.Where(o => o.Offer.BranchId == b.Id).Select(o => new PublicServiceOfferDto(
-                    o.Offer.ServiceId, o.Name, o.Category, o.Offer.PriceMoney, o.Offer.PriceKind, o.Offer.DurationMinutes))]))]);
+                    o.Offer.ServiceId, o.Name, o.Category, o.Offer.PriceMoney, o.Offer.PriceKind, o.Offer.DurationMinutes))]))],
+            clinic.LogoImageId);
     }
 
     public async Task<Result<FacetsDto>> FacetsAsync(CancellationToken ct)
@@ -305,5 +309,7 @@ public sealed class PublicCatalogQueries(IOqTishDb db, PublicAvailability availa
         public int BranchCount { get; init; }
 
         public decimal? DistanceKm { get; init; }
+
+        public Guid? LogoId { get; init; }
     }
 }

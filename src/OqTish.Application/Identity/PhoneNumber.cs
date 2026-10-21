@@ -4,11 +4,20 @@ namespace OqTish.Application.Identity;
 /// Uzbekistan phone numbers only: E.164 <c>+998</c> followed by 9 digits. Accepts common input forms:
 /// <c>+998 90 123-45-67</c>, <c>998901234567</c>, <c>00998901234567</c>, <c>(90) 123 45 67</c>,
 /// <c>901234567</c>. Spaces, dashes, dots and parentheses are ignored; anything else is rejected.
+/// After normalisation the 9-digit national number must start with one of the Uzbek operator/area
+/// codes in <see cref="AllowedOperatorCodes"/> (20, 33, 50, 55, 71, 75, 77, 88, 90–95, 97–99);
+/// any other prefix is rejected.
 /// </summary>
 public static class PhoneNumber
 {
     public const string CountryCode = "998";
     private const int NationalLength = 9;
+
+    /// <summary>The first two digits a valid national number may start with.</summary>
+    public static readonly IReadOnlySet<string> AllowedOperatorCodes = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "20", "33", "50", "55", "71", "75", "77", "88", "90", "91", "92", "93", "94", "95", "97", "98", "99",
+    };
 
     public static bool TryNormalize(string? input, out string e164)
     {
@@ -59,8 +68,8 @@ public static class PhoneNumber
             return false;
         }
 
-        // National numbers never start with 0 (operator/area codes are 20-99).
-        if (value[0] == '0')
+        // The 9-digit national number must start with a known operator/area code.
+        if (!AllowedOperatorCodes.Contains(value[..2]))
         {
             return false;
         }

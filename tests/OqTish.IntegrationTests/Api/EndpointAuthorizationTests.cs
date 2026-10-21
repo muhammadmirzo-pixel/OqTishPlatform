@@ -19,7 +19,7 @@ public class EndpointAuthorizationTests(PostgresFixture postgres)
 
     public static IReadOnlyList<string> EndpointsWithoutAuthMetadata(IEnumerable<Endpoint> endpoints) =>
         [.. endpoints.OfType<RouteEndpoint>()
-            .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is null && !e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any()
+            .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is null && e.Metadata.GetOrderedMetadata<IAuthorizeData>().Count == 0
                 && e.Metadata.GetMetadata<AuthorizationPolicy>() is null)
             .Select(Describe)];
 

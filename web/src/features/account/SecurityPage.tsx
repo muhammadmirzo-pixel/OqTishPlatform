@@ -9,7 +9,7 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { formatFullDateTime } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
-import { Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Field, FormError, Notice, PasswordInput, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { ApiErrorState, LoadingState } from '../../ui/states'
 import { Badge, CopyButton } from '../../ui/widgets'
@@ -180,14 +180,14 @@ function PasswordCard() {
           </Field>
         ) : (
           <Field label={t('password.current')} error={touched ? currentError : null}>
-            {(p) => <input {...p} type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}
+            {(p) => <PasswordInput {...p} autoComplete="current-password" value={current} onChange={setCurrent} />}
           </Field>
         )}
         <Field label={t('login.newPassword')} error={touched ? nextError : null}>
-          {(p) => <input {...p} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />}
+          {(p) => <PasswordInput {...p} autoComplete="new-password" value={next} onChange={setNext} />}
         </Field>
         <Field label={t('password.repeat')} error={touched ? repeatError : null}>
-          {(p) => <input {...p} type="password" autoComplete="new-password" value={repeat} onChange={(e) => setRepeat(e.target.value)} />}
+          {(p) => <PasswordInput {...p} autoComplete="new-password" value={repeat} onChange={setRepeat} />}
         </Field>
         <FormError error={save.error} />
         {done && <Notice>{t('password.done')}</Notice>}

@@ -21,7 +21,7 @@ describe('login', () => {
     expect(await screen.findByText('Please fill in this field')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Phone number'), '12345')
     await user.click(screen.getByRole('button', { name: 'Send code' }))
-    expect(await screen.findByText('Enter the number as +998 XX XXX XX XX')).toBeInTheDocument()
+    expect(await screen.findByText(/^Enter the number as \+998 XX XXX XX XX/)).toBeInTheDocument()
     expect(fetchMock.find('POST', '/auth/otp/request')).toHaveLength(0)
 
     await user.clear(screen.getByLabelText('Phone number'))

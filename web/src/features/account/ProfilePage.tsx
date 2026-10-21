@@ -8,8 +8,9 @@ import { useNow } from '../../hooks/useNow'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { remaining } from '../../lib/format'
-import { isValidUzPhone, normalizePhone } from '../../lib/phone'
-import { Checkbox, Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { formatPhone, isValidUzPhone, normalizePhone } from '../../lib/phone'
+import { Checkbox, Field, FormError, Notice, PhoneInput, SubmitButton } from '../../ui/forms'
+import { ImageUpload } from '../../ui/ImageUpload'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { Badge } from '../../ui/widgets'
 
@@ -51,6 +52,18 @@ function NameCard() {
   return (
     <section className="card stack" aria-labelledby="name-title">
       <h2 id="name-title">{t('account.profile')}</h2>
+      {me && (
+        <ImageUpload
+          name={me.displayName || name}
+          seed={me.id}
+          imageId={me.avatarId}
+          round
+          hint={t('account.photoHint')}
+          onUpload={(file) => api.me.uploadAvatar(file)}
+          onRemove={() => api.me.deleteAvatar()}
+          onChanged={refresh}
+        />
+      )}
       <form className="stack" onSubmit={submit} noValidate>
         <Field label={t('account.fullName')} hint={t('account.fullNameHint')} error={touched ? error : null}>
           {(p) => <input {...p} autoComplete="name" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />}
@@ -109,7 +122,7 @@ function PhoneCard() {
       <p>
         {me?.phoneMasked ? (
           <>
-            {me.phoneMasked} {me.phoneVerified ? <Badge tone="success">{t('account.verified')}</Badge> : <Badge tone="warning">{t('account.unverified')}</Badge>}
+            {formatPhone(me.phoneMasked)} {me.phoneVerified ? <Badge tone="success">{t('account.verified')}</Badge> : <Badge tone="warning">{t('account.unverified')}</Badge>}
           </>
         ) : (
           <span className="muted">{t('account.noPhone')}</span>
@@ -119,7 +132,7 @@ function PhoneCard() {
       {!challengeId ? (
         <form className="stack" onSubmit={submitPhone} noValidate>
           <Field label={me?.phoneMasked ? t('account.newPhone') : t('login.phone')} hint={t('account.phoneHint')} error={touched ? phoneError : null}>
-            {(p) => <input {...p} type="tel" inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />}
+            {(p) => <PhoneInput {...p} autoComplete="tel" value={phone} onChange={setPhone} />}
           </Field>
           <FormError error={request.error} />
           <SubmitButton pending={request.pending}>{t('login.sendCode')}</SubmitButton>

@@ -1,6 +1,6 @@
 import type { RegisterClinicBody } from '../../api/types'
 import { useI18n } from '../../i18n/context'
-import { Field } from '../../ui/forms'
+import { Field, PhoneInput } from '../../ui/forms'
 import type { ClinicProfileErrors as Errors } from './clinicProfile'
 
 export function ClinicProfileFields({ value, onChange, errors, disabled }: { value: RegisterClinicBody; onChange: (v: RegisterClinicBody) => void; errors: Errors; disabled?: boolean }) {
@@ -15,7 +15,7 @@ export function ClinicProfileFields({ value, onChange, errors, disabled }: { val
         {(p) => <input {...p} disabled={disabled} maxLength={300} value={value.legalName} onChange={set('legalName')} />}
       </Field>
       <Field label={t('common.phone')} error={errors.phone} optional>
-        {(p) => <input {...p} disabled={disabled} type="tel" inputMode="tel" placeholder="+998 71 123 45 67" value={value.phone} onChange={set('phone')} />}
+        {(p) => <PhoneInput {...p} disabled={disabled} value={value.phone} onChange={(phone) => onChange({ ...value, phone })} />}
       </Field>
       <Field label={t('register.description')} hint={t('register.descriptionHint')} error={errors.description} optional>
         {(p) => <textarea {...p} disabled={disabled} rows={4} maxLength={4000} value={value.description} onChange={set('description')} />}

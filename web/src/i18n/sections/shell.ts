@@ -45,6 +45,12 @@ const uz = {
   'adminNav.audit': 'Audit jurnali',
   'adminNav.notifications': 'Xabarnomalar navbati',
   'console.seeReason': 'Sababini ko‘rish',
+  'nav.clinicPanel': "Klinika paneli",
+  'nav.addClinic': "Klinikangizni qo‘shing",
+  'nav.addClinicHint': "Klinika egalari uchun: klinikani platformaga ro‘yxatdan o‘tkazish",
+  'userMenu.label': "Hisob menyusi: {name}",
+  'signOut.title': "Tizimdan chiqish",
+  'signOut.body': "Rostdan ham hisobingizdan chiqmoqchimisiz? Qayta kirish uchun telefon raqamingiz yoki parolingiz kerak bo‘ladi.",
 } as const
 
 type Keys = keyof typeof uz
@@ -94,6 +100,12 @@ const ru: Record<Keys, string> = {
   'adminNav.audit': 'Журнал аудита',
   'adminNav.notifications': 'Очередь уведомлений',
   'console.seeReason': 'Посмотреть причину',
+  'nav.clinicPanel': "Панель клиники",
+  'nav.addClinic': "Добавить клинику",
+  'nav.addClinicHint': "Для владельцев клиник: регистрация клиники на платформе",
+  'userMenu.label': "Меню аккаунта: {name}",
+  'signOut.title': "Выход из системы",
+  'signOut.body': "Вы действительно хотите выйти? Для повторного входа понадобится номер телефона или пароль.",
 }
 
 const en: Record<Keys, string> = {
@@ -141,6 +153,12 @@ const en: Record<Keys, string> = {
   'adminNav.audit': 'Audit log',
   'adminNav.notifications': 'Notification outbox',
   'console.seeReason': 'See the reason',
+  'nav.clinicPanel': "Clinic console",
+  'nav.addClinic': "Add your clinic",
+  'nav.addClinicHint': "For clinic owners: register your clinic on the platform",
+  'userMenu.label': "Account menu: {name}",
+  'signOut.title': "Sign out",
+  'signOut.body': "Do you really want to sign out? You will need your phone number or password to sign in again.",
 }
 
 export const shell = { uz, ru, en }

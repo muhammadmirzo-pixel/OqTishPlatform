@@ -10,6 +10,7 @@ import { useI18n } from '../../i18n/context'
 import type { MessageKey } from '../../i18n/messages'
 import { formatDate, formatLocalDay, formatTime } from '../../lib/format'
 import { addDays, fromMinutes, isValidDate, localDate, localMinutes, toMinutes, weekdayOf } from '../../lib/time'
+import { Monogram } from '../../ui/Monogram'
 import { Skeleton } from '../../ui/Skeleton'
 import { SelectField } from '../../ui/Select'
 import { DatePicker } from '../../ui/DatePicker'
@@ -159,7 +160,10 @@ function DayData({ branch, date, today, now, view }: { branch: BranchDto; date: 
         ) : view === 'list' ? (
           <DayList cal={calendar.data} />
         ) : (
-          <DayGrid cal={calendar.data} branch={branch} nowMinute={date === today ? localMinutes(now, calendar.data.timeZone) : null} />
+          <>
+            <DaySummary cal={calendar.data} />
+            <DayGrid cal={calendar.data} branch={branch} nowMinute={date === today ? localMinutes(now, calendar.data.timeZone) : null} />
+          </>
         )
       ) : calendar.error !== undefined ? (
         <ApiErrorState error={calendar.error} onRetry={calendar.reload} />
@@ -199,6 +203,7 @@ function TimeGrid({
   const height = (range.end - range.start) * PX_PER_MIN
   const y = (m: number) => (m - range.start) * PX_PER_MIN
   const ticks = Array.from({ length: (range.end - range.start) / 60 + 1 }, (_, i) => range.start + i * 60)
+  const halves = ticks.slice(0, -1).map((m) => m + 30)
   const showNow = nowMinute !== null && nowMinute >= range.start && nowMinute <= range.end
 
   return (
@@ -229,6 +234,14 @@ function TimeGrid({
               ))}
               {ticks.map((m) => (
                 <span key={m} className="calendar__line" style={{ top: y(m) }} aria-hidden="true" />
+              ))}
+              {halves.map((m) => (
+                <span key={m} className="calendar__line calendar__line--half" style={{ top: y(m) }} aria-hidden="true" />
+              ))}
+              {breaksOf(col.working).map((b) => (
+                <span key={b.start} className="calendar__break" style={{ top: y(b.start), height: (b.end - b.start) * PX_PER_MIN }} aria-hidden="true">
+                  {(b.end - b.start) * PX_PER_MIN >= 22 && t('cal.break')}
+                </span>
               ))}
               {col.items.length === 0 && col.empty}
               <ul className="list-plain">
@@ -296,13 +309,61 @@ function DayGrid({ cal, branch, nowMinute }: { cal: CalendarDto; branch: BranchD
       nowMinute={nowMinute}
       columns={columns.map((c) => ({
         key: c.d.id,
-        head: c.d.name,
+        head: <DoctorHead name={c.d.name} id={c.d.id} working={c.working} count={c.items.filter((p) => p.block.kind === 'Appointment' && !p.block.otherBranch).length} />,
         working: c.working,
         items: c.items,
         renderItem: (p) => <BlockContent p={p} tz={tz} />,
-        empty: <p className="calendar__free">{t('cal.free')}</p>,
+        empty: c.working.length > 0 ? <p className="calendar__free">{t('cal.freeDay')}</p> : <p className="calendar__free">{t('cal.dayOff')}</p>,
       }))}
     />
+  )
+}
+
+/** Gaps between a doctor's working spans on one day (lunch break etc.). */
+function breaksOf(working: Span[]): Span[] {
+  const sorted = [...working].sort((a, b) => a.start - b.start)
+  return sorted.slice(1).flatMap((w, i) => (w.start > sorted[i]!.end ? [{ start: sorted[i]!.end, end: w.start }] : []))
+}
+
+function DoctorHead({ name, id, working, count }: { name: string; id: string; working: Span[]; count: number }) {
+  const { t } = useI18n()
+  const sorted = [...working].sort((a, b) => a.start - b.start)
+  const hours = sorted.length ? `${fromMinutes(sorted[0]!.start)}–${fromMinutes(sorted[sorted.length - 1]!.end % DAY_MINUTES)}` : t('cal.dayOff')
+  return (
+    <span className="calendar__doctor">
+      <Monogram name={name} seed={id} size={28} round />
+      <span className="calendar__doctor-text">
+        <span className="calendar__doctor-name">{name}</span>
+        <small>
+          {hours} · {t('cal.appointmentsCount', { count })}
+        </small>
+      </span>
+    </span>
+  )
+}
+
+/** Day totals above the grid: what the day looks like at a glance. */
+function DaySummary({ cal }: { cal: CalendarDto }) {
+  const { t } = useI18n()
+  const appts = cal.doctors.flatMap((d) => d.blocks).filter((b) => b.kind === 'Appointment' && !b.otherBranch)
+  const holds = cal.doctors.flatMap((d) => d.blocks).filter((b) => b.kind === 'Hold' && !b.otherBranch).length
+  const by = (s: string) => appts.filter((b) => (b.status ?? 'Confirmed') === s).length
+  const items: { kind: string; label: string; value: number }[] = [
+    { kind: 'total', label: t('cal.sumTotal'), value: appts.length },
+    { kind: 'Confirmed', label: t('status.Confirmed'), value: by('Confirmed') },
+    { kind: 'Hold', label: t('status.Pending'), value: by('Pending') + holds },
+    { kind: 'Completed', label: t('status.Completed'), value: by('Completed') },
+    { kind: 'NoShow', label: t('status.NoShow'), value: by('NoShow') },
+  ]
+  return (
+    <ul className="list-plain cal-summary" aria-label={t('cal.summary')}>
+      {items.map((i) => (
+        <li key={i.kind} className={`cal-summary__item cal-summary__item--${i.kind}`}>
+          <strong className="tabular">{i.value}</strong>
+          <span>{i.label}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

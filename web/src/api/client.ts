@@ -82,6 +82,8 @@ export type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export interface ApiClient {
   get<T>(path: string, options?: RequestOptions): Promise<T>
   send<T>(method: Method, path: string, body?: unknown, options?: RequestOptions): Promise<T>
+  /** Absolute URL of an image served by GET /files/images/{id} (clinic logos, avatars). */
+  imageUrl(id: string): string
   readonly clientKind: ClientKind
   setClientKind(kind: ClientKind): void
   /** Called when any request answers 401 `auth.unauthenticated` (session expired or revoked). */
@@ -97,7 +99,8 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (method !== 'GET') {
       headers['X-OqTish-Client'] = clientKind
-      if (body !== undefined) headers['Content-Type'] = 'application/json'
+      // FormData (file uploads) sets its own multipart boundary.
+      if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json'
       if (opts?.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey
     }
     Object.assign(headers, opts?.headers)
@@ -108,7 +111,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
         method,
         credentials: 'same-origin',
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
         signal: opts?.signal,
       })
     } catch (error) {
@@ -131,6 +134,7 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
   return {
     get: (path, opts) => request(path, 'GET', undefined, opts),
     send: (method, path, body, opts) => request(path, method, body, opts),
+    imageUrl: (id) => `${base}/files/images/${encodeURIComponent(id)}`,
     get clientKind() {
       return clientKind
     },
@@ -165,6 +169,13 @@ async function readProblem(response: Response): Promise<ProblemDetails | undefin
 }
 
 /** Builds "?a=1&b=x", skipping undefined, null and empty values. */
+/** Image upload body (multipart field `file`). */
+export function imageForm(file: File): FormData {
+  const form = new FormData()
+  form.append('file', file)
+  return form
+}
+
 export function query(params: object): string {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params) as [string, unknown][]) {

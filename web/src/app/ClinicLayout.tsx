@@ -98,6 +98,7 @@ export function ClinicLayout() {
       badges={{ requests: pending.data?.pending }}
       base={base}
       contextSeed={membership.clinicId}
+      contextImageId={membership.clinicLogoId}
       items={items}
       linkSuffix={branch ? `?branch=${encodeURIComponent(branch)}` : ''}
       topbar={topbar}

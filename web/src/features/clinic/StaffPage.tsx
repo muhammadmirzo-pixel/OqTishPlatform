@@ -9,10 +9,11 @@ import { useQuery } from '../../hooks/useQuery'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { formatInstantDate } from '../../lib/format'
-import { isValidUzPhone, normalizePhone } from '../../lib/phone'
+import { formatPhone, isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { Dialog } from '../../ui/Dialog'
 import { Select } from '../../ui/Select'
-import { CheckboxGroup, Field, FormError, Notice, SubmitButton } from '../../ui/forms'
+import { Monogram } from '../../ui/Monogram'
+import { CheckboxGroup, Field, FormError, Notice, PhoneInput, SubmitButton } from '../../ui/forms'
 import { ConfirmDialog } from '../../ui/ReasonDialog'
 import { EmptyState, QueryView } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
@@ -77,8 +78,13 @@ export function StaffPage() {
                     {list.map((s) => (
                       <tr key={s.membershipId}>
                         <td data-label={t('common.name')}>
-                          {s.displayName} {s.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
-                          {s.phoneMasked && <div className="muted small nowrap">{s.phoneMasked}</div>}
+                          <div className="row row--nowrap">
+                            <Monogram name={s.displayName} seed={s.userId} imageId={s.avatarId} size={32} round />
+                            <div>
+                              {s.displayName} {s.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
+                              {s.phoneMasked && <div className="muted small nowrap">{formatPhone(s.phoneMasked)}</div>}
+                            </div>
+                          </div>
                         </td>
                         <td data-label={t('staff.role')}>{t(`role.${s.role}`)}</td>
                         <td data-label={t('staff.scope')}>{scopeText(s.scope, s.branchIds)}</td>
@@ -121,7 +127,7 @@ export function StaffPage() {
                   <li key={i.id} className="card row row--between">
                     <span className="row">
                       <MailPlus className="icon muted" aria-hidden="true" />
-                      <strong>{i.phoneMasked}</strong> · {t(`role.${i.role}`)} · {scopeText(i.scope, i.branchIds)}
+                      <strong>{formatPhone(i.phoneMasked)}</strong> · {t(`role.${i.role}`)} · {scopeText(i.scope, i.branchIds)}
                       {new Date(i.expiresAt).getTime() <= now ? (
                         <>
                           {' '}
@@ -248,7 +254,7 @@ function StaffDialog({
       <form className="stack" onSubmit={submit} noValidate>
         {mode === 'invite' && (
           <Field label={t('common.phone')} hint={t('staff.phoneHint')} error={touched ? errors.phone : null}>
-            {(p) => <input {...p} type="tel" placeholder="+998 90 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />}
+            {(p) => <PhoneInput {...p} value={phone} onChange={setPhone} />}
           </Field>
         )}
         <Field label={t('staff.role')} hint={t('staff.roleHint')} error={touched ? errors.role : null}>

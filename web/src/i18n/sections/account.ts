@@ -78,6 +78,7 @@ const uz = {
   'invite.accepted': '{clinic} jamoasiga qo‘shildingiz.',
   'invite.openConsole': 'Klinika panelini ochish',
   'invite.expires': 'Amal qiladi: {date} gacha',
+  'account.photoHint': "Profil rasmi: JPG, PNG yoki WebP, 2 MB gacha.",
 } as const
 
 type Keys = keyof typeof uz
@@ -160,6 +161,7 @@ const ru: Record<Keys, string> = {
   'invite.accepted': 'Вы присоединились к команде клиники «{clinic}».',
   'invite.openConsole': 'Открыть панель клиники',
   'invite.expires': 'Действует до {date}',
+  'account.photoHint': "Фото профиля: JPG, PNG или WebP, до 2 МБ.",
 }
 
 const en: Record<Keys, string> = {
@@ -240,6 +242,7 @@ const en: Record<Keys, string> = {
   'invite.accepted': 'You joined the team of {clinic}.',
   'invite.openConsole': 'Open the clinic console',
   'invite.expires': 'Valid until {date}',
+  'account.photoHint': "Profile photo: JPG, PNG or WebP, up to 2 MB.",
 }
 
 export const account = { uz, ru, en }

@@ -22,7 +22,7 @@ async function walkToSummary(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: '10:00' }))
   const name = await screen.findByLabelText('Full name')
   expect(name).toHaveValue('Test Bemor')
-  expect(screen.getByLabelText('Phone number')).toHaveValue('+998901234567')
+  expect(screen.getByLabelText('Phone number')).toHaveValue('90 123 45 67')
   await user.click(screen.getByRole('button', { name: 'Next' }))
   await screen.findByRole('heading', { name: 'Review and send' })
 }

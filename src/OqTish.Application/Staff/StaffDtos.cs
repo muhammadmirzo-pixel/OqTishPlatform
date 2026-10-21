@@ -11,7 +11,8 @@ public sealed record StaffMemberDto(
     StaffRole Role,
     MembershipScope Scope,
     IReadOnlyList<Guid> BranchIds,
-    MembershipStatus Status);
+    MembershipStatus Status,
+    Guid? AvatarId);
 
 public sealed record StaffChangeCommand(StaffRole? Role, MembershipScope? Scope, IReadOnlyList<Guid>? BranchIds);
 

@@ -13,6 +13,7 @@ import { ConfirmDialog, ReasonDialog } from '../../ui/ReasonDialog'
 import { useToast } from '../../ui/toastContext'
 import { EmptyState, QueryView } from '../../ui/states'
 import { Badge, PageHeader } from '../../ui/widgets'
+import { formatPhone } from '../../lib/phone'
 
 export function AdminUsersPage() {
   const { t, locale } = useI18n()
@@ -77,7 +78,7 @@ export function AdminUsersPage() {
                           {u.email && <div className="muted small">{u.email}</div>}
                         </td>
                         <td data-label={t('common.phone')} className="nowrap">
-                          {u.phoneMasked ?? '—'}
+                          {formatPhone(u.phoneMasked) || '—'}
                         </td>
                         <td data-label={t('common.status')}>
                           <Badge tone={u.status === 'Active' ? 'success' : 'danger'}>{t(`staff.${u.status}`)}</Badge>

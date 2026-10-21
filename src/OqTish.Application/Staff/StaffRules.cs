@@ -56,6 +56,15 @@ internal static class StaffRules
         role is { } r && Enum.IsDefined(r) ? null : Error.InvalidField("role", "Required (ClinicOwner, ClinicAdmin, Receptionist, Doctor or FinanceManager).");
 
     /// <summary>Display name for staff lists: account name → patient name → masked phone → e-mail.</summary>
+    /// <summary>Avatar image ids of the users that have one (user id → image id).</summary>
+    public static async Task<Dictionary<Guid, Guid?>> AvatarsAsync(IOqTishDb db, IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
+        userIds.Count == 0
+            ? new Dictionary<Guid, Guid?>()
+            : await db.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id) && u.AvatarImageId != null)
+                .Select(u => new { u.Id, u.AvatarImageId })
+                .ToDictionaryAsync(u => u.Id, u => u.AvatarImageId, ct);
+
     public static async Task<Dictionary<Guid, (string Name, string? PhoneMasked)>> PeopleAsync(IOqTishDb db, IReadOnlyCollection<Guid> userIds, CancellationToken ct)
     {
         var users = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id)).Select(u => new { u.Id, u.DisplayName }).ToListAsync(ct);

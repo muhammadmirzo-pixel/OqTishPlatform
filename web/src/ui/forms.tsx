@@ -1,7 +1,9 @@
-import { useId, type ReactNode } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errors'
 import { useI18n } from '../i18n/context'
+import { formatLocalPhone, localPhoneDigits } from '../lib/phone'
 
 interface FieldProps {
   label: ReactNode
@@ -36,6 +38,56 @@ export function Field({ label, hint, error, optional, className, children }: Fie
           {error}
         </p>
       )}
+    </div>
+  )
+}
+
+type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange'>
+
+/**
+ * Uzbek phone input: "+998" is a fixed prefix and the 9 local digits are shown as "90 123 45 67".
+ * `value` / `onChange` carry "+998" + the digits typed so far ("" when nothing is typed), so callers keep
+ * validating with isValidUzPhone and sending normalizePhone(value).
+ */
+export function PhoneInput({ value, onChange, className, ...rest }: InputProps & { value: string; onChange: (value: string) => void }) {
+  const digits = localPhoneDigits(value)
+  return (
+    <div className={`input-affix input-affix--phone${className ? ` ${className}` : ''}`}>
+      <span className="input-affix__prefix" aria-hidden="true">
+        +998
+      </span>
+      <input
+        {...rest}
+        type="tel"
+        inputMode="numeric"
+        placeholder="90 123 45 67"
+        value={formatLocalPhone(digits)}
+        onChange={(e) => {
+          const next = localPhoneDigits(e.target.value)
+          onChange(next ? `+998${next}` : '')
+        }}
+      />
+    </div>
+  )
+}
+
+/** Password input with a show/hide toggle. */
+export function PasswordInput({ value, onChange, ...rest }: InputProps & { value: string; onChange: (value: string) => void }) {
+  const { t } = useI18n()
+  const [shown, setShown] = useState(false)
+  const Icon = shown ? EyeOff : Eye
+  return (
+    <div className="input-affix">
+      <input {...rest} type={shown ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} />
+      <button
+        type="button"
+        className="input-affix__toggle"
+        aria-label={t(shown ? 'common.hidePassword' : 'common.showPassword')}
+        aria-pressed={shown}
+        onClick={() => setShown((s) => !s)}
+      >
+        <Icon className="icon" aria-hidden="true" />
+      </button>
     </div>
   )
 }

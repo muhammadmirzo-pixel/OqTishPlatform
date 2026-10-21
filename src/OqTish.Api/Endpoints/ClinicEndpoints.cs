@@ -31,6 +31,17 @@ public static class ClinicEndpoints
             .WithName("UpdateClinic").WithSummary("Edit the clinic profile (clinic.profile.manage)")
             .Produces<ClinicProfileDto>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
 
+        clinic.MapPut("/logo", async (Guid clinicId, ClinicLogoHandler handler, HttpContext http, CancellationToken ct) =>
+                (await handler.SetAsync(clinicId, await ImageUploadForm.ReadAsync(http.Request, ct), ct)).ToHttp(http, TypedResults.Ok))
+            .AcceptsImageUpload()
+            .WithName("SetClinicLogo").WithSummary("Upload/replace the clinic logo: multipart field 'file', JPEG/PNG/WebP ≤ 2 MB (clinic.profile.manage)")
+            .Produces<ClinicLogoDto>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
+
+        clinic.MapDelete("/logo", async (Guid clinicId, ClinicLogoHandler handler, HttpContext http, CancellationToken ct) =>
+                (await handler.RemoveAsync(clinicId, ct)).ToHttp(http, TypedResults.NoContent))
+            .WithName("RemoveClinicLogo").WithSummary("Remove the clinic logo (clinic.profile.manage)")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
+
         clinic.MapGet("/dashboard", async (Guid clinicId, Guid? branchId, ClinicDashboardQuery query, HttpContext http, CancellationToken ct) =>
                 (await query.HandleAsync(clinicId, branchId, ct)).ToHttp(http, TypedResults.Ok))
             .WithName("ClinicDashboard").WithSummary("Today's counts; collected sum only with finance.report.view")

@@ -1,4 +1,4 @@
-import { seg, type ApiClient } from './client'
+import { imageForm, seg, type ApiClient } from './client'
 import type { Me, MyInvitationDto, OtpChallenge, SessionDto, TelegramLink, TotpSetup } from './types'
 
 /** docs/API.md §1 — the signed-in user's own account. */
@@ -19,6 +19,9 @@ export function meApi(c: ApiClient) {
     invitations: () => c.get<MyInvitationDto[]>('/me/invitations'),
     /** → 204; the new membership appears in the next GET /me. */
     acceptInvitation: (id: string) => c.send<void>('POST', `/me/invitations/${seg(id)}/accept`),
+    /** multipart field `file`: JPEG/PNG/WebP up to 2 MB. */
+    uploadAvatar: (file: File) => c.send<{ avatarId: string }>('PUT', '/me/avatar', imageForm(file)),
+    deleteAvatar: () => c.send<void>('DELETE', '/me/avatar'),
     deleteAccount: () => c.send<void>('POST', '/me/delete'),
   }
 }

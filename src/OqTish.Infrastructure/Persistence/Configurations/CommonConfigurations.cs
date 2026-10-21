@@ -137,3 +137,22 @@ internal sealed class IdempotencyRecordConfiguration : IEntityTypeConfiguration<
         b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal sealed class StoredImageConfiguration : IEntityTypeConfiguration<StoredImage>
+{
+    public void Configure(EntityTypeBuilder<StoredImage> b)
+    {
+        // Referenced by tenancy.clinics.logo_image_id and identity.users.avatar_image_id (ON DELETE SET NULL).
+        // 2097152 = StoredImage.MaxBytes (2 MiB).
+        b.ToTable("stored_images", Schemas.Common, t =>
+        {
+            t.HasCheckConstraint("ck_stored_images_content_type", "content_type IN ('image/jpeg', 'image/png', 'image/webp')");
+            t.HasCheckConstraint("ck_stored_images_size", "size_bytes > 0 AND size_bytes <= 2097152 AND size_bytes = octet_length(bytes)");
+        });
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Id).ValueGeneratedNever();
+        b.Property(x => x.ContentType).HasMaxLength(32);
+        b.Property(x => x.Bytes).HasColumnType("bytea");
+        b.Property(x => x.Sha256).HasMaxLength(64).IsFixedLength();
+    }
+}

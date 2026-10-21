@@ -37,6 +37,14 @@ public sealed class MeQuery(IOqTishDb db, IAccessService access, ICurrentUser cu
             ?? email?.NormalizedIdentifier
             ?? "OqTish";
 
+        var clinicIds = scope.Memberships.Select(m => m.ClinicId).ToList();
+        var logos = clinicIds.Count == 0
+            ? new Dictionary<Guid, Guid?>()
+            : await db.Clinics.AsNoTracking()
+                .Where(c => clinicIds.Contains(c.Id) && c.LogoImageId != null)
+                .Select(c => new { c.Id, c.LogoImageId })
+                .ToDictionaryAsync(c => c.Id, c => c.LogoImageId, ct);
+
         var memberships = scope.Memberships
             .Select(m => new MembershipDto(
                 m.MembershipId,
@@ -47,7 +55,8 @@ public sealed class MeQuery(IOqTishDb db, IAccessService access, ICurrentUser cu
                 m.Scope,
                 m.AccessibleBranchIds,
                 [.. Permissions.All.Where(m.EffectivePermissions.ContainsKey)],
-                m.TotpBlocked))
+                m.TotpBlocked,
+                logos.GetValueOrDefault(m.ClinicId)))
             .ToList();
 
         return new MeDto(
@@ -61,6 +70,7 @@ public sealed class MeQuery(IOqTishDb db, IAccessService access, ICurrentUser cu
             scope.TotpSetupRequired,
             patient is null || patient.IsAnonymised ? null : new PatientDto(patient.FullName, patient.ContactPhone),
             memberships,
-            scope.EffectivePlatformPermissions);
+            scope.EffectivePlatformPermissions,
+            user.AvatarImageId);
     }
 }

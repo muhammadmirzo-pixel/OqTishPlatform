@@ -520,6 +520,49 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Common.StoredImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("bytes");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("sha256")
+                        .IsFixedLength();
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("size_bytes");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stored_images");
+
+                    b.ToTable("stored_images", "common", t =>
+                        {
+                            t.HasCheckConstraint("ck_stored_images_content_type", "content_type IN ('image/jpeg', 'image/png', 'image/webp')");
+
+                            t.HasCheckConstraint("ck_stored_images_size", "size_bytes > 0 AND size_bytes <= 2097152 AND size_bytes = octet_length(bytes)");
+                        });
+                });
+
             modelBuilder.Entity("OqTish.Domain.Finance.CommissionRule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1700,6 +1743,10 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AvatarImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("avatar_image_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1736,6 +1783,9 @@ namespace OqTish.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_users");
+
+                    b.HasIndex("AvatarImageId")
+                        .HasDatabaseName("ix_users_avatar_image_id");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_users_status");
@@ -2883,6 +2933,10 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("legal_name");
 
+                    b.Property<Guid?>("LogoImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("logo_image_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2925,6 +2979,9 @@ namespace OqTish.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedByUserId")
                         .HasDatabaseName("ix_clinics_created_by_user_id");
+
+                    b.HasIndex("LogoImageId")
+                        .HasDatabaseName("ix_clinics_logo_image_id");
 
                     b.HasIndex("VerificationStatus")
                         .HasDatabaseName("ix_clinics_verification_status");
@@ -3330,6 +3387,15 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_totp_credentials_users_user_id");
                 });
 
+            modelBuilder.Entity("OqTish.Domain.Identity.User", b =>
+                {
+                    b.HasOne("OqTish.Domain.Common.StoredImage", null)
+                        .WithMany()
+                        .HasForeignKey("AvatarImageId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_users_stored_images_avatar_image_id");
+                });
+
             modelBuilder.Entity("OqTish.Domain.Notifications.DeliveryAttempt", b =>
                 {
                     b.HasOne("OqTish.Domain.Notifications.OutboxMessage", null)
@@ -3613,6 +3679,12 @@ namespace OqTish.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_clinics_users_created_by_user_id");
+
+                    b.HasOne("OqTish.Domain.Common.StoredImage", null)
+                        .WithMany()
+                        .HasForeignKey("LogoImageId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_clinics_stored_images_logo_image_id");
                 });
 
             modelBuilder.Entity("OqTish.Domain.Finance.JournalEntry", b =>

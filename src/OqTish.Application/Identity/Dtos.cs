@@ -15,7 +15,8 @@ public sealed record MeDto(
     bool TotpSetupRequired,
     PatientDto? Patient,
     IReadOnlyList<MembershipDto> Memberships,
-    IReadOnlyList<string> PlatformPermissions);
+    IReadOnlyList<string> PlatformPermissions,
+    Guid? AvatarId);
 
 public sealed record PatientDto(string FullName, string? ContactPhone);
 
@@ -28,7 +29,8 @@ public sealed record MembershipDto(
     MembershipScope Scope,
     IReadOnlyList<Guid> BranchIds,
     IReadOnlyList<string> Permissions,
-    bool TotpSetupRequired);
+    bool TotpSetupRequired,
+    Guid? ClinicLogoId);
 
 /// <summary>Result of a successful sign-in: the API sets the session cookie and returns <see cref="Me"/>.</summary>
 public sealed record SignInOutcome(MeDto Me, string SessionToken, DateTimeOffset ExpiresAt);

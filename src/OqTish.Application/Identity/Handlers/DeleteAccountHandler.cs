@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OqTish.Application.Common;
+using OqTish.Application.Common.Images;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Staff;
 
@@ -18,7 +19,7 @@ public interface IAccountDeletionContributor
 /// POST /api/me/delete (OD-18). Auth: user. Refused (422 <c>account.delete_blocked</c>) while the user has a
 /// non-removed clinic membership or an active platform grant. Otherwise anonymises in one transaction: user
 /// status Deleted (display name cleared), patient profile anonymised, every identity, password, TOTP secret,
-/// Telegram token/chat link removed, all sessions revoked, contributors run. The user row stays for
+/// Telegram token/chat link and the avatar image removed, all sessions revoked, contributors run. The user row stays for
 /// referential integrity. Side effects: audit <c>account.deleted</c>.
 /// </summary>
 public sealed class DeleteAccountHandler(
@@ -44,6 +45,7 @@ public sealed class DeleteAccountHandler(
 
             var now = clock.GetUtcNow();
             var user = await db.Users.FirstAsync(u => u.Id == userId, token);
+            var avatar = user.AvatarImageId;
             user.MarkDeleted(now);
             var profile = await db.PatientProfiles.FirstOrDefaultAsync(p => p.UserId == userId, token);
             profile?.Anonymise(now);
@@ -62,6 +64,7 @@ public sealed class DeleteAccountHandler(
 
             audit.Record(new AuditEvent("account.deleted", TargetType: "user", TargetId: userId.ToString()));
             await db.SaveChangesAsync(token);
+            await StoredImageStore.DeleteAsync(db, avatar, token);
             return Result.Success;
         }, ct);
     }

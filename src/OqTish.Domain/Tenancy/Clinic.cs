@@ -48,6 +48,9 @@ public sealed class Clinic
     /// <summary>Number of published reviews behind <see cref="RatingAverage"/>.</summary>
     public int ReviewCount { get; private set; }
 
+    /// <summary>The clinic logo (<c>common.stored_images</c>), null when none was uploaded.</summary>
+    public Guid? LogoImageId { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -78,6 +81,13 @@ public sealed class Clinic
         LegalName = legalName?.Trim();
         Description = description?.Trim();
         Phone = phone;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Sets or clears (null) the logo image; the caller deletes the previous image row.</summary>
+    public void SetLogo(Guid? imageId, DateTimeOffset now)
+    {
+        LogoImageId = imageId;
         UpdatedAt = now;
     }
 

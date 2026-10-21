@@ -31,6 +31,9 @@ public sealed class User
 
     public string? StatusReason { get; private set; }
 
+    /// <summary>The profile picture (<c>common.stored_images</c>), null when none was uploaded.</summary>
+    public Guid? AvatarImageId { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -52,6 +55,13 @@ public sealed class User
     public void Rename(string? displayName, DateTimeOffset now)
     {
         DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        UpdatedAt = now;
+    }
+
+    /// <summary>Sets or clears (null) the avatar image; the caller deletes the previous image row.</summary>
+    public void SetAvatar(Guid? imageId, DateTimeOffset now)
+    {
+        AvatarImageId = imageId;
         UpdatedAt = now;
     }
 
@@ -81,6 +91,7 @@ public sealed class User
         Status = UserStatus.Deleted;
         DisplayName = null;
         StatusReason = null;
+        AvatarImageId = null;
         DeletedAt = now;
         RotateSecurityStamp(now);
     }

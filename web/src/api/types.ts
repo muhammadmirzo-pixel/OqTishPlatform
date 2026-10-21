@@ -53,6 +53,8 @@ export interface Membership {
   clinicId: string
   clinicName: string
   clinicStatus: ClinicVerification
+  /** Clinic logo image id (GET /files/images/{id}); null = monogram. */
+  clinicLogoId?: string | null
   role: StaffRole
   scope: MembershipScope
   branchIds: string[]
@@ -64,6 +66,8 @@ export interface Membership {
 export interface Me {
   id: string
   displayName: string
+  /** Profile photo image id; null = initials. */
+  avatarId?: string | null
   phoneVerified: boolean
   phoneMasked: string | null
   email: string | null
@@ -214,6 +218,7 @@ export interface ClinicSearchParams {
 export interface ClinicCard {
   id: string
   name: string
+  logoId?: string | null
   rating: number | null
   reviewCount: number
   minPrice: Money | null
@@ -256,6 +261,7 @@ export interface PublicBranch {
 export interface ClinicDetail {
   id: string
   name: string
+  logoId?: string | null
   description: string
   rating: number | null
   reviewCount: number
@@ -299,6 +305,7 @@ export interface RegisterClinicBody {
 export interface ClinicProfileDto {
   id: string
   name: string
+  logoId?: string | null
   legalName: string
   description: string
   phone: string
@@ -392,6 +399,8 @@ export interface StaffMemberDto {
   membershipId: string
   userId: string
   displayName: string
+  /** Profile photo image id; null = initials. */
+  avatarId?: string | null
   phoneMasked: string | null
   role: StaffRole
   scope: MembershipScope
@@ -424,6 +433,8 @@ export interface InvitationBody extends StaffBody {
 export interface DoctorDto {
   id: string
   displayName: string
+  /** Profile photo of the linked user, if any. */
+  avatarId?: string | null
   isActive: boolean
   branchIds: string[]
   serviceIds: string[]

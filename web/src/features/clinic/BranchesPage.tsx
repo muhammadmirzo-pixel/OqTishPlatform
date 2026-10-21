@@ -5,11 +5,11 @@ import { branchTimeZones, type BranchBody, type BranchDto } from '../../api/type
 import { useAction } from '../../hooks/useAction'
 import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
-import { isValidUzPhone, normalizePhone } from '../../lib/phone'
+import { formatPhone, isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { DEFAULT_TIME_ZONE } from '../../lib/time'
 import { Dialog } from '../../ui/Dialog'
 import { Select } from '../../ui/Select'
-import { Checkbox, Field, FormError, SubmitButton } from '../../ui/forms'
+import { Checkbox, Field, FormError, PhoneInput, SubmitButton } from '../../ui/forms'
 import { EmptyState } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
@@ -64,7 +64,7 @@ export function BranchesPage() {
                   {b.phone && (
                     <li>
                       <Phone className="icon" aria-hidden="true" />
-                      <span className="nowrap">{b.phone}</span>
+                      <span className="nowrap">{formatPhone(b.phone)}</span>
                     </li>
                   )}
                   <li>
@@ -184,7 +184,7 @@ function BranchDialog({ branch, onDone, onClose }: { branch: BranchDto | null; o
             {(p) => <input {...p} maxLength={100} value={v.district} onChange={set('district')} />}
           </Field>
           <Field label={t('common.phone')} error={err('phone')} optional>
-            {(p) => <input {...p} type="tel" value={v.phone} onChange={set('phone')} />}
+            {(p) => <PhoneInput {...p} value={v.phone} onChange={(phone) => setV({ ...v, phone })} />}
           </Field>
         </div>
         <Field label={t('branch.address')} error={err('address')}>

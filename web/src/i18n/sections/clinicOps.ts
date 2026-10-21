@@ -120,6 +120,14 @@ const uz = {
   'cal.openDay': "{day} kunini ochish",
   'cal.legendTitle': "Belgilar",
   'cal.what': "Nima",
+  'profile.logo': "Klinika logotipi",
+  'profile.logoHint': "Kvadrat rasm tavsiya etiladi (kamida 256×256). JPG, PNG yoki WebP, 2 MB gacha. Logotip katalogda va klinika sahifasida ko‘rinadi.",
+  'cal.break': "Tanaffus",
+  'cal.dayOff': "Bugun ishlamaydi",
+  'cal.appointmentsCount': "{count} ta qabul",
+  'cal.sumTotal': "Jami qabul",
+  'cal.summary': "Kun bo‘yicha qisqacha",
+  'cal.freeDay': "Qabul yo‘q — butun ish vaqti bo‘sh",
 } as const
 
 type Keys = keyof typeof uz
@@ -244,6 +252,14 @@ const ru: Record<Keys, string> = {
   'cal.openDay': "Открыть день {day}",
   'cal.legendTitle': "Обозначения",
   'cal.what': "Что",
+  'profile.logo': "Логотип клиники",
+  'profile.logoHint': "Рекомендуется квадратное изображение (от 256×256). JPG, PNG или WebP, до 2 МБ. Логотип виден в каталоге и на странице клиники.",
+  'cal.break': "Перерыв",
+  'cal.dayOff': "Не работает",
+  'cal.appointmentsCount': "записей: {count}",
+  'cal.sumTotal': "Всего записей",
+  'cal.summary': "Сводка за день",
+  'cal.freeDay': "Записей нет — всё рабочее время свободно",
 }
 
 const en: Record<Keys, string> = {
@@ -366,6 +382,14 @@ const en: Record<Keys, string> = {
   'cal.openDay': "Open {day}",
   'cal.legendTitle': "Legend",
   'cal.what': "What",
+  'profile.logo': "Clinic logo",
+  'profile.logoHint': "A square image works best (at least 256×256). JPG, PNG or WebP, up to 2 MB. Shown in the catalogue and on the clinic page.",
+  'cal.break': "Break",
+  'cal.dayOff': "Not working",
+  'cal.appointmentsCount': "{count} appt.",
+  'cal.sumTotal': "Appointments",
+  'cal.summary': "Day summary",
+  'cal.freeDay': "No appointments — the whole shift is free",
 }
 
 export const clinicOps = { uz, ru, en }

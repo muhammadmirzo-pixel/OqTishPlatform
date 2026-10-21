@@ -9,6 +9,7 @@ import { useTitle } from '../../hooks/useTitle'
 import { useI18n } from '../../i18n/context'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { FormError, Notice, SubmitButton } from '../../ui/forms'
+import { ImageUpload } from '../../ui/ImageUpload'
 import { QueryView } from '../../ui/states'
 import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
@@ -26,7 +27,7 @@ export function ClinicProfilePage() {
   return (
     <div className="stack">
       <PageHeader icon={Settings2} title={t('clinicNav.profile')} />
-      <QueryView query={profile}>{(p) => <ProfileForm key={`${p.id}:${p.name}:${p.phone}`} profile={p} onSaved={profile.reload} />}</QueryView>
+      <QueryView query={profile}>{(p) => <ProfileForm key={`${p.id}:${p.name}:${p.phone}:${p.logoId ?? ''}`} profile={p} onSaved={profile.reload} />}</QueryView>
     </div>
   )
 }
@@ -69,6 +70,22 @@ function ProfileForm({ profile: p, onSaved }: { profile: ClinicProfileDto; onSav
       {p.statusReason && (p.verificationStatus === 'Rejected' || p.verificationStatus === 'Suspended') && (
         <Notice tone="warning">{t('profile.statusReason', { reason: p.statusReason })}</Notice>
       )}
+      <div className="field">
+        <span className="field__label">{t('profile.logo')}</span>
+        <ImageUpload
+          name={p.name}
+          seed={p.id}
+          imageId={p.logoId}
+          hint={t('profile.logoHint')}
+          disabled={!editable}
+          onUpload={(file) => api.clinic.uploadLogo(clinicId, file)}
+          onRemove={() => api.clinic.deleteLogo(clinicId)}
+          onChanged={async () => {
+            await refresh()
+            onSaved()
+          }}
+        />
+      </div>
       <ClinicProfileFields value={value} onChange={setValue} errors={touched ? errors : {}} disabled={!editable} />
       <FormError error={save.error} />
       {editable ? <SubmitButton pending={save.pending}>{t('common.save')}</SubmitButton> : <p className="muted small">{t('profile.readOnly')}</p>}

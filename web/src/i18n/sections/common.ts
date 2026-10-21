@@ -121,7 +121,7 @@ const uz = {
   'weekdayLong.7': 'Yakshanba',
 
   'valid.required': 'Bu maydonni to‘ldiring',
-  'valid.phone': 'Raqamni +998 XX XXX XX XX ko‘rinishida kiriting',
+  'valid.phone': 'Raqamni +998 XX XXX XX XX ko‘rinishida kiriting (operator kodi: 20, 33, 50, 55, 71, 75, 77, 88, 90–95, 97–99)',
   'valid.amount': 'Summani to‘g‘ri kiriting (masalan, 150000 yoki 150000,50)',
   'valid.amountPositive': 'Summa 0 dan katta bo‘lishi kerak',
   'valid.maxLength': 'Ko‘pi bilan {max} belgi',
@@ -136,6 +136,14 @@ const uz = {
   'valid.number': "Butun son kiriting",
   'valid.chooseOne': 'Kamida bittasini tanlang',
   'actor.Anonymous': 'Anonim',
+  'common.showPassword': "Parolni ko‘rsatish",
+  'common.hidePassword': "Parolni yashirish",
+  'image.upload': "Rasm yuklash",
+  'image.replace': "Rasmni almashtirish",
+  'image.remove': "O‘chirish",
+  'image.uploading': "Yuklanmoqda…",
+  'image.badType': "Faqat JPG, PNG yoki WebP rasm yuklang",
+  'image.tooBig': "Rasm hajmi 2 MB dan oshmasligi kerak",
 } as const
 
 type Keys = keyof typeof uz
@@ -261,7 +269,7 @@ const ru: Record<Keys, string> = {
   'weekdayLong.7': 'Воскресенье',
 
   'valid.required': 'Заполните это поле',
-  'valid.phone': 'Введите номер в формате +998 XX XXX XX XX',
+  'valid.phone': 'Введите номер в формате +998 XX XXX XX XX (код оператора: 20, 33, 50, 55, 71, 75, 77, 88, 90–95, 97–99)',
   'valid.amount': 'Введите сумму правильно (например, 150000 или 150000,50)',
   'valid.amountPositive': 'Сумма должна быть больше 0',
   'valid.maxLength': 'Не более {max} символов',
@@ -276,6 +284,14 @@ const ru: Record<Keys, string> = {
   'valid.number': 'Введите целое число',
   'valid.chooseOne': 'Выберите хотя бы один вариант',
   'actor.Anonymous': 'Аноним',
+  'common.showPassword': "Показать пароль",
+  'common.hidePassword': "Скрыть пароль",
+  'image.upload': "Загрузить фото",
+  'image.replace': "Заменить фото",
+  'image.remove': "Удалить",
+  'image.uploading': "Загрузка…",
+  'image.badType': "Загрузите изображение JPG, PNG или WebP",
+  'image.tooBig': "Размер изображения не должен превышать 2 МБ",
 }
 
 const en: Record<Keys, string> = {
@@ -399,7 +415,7 @@ const en: Record<Keys, string> = {
   'weekdayLong.7': 'Sunday',
 
   'valid.required': 'Please fill in this field',
-  'valid.phone': 'Enter the number as +998 XX XXX XX XX',
+  'valid.phone': 'Enter the number as +998 XX XXX XX XX (operator code: 20, 33, 50, 55, 71, 75, 77, 88, 90–95, 97–99)',
   'valid.amount': 'Enter a valid amount (e.g. 150000 or 150000.50)',
   'valid.amountPositive': 'The amount must be above 0',
   'valid.maxLength': 'At most {max} characters',
@@ -414,6 +430,14 @@ const en: Record<Keys, string> = {
   'valid.number': 'Enter a whole number',
   'valid.chooseOne': 'Choose at least one option',
   'actor.Anonymous': 'Anonymous',
+  'common.showPassword': "Show password",
+  'common.hidePassword': "Hide password",
+  'image.upload': "Upload image",
+  'image.replace': "Replace image",
+  'image.remove': "Remove",
+  'image.uploading': "Uploading…",
+  'image.badType': "Upload a JPG, PNG or WebP image",
+  'image.tooBig': "The image must be 2 MB or smaller",
 }
 
 export const common = { uz, ru, en }

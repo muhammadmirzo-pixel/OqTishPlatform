@@ -27,8 +27,10 @@ type Me = {
   patient: { fullName: string; contactPhone: string | null } | null
   memberships: { membershipId: string; clinicId: string; clinicName: string; clinicStatus: ClinicVerification;
                  role: StaffRole; scope: 'Clinic'|'Branches'; branchIds: string[]; permissions: string[];
-                 totpSetupRequired: boolean }[]   // permissions = effective ([] while TOTP setup is required)
+                 totpSetupRequired: boolean
+                 clinicLogoId: string | null }[]  // permissions = effective ([] while TOTP setup is required); logo → §10
   platformPermissions: string[]                  // effective ([] while TOTP setup is required)
+  avatarId: string | null                        // own avatar image id (§10)
 }
 type ClinicVerification = 'Pending'|'Approved'|'Suspended'|'Rejected'
 type Session = { id: string; createdAt: string; lastSeenAt: string; expiresAt: string;
@@ -73,6 +75,7 @@ type AppointmentDto = {
 | `GET /me/invitations` | user | Pending staff invitations addressed to the caller's verified phone |
 | `POST /me/invitations/{id}/accept` | user | Accepts an invitation (phone must match). Creates the membership |
 | `POST /me/delete` | user | Anonymises the patient profile (OD-18). Staff must leave clinics first |
+| `PUT /me/avatar` (multipart, field `file`) → `{ avatarId }` · `DELETE /me/avatar` → 204 | user | Own profile picture (§10) |
 
 The session cookie `__Host-oqtish` is HttpOnly, Secure (except the http Development profile),
 SameSite=Lax, and expires after 30 days sliding / 14 days idle. Sessions live server-side.
@@ -83,7 +86,7 @@ Implemented: everything in the table above (`/me/invitations*` added in BE1b, se
 
 | Item | Contract as implemented |
 |---|---|
-| `POST /auth/otp/request` | 202 `{ challengeId, expiresInSeconds: 300, resendAfterSeconds: 60 }`. Same body for known/unknown numbers. Limits: 1 code per 60 s and 3 per 15 min per phone, 10 per 15 min per IP → 429 `auth.rate_limited` + `Retry-After`. Accepted phone forms: `+998 90 123-45-67`, `998901234567`, `00998…`, `(90) 123 45 67`, `901234567`; other → 400 `common.validation` (`errors.phone`) |
+| `POST /auth/otp/request` | 202 `{ challengeId, expiresInSeconds: 300, resendAfterSeconds: 60 }`. Same body for known/unknown numbers. Limits: 1 code per 60 s and 3 per 15 min per phone, 10 per 15 min per IP → 429 `auth.rate_limited` + `Retry-After`. Accepted phone forms: `+998 90 123-45-67`, `998901234567`, `00998…`, `(90) 123 45 67`, `901234567`; the 9-digit national number must start with an Uzbek operator/area code (20, 33, 50, 55, 71, 75, 77, 88, 90–95, 97–99 — applies to every phone field); other → 400 `common.validation` (`errors.phone`) |
 | `POST /auth/otp/verify` | **Deviation:** optional `totpCode`. Accounts with TOTP enabled get 401 `auth.totp_required` without it (ADR-017). Every submission counts as an attempt; the 5th wrong one and later answer `auth.otp_attempts_exceeded`. Suspended account → 403 `auth.account_suspended` |
 | `POST /auth/password/login` | Locked account (10 consecutive failures, 15 min) also answers 401 `auth.invalid_credentials` (no lockout oracle) |
 | `POST /auth/password/reset/request` | Always 202 `{ challengeId }` (a decoy id for unknown e-mails); 400 only for a malformed e-mail; limits as OTP, keyed by e-mail |
@@ -115,8 +118,10 @@ Implemented: everything in the table above (`/me/invitations*` added in BE1b, se
 
 ```ts
 type ClinicCard = { id: string; name: string; rating: number|null; reviewCount: number; minPrice: Money|null;
-                    branchCount: number; districts: string[]; distanceKm: number|null; nextFreeSlot: string|null }
+                    branchCount: number; districts: string[]; distanceKm: number|null; nextFreeSlot: string|null
+                    logoId: string|null }                                 // §10
 type ClinicDetail = { id: string; name: string; description: string; rating: number|null; reviewCount: number;
+  logoId: string|null;                                                    // §10
   branches: { id: string; name: string; district: string; address: string; latitude: number|null; longitude: number|null;
               timeZone: string; phone: string; hours: { weekday: Weekday; open: string; close: string }[];
               services: { serviceId: string; name: string; category: string; price: Money; priceKind: 'Fixed'|'From'; durationMinutes: number }[] }[] }
@@ -199,6 +204,7 @@ Completed, ≤ 30 days, no review yet; `hasReview`: a review exists (FRONTEND.md
 | `POST /clinics` `{ name, legalName, description, phone }` | user | Registers a new clinic (Pending verification). The caller becomes ClinicOwner |
 | `GET /clinics/{clinicId}` | any membership | Clinic profile and verification status |
 | `PUT /clinics/{clinicId}` | `clinic.profile.manage` | Edits the profile |
+| `PUT /clinics/{clinicId}/logo` (multipart, field `file`) → `{ logoId }` · `DELETE /clinics/{clinicId}/logo` → 204 | `clinic.profile.manage` (clinic-wide) | Clinic logo (§10) |
 | `GET /clinics/{clinicId}/dashboard?branchId` | any membership | Today's counts (pending, confirmed, completed, no-show). The collected sum is included only with `finance.report.view` |
 | `GET /clinics/{clinicId}/branches` · `POST …/branches` · `PUT …/branches/{branchId}` | read: membership · write: `branch.manage` | Branches (name, district, address, lat/lng, phone, timeZone, isActive) |
 | `PUT …/branches/{branchId}/hours` `[{ weekday, open, close }]` | `branch.manage` | Opening hours |
@@ -243,7 +249,8 @@ Branches-scoped membership → 403 `common.forbidden` (TOTP rule → 403 `auth.t
 
 ```ts
 type ClinicProfileDto = { id: string; name: string; legalName: string; description: string; phone: string
-                          verificationStatus: ClinicVerification; statusReason: string | null; createdAt: string }
+                          verificationStatus: ClinicVerification; statusReason: string | null; createdAt: string
+                          logoId: string | null }                       // §10
 type DashboardDto = { date: string /* YYYY-MM-DD, branch/clinic local */; branchId: string | null
                       pending: number; confirmed: number; completed: number; noShow: number; collected: Money | null }
 type BranchDto = { id; name; district; address; latitude: number|null; longitude: number|null; phone: string /* "" if none */
@@ -251,10 +258,11 @@ type BranchDto = { id; name; district; address; latitude: number|null; longitude
 type ServiceDto = { id; name; category: string /* category key */; isActive: boolean
                     offers: { branchId; price: Money; priceKind: 'Fixed'|'From'; durationMinutes: number; isActive: boolean }[] }
 type StaffMemberDto = { membershipId; userId; displayName; phoneMasked: string|null; role: StaffRole; scope: 'Clinic'|'Branches'
-                        branchIds: string[]; status: 'Active'|'Suspended' }
+                        branchIds: string[]; status: 'Active'|'Suspended'; avatarId: string|null /* §10 */ }
 type InvitationDto = { id; phoneMasked; role: StaffRole; scope; branchIds: string[]; createdAt; expiresAt }
 type MyInvitationDto = { id; clinicId; clinicName; role: StaffRole; scope; branchNames: string[]; expiresAt }
-type DoctorDto = { id; displayName; isActive: boolean; branchIds: string[]; serviceIds: string[]; userId: string|null }
+type DoctorDto = { id; displayName; isActive: boolean; branchIds: string[]; serviceIds: string[]; userId: string|null
+                   avatarId: string|null /* avatar of the linked user (§10) */ }
 type WorkingHoursEntry = { branchId; weekday: Weekday; start: 'HH:mm'; end: 'HH:mm' }
 type AuditEntryDto = { id; occurredAt; actorKind: 'User'|'System'|'Anonymous'; actorUserId: string|null; actorName: string|null
                        action: string; clinicId: string|null; branchId: string|null; targetType: string|null; targetId: string|null }
@@ -581,3 +589,29 @@ identity — full unlinking stays `DELETE /me/telegram`. `/help` → command lis
 | `finance.settlement_exists` | 409 | Settlement already exists for the period |
 | `finance.rule_overlap` | 409 | Commission rule overlaps an existing one |
 | `review.not_eligible` / `review.already_exists` | 422 / 409 | Review rules |
+
+## 10. Images (logos, avatars) — `/api/files`, clinic logo, own avatar (2026-10-21)
+
+Images are stored in PostgreSQL (`common.stored_images`, DATABASE.md §2.6); no external blob store. An image
+never changes under its id: replacing a logo/avatar creates a new id and deletes the old row, so the SPA builds the
+URL `/api/files/images/{id}` from the id in the DTOs (`Me.avatarId`, `Me.memberships[].clinicLogoId`,
+`ClinicProfileDto.logoId`, `ClinicCard.logoId`, `ClinicDetail.logoId`, `StaffMemberDto.avatarId`, `DoctorDto.avatarId`;
+each `string | null`).
+
+| Endpoint | Auth | Contract as implemented |
+|---|---|---|
+| `GET /files/images/{id}` | anon | → 200 bytes with the stored `Content-Type` (`image/jpeg`/`image/png`/`image/webp`), `Cache-Control: public, max-age=31536000, immutable`, strong `ETag` (`"<sha256 hex>"`; `If-None-Match` → 304), `X-Content-Type-Options: nosniff`. Unknown id → 404 `common.not_found` |
+| `PUT /clinics/{clinicId}/logo` | `clinic.profile.manage` clinic-wide (as `PUT /clinics/{id}`) | `multipart/form-data` with the field **`file`** → 200 `{ logoId: string }`. Replaces (and deletes) the previous logo. No membership / unknown clinic → 404, in-tenant without the permission or Branches-scoped → 403 (checked before the file). Audit `clinic.logo.updated` |
+| `DELETE /clinics/{clinicId}/logo` | same | → 204 (also when there is no logo). Deletes the image. Audit `clinic.logo.removed` (only when a logo existed) |
+| `PUT /me/avatar` | user | `multipart/form-data` with the field **`file`** → 200 `{ avatarId: string }`. Replaces (and deletes) the previous avatar. Not audited (like `PUT /me/profile`) |
+| `DELETE /me/avatar` | user | → 204 (also without an avatar). `POST /me/delete` removes the avatar too |
+
+Upload rules (both PUTs): only **JPEG, PNG or WebP**, recognised by the file's magic bytes — the part's
+`Content-Type` and file name are ignored; at most **2 MiB** (2 097 152 bytes). Missing/empty `file`, a non-multipart body,
+another type or a larger file → 400 `common.validation` with `errors.file`. The request body limit of these two endpoints
+is 3 MiB (Kestrel; nginx `client_max_body_size 3m` on `/api/`). A body over the Kestrel limit still answers 400 `errors.file`;
+only nginx itself answers a body over 3 MB with a plain 413 (no ProblemDetails), so the SPA should check the size first.
+
+Headers: like every mutation, the PUT/DELETE requests need **`X-OqTish-Client: web`** (or `tg-miniapp`) and the session
+cookie; no `Idempotency-Key`, no antiforgery token. The SPA sends a `FormData` body and must **not** set `Content-Type`
+itself (the browser adds the multipart boundary).

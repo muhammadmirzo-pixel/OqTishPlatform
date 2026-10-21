@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using OqTish.Domain.Common;
 using OqTish.Domain.Identity;
 using OqTish.Domain.Staff;
 using OqTish.Domain.Tenancy;
@@ -28,6 +29,7 @@ internal sealed class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
         b.Ignore(x => x.IsSuspended);
         b.HasIndex(x => x.VerificationStatus);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne<StoredImage>().WithMany().HasForeignKey(x => x.LogoImageId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

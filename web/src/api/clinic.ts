@@ -1,4 +1,4 @@
-import { query, seg, type ApiClient } from './client'
+import { imageForm, query, seg, type ApiClient } from './client'
 import type {
   AppointmentDto,
   BranchBody,
@@ -33,6 +33,9 @@ export function clinicApi(c: ApiClient) {
     register: (body: RegisterClinicBody) => c.send<ClinicProfileDto>('POST', '/clinics', body),
     profile: (clinicId: string) => c.get<ClinicProfileDto>(base(clinicId)),
     updateProfile: (clinicId: string, body: RegisterClinicBody) => c.send<ClinicProfileDto>('PUT', base(clinicId), body),
+    /** multipart field `file`: JPEG/PNG/WebP up to 2 MB. */
+    uploadLogo: (clinicId: string, file: File) => c.send<{ logoId: string }>('PUT', `${base(clinicId)}/logo`, imageForm(file)),
+    deleteLogo: (clinicId: string) => c.send<void>('DELETE', `${base(clinicId)}/logo`),
     dashboard: (clinicId: string, branchId?: string) => c.get<DashboardDto>(`${base(clinicId)}/dashboard${query({ branchId })}`),
 
     branches: (clinicId: string) => c.get<BranchDto[]>(`${base(clinicId)}/branches`),

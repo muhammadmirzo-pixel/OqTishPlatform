@@ -117,5 +117,7 @@ public interface IOqTishDb
 
     DbSet<IdempotencyRecord> IdempotencyKeys { get; }
 
+    DbSet<StoredImage> StoredImages { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -11,7 +11,11 @@ public sealed record ClinicProfileDto(
     string Phone,
     ClinicVerificationStatus VerificationStatus,
     string? StatusReason,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? LogoId);
+
+/// <summary>PUT /api/clinics/{clinicId}/logo: the new logo image id (served by GET /api/files/images/{id}).</summary>
+public sealed record ClinicLogoDto(Guid LogoId);
 
 public sealed record ClinicProfileCommand(string? Name, string? LegalName, string? Description, string? Phone);
 
@@ -53,7 +57,7 @@ public sealed record DashboardDto(
 internal static class TenancyMapping
 {
     public static ClinicProfileDto ToDto(this Clinic c) =>
-        new(c.Id, c.Name, c.LegalName ?? string.Empty, c.Description ?? string.Empty, c.Phone ?? string.Empty, c.VerificationStatus, c.StatusReason, c.CreatedAt);
+        new(c.Id, c.Name, c.LegalName ?? string.Empty, c.Description ?? string.Empty, c.Phone ?? string.Empty, c.VerificationStatus, c.StatusReason, c.CreatedAt, c.LogoImageId);
 
     public static OpeningHoursDto ToDto(this BranchOpeningHours h) =>
         new(h.Weekday, Common.LocalFormats.Time(h.Opens), Common.LocalFormats.Time(h.Closes));

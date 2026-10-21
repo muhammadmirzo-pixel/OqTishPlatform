@@ -13,7 +13,7 @@ import type { MessageKey } from '../../i18n/messages'
 import { formatDate, formatLocalDay, formatMoney, formatTime } from '../../lib/format'
 import { formatPhone, isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { addDays, localDate, weekdayOf } from '../../lib/time'
-import { Field, FormError, Notice } from '../../ui/forms'
+import { Field, FormError, Notice, PhoneInput } from '../../ui/forms'
 import { ApiErrorState, EmptyState, LoadingState } from '../../ui/states'
 import { Details } from '../../ui/widgets'
 import { Monogram } from '../../ui/Monogram'
@@ -112,7 +112,7 @@ export function BookingWizard({
   return (
     <div className="wizard">
       <header className="wizard__head">
-        <Monogram name={clinic.data.name} seed={clinic.data.id} size={44} />
+        <Monogram name={clinic.data.name} seed={clinic.data.id} imageId={clinic.data.logoId} size={44} />
         <h1 className="wizard__clinic">{clinic.data.name}</h1>
       </header>
       <ol className="steps" aria-label={t('book.progress')}>
@@ -422,7 +422,7 @@ function ContactStep({ initialName, initialPhone, onBack, onNext }: { initialNam
         {(p) => <input {...p} autoComplete="name" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />}
       </Field>
       <Field label={t('book.phone')} error={touched ? phoneError : null}>
-        {(p) => <input {...p} type="tel" inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />}
+        {(p) => <PhoneInput {...p} autoComplete="tel" value={phone} onChange={setPhone} />}
       </Field>
       <div className="row">
         <button type="submit" className="btn">

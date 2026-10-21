@@ -25,6 +25,19 @@ public static class MeEndpoints
             .WithName("UpdateProfile").WithSummary("Set the patient display name")
             .Produces<MeDto>().ProducesProblem(400).ProducesProblem(401);
 
+        me.MapPut("/avatar", async (AvatarHandler handler, HttpContext http, CancellationToken ct) =>
+                (await handler.SetAsync(await ImageUploadForm.ReadAsync(http.Request, ct), ct)).ToHttp(http, TypedResults.Ok))
+            .RequireAuthorization()
+            .AcceptsImageUpload()
+            .WithName("SetAvatar").WithSummary("Upload/replace the own avatar: multipart field 'file', JPEG/PNG/WebP ≤ 2 MB")
+            .Produces<AvatarDto>().ProducesProblem(400).ProducesProblem(401);
+
+        me.MapDelete("/avatar", async (AvatarHandler handler, HttpContext http, CancellationToken ct) =>
+                (await handler.RemoveAsync(ct)).ToHttp(http, TypedResults.NoContent))
+            .RequireAuthorization()
+            .WithName("RemoveAvatar").WithSummary("Remove the own avatar")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(401);
+
         me.MapPost("/password", async (SetPasswordCommand body, SetPasswordHandler handler, HttpContext http, CancellationToken ct) =>
                 (await handler.HandleAsync(body, ct)).ToHttp(http, TypedResults.NoContent))
             .RequireAuthorization().RequireRateLimiting(RateLimitPolicies.Credentials)

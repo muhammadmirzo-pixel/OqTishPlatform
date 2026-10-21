@@ -143,7 +143,7 @@ export function CatalogPage() {
               <X className="icon" aria-hidden="true" />
             </button>
           ))}
-          <button type="button" className="btn btn--ghost btn--small" onClick={resetAll}>
+          <button type="button" className="btn btn--ghost btn--small catalog__active-reset" onClick={resetAll}>
             {t('catalog.reset')}
           </button>
         </div>
@@ -156,6 +156,15 @@ export function CatalogPage() {
 
       <div className="catalog__body">
         <aside className="catalog__aside card" aria-label={t('home.filters')}>
+          <div className="catalog__aside-head">
+            <h2>{t('catalog.filters')}</h2>
+            {active.length > 0 && (
+              <button type="button" className="btn btn--ghost btn--small" onClick={resetAll}>
+                <X className="icon" aria-hidden="true" />
+                {t('catalog.clear')}
+              </button>
+            )}
+          </div>
           <Filters facets={facets.data} params={params} update={update} />
         </aside>
 

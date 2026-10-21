@@ -17,6 +17,7 @@ import { useToast } from '../../ui/toastContext'
 import { Badge, PageHeader } from '../../ui/widgets'
 import { useClinic } from './clinicContext'
 import { Perm } from './permissions'
+import { formatPhone } from '../../lib/phone'
 
 export function DoctorsPage() {
   const { t } = useI18n()
@@ -55,7 +56,7 @@ export function DoctorsPage() {
               {visible.map((d) => (
                 <li key={d.id}>
                   <Link to={`/clinic/${clinicId}/doctors/${d.id}`} className="card card--link entity">
-                    <Monogram name={d.displayName} seed={d.id} size={44} />
+                    <Monogram name={d.displayName} seed={d.id} imageId={d.avatarId} size={44} round={!!d.avatarId} />
                     <span className="entity__body">
                       <span className="entity__title">
                         <strong>{d.displayName}</strong> {!d.isActive && <Badge>{t('common.inactive')}</Badge>} {d.userId === me?.id && <Badge tone="info">{t('doc.you')}</Badge>}
@@ -154,7 +155,7 @@ export function DoctorDialog({ doctor, services, onDone, onClose }: { doctor: Do
                 options={[
                   { value: '', label: t('doc.noAccount') },
                   ...(currentLinkHidden ? [{ value: doctor!.userId!, label: t('doc.currentAccount') }] : []),
-                  ...linkable.map((s) => ({ value: s.userId, label: `${s.displayName}${s.phoneMasked ? ` (${s.phoneMasked})` : ''} · ${t(`role.${s.role}`)}` })),
+                  ...linkable.map((s) => ({ value: s.userId, label: `${s.displayName}${s.phoneMasked ? ` (${formatPhone(s.phoneMasked)})` : ''} · ${t(`role.${s.role}`)}` })),
                 ]}
               />
             )}

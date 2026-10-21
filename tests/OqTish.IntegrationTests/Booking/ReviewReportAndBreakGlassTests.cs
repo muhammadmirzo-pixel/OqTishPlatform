@@ -156,7 +156,7 @@ public class ReviewReportAndBreakGlassTests(PostgresFixture postgres)
         await using var db = s.Factory.CreateDbContext();
         var audit = await db.AuditLog.SingleAsync(a => a.Action == "platform.tenant_data.read", Ct);
         Assert.Equal((admin.Me.Id, s.ClinicA as Guid?), (audit.ActorUserId!.Value, audit.ClinicId));
-        Assert.Contains(reason, System.Text.Json.JsonDocument.Parse(audit.Details!).RootElement.GetProperty("reason").GetString(), StringComparison.Ordinal);
+        Assert.Contains(reason, System.Text.Json.JsonElement.Parse(audit.Details!).GetProperty("reason").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]

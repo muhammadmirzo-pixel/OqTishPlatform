@@ -233,12 +233,20 @@ export function LandingPage() {
 /** Illustration of the request flow (no real data: statuses only, no prices or names). */
 function HeroArt() {
   const { t } = useI18n()
+  // Real photo from public/images/hero.jpg; until the file is deployed the tooth disc is shown instead.
+  const [photo, setPhoto] = useState(true)
   return (
     <div className="lp-art" aria-hidden="true">
       <div className="lp-art__glow" />
-      <div className="lp-art__disc">
-        <LogoMark className="lp-art__tooth" />
-      </div>
+      {photo ? (
+        <div className="lp-art__photo">
+          <img src="/images/hero.jpg" alt="" width={400} height={480} fetchPriority="high" decoding="async" onError={() => setPhoto(false)} />
+        </div>
+      ) : (
+        <div className="lp-art__disc">
+          <LogoMark className="lp-art__tooth" />
+        </div>
+      )}
       <div className="lp-art__card lp-art__card--one">
         <span className="icon-tile icon-tile--warning icon-tile--sm">
           <Hourglass className="icon" />

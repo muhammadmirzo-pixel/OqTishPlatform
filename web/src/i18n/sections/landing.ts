@@ -74,6 +74,7 @@ const uz = {
   'catalog.verified': 'Tekshirilgan',
   'catalog.slotNote': 'Bo‘sh vaqtlar taxminiy: aniq vaqt yozilish paytida tekshiriladi.',
   'landing.greeting': "Assalomu alaykum, {name}!",
+  'catalog.clear': "Tozalash",
 } as const
 
 type Keys = keyof typeof uz
@@ -151,6 +152,7 @@ const ru: Record<Keys, string> = {
   'catalog.verified': 'Проверена',
   'catalog.slotNote': 'Свободное время ориентировочное: точное проверяется при записи.',
   'landing.greeting': "Здравствуйте, {name}!",
+  'catalog.clear': "Сбросить",
 }
 
 const en: Record<Keys, string> = {
@@ -226,6 +228,7 @@ const en: Record<Keys, string> = {
   'catalog.verified': 'Verified',
   'catalog.slotNote': 'Free times are indicative: the exact time is checked when you book.',
   'landing.greeting': "Hello, {name}!",
+  'catalog.clear': "Clear",
 }
 
 export const landing = { uz, ru, en }

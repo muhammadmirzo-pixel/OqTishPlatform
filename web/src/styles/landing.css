@@ -3,11 +3,12 @@
   .lp-hero {
     position: relative;
     overflow: hidden;
+    /* The last layer fades the glows into the page so the hero has no visible bottom edge. */
     background:
+      linear-gradient(to bottom, transparent 65%, var(--c-bg)),
       radial-gradient(60rem 30rem at 85% 10%, var(--c-primary-soft), transparent 60%),
-      radial-gradient(40rem 24rem at 10% 100%, var(--c-teal-soft), transparent 60%),
+      radial-gradient(40rem 24rem at 10% 90%, var(--c-teal-soft), transparent 60%),
       var(--c-bg);
-    border-bottom: 1px solid var(--c-line);
   }
   .lp-hero__inner {
     max-width: var(--w-page);
@@ -195,6 +196,23 @@
     box-shadow:
       inset 0 0 0 1px var(--c-line),
       var(--e-3);
+  }
+  .lp-art__photo {
+    position: relative;
+    width: min(400px, 100%);
+    aspect-ratio: 5 / 6;
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    background: var(--c-surface-2);
+    box-shadow:
+      inset 0 0 0 1px var(--c-line),
+      var(--e-3);
+  }
+  .lp-art__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
   .lp-art__tooth {
     width: 150px;

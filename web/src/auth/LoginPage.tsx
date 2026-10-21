@@ -9,7 +9,7 @@ import { useQuery } from '../hooks/useQuery'
 import { useTitle } from '../hooks/useTitle'
 import { useI18n } from '../i18n/context'
 import { isValidUzPhone, normalizePhone } from '../lib/phone'
-import { Field, FormError, Notice, SubmitButton } from '../ui/forms'
+import { Field, FormError, Notice, PasswordInput, PhoneInput, SubmitButton } from '../ui/forms'
 import { LoadingState } from '../ui/states'
 import { landingFor, safeNext, useSession } from './session'
 import { TelegramLoginButton } from './TelegramLoginButton'
@@ -162,7 +162,7 @@ export function OtpLogin({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
     return (
       <form onSubmit={send} noValidate className="stack">
         <Field label={t('login.phone')} hint={t('login.phoneHint')} error={touched ? phoneError : null}>
-          {(p) => <input {...p} type="tel" inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />}
+          {(p) => <PhoneInput {...p} autoComplete="tel" value={phone} onChange={setPhone} />}
         </Field>
         <FormError error={request.error} />
         <SubmitButton pending={request.pending}>{t('login.sendCode')}</SubmitButton>
@@ -253,7 +253,7 @@ function StaffLogin({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
         {(p) => <input {...p} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />}
       </Field>
       <Field label={t('login.password')} error={touched ? passwordError : null}>
-        {(p) => <input {...p} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+        {(p) => <PasswordInput {...p} autoComplete="current-password" value={password} onChange={setPassword} />}
       </Field>
       {needTotp && (
         <Field label={t('login.totp')} hint={t('login.totpHint')} error={touched ? totpError : null}>
@@ -345,7 +345,7 @@ function PasswordReset({ initialEmail, onDone, onCancel }: { initialEmail: strin
             {(p) => <input {...p} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />}
           </Field>
           <Field label={t('login.newPassword')} error={touched ? passwordError : null}>
-            {(p) => <input {...p} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+            {(p) => <PasswordInput {...p} autoComplete="new-password" value={password} onChange={setPassword} />}
           </Field>
           <FormError error={confirm.error} />
           <SubmitButton pending={confirm.pending}>{t('login.resetSubmit')}</SubmitButton>

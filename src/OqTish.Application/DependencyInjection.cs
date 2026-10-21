@@ -4,6 +4,7 @@ using OqTish.Application.Admin;
 using OqTish.Application.Audit;
 using OqTish.Application.Booking;
 using OqTish.Application.Catalog;
+using OqTish.Application.Common.Images;
 using OqTish.Application.Common.Seeding;
 using OqTish.Application.Finance;
 using OqTish.Application.Identity;
@@ -33,6 +34,7 @@ public static class DependencyInjection
         // Tenancy / catalog / scheduling
         services.AddScoped<RegisterClinicHandler>();
         services.AddScoped<ClinicProfileHandler>();
+        services.AddScoped<ClinicLogoHandler>();
         services.AddScoped<ClinicDashboardQuery>();
         services.AddScoped<BranchHandlers>();
         services.AddScoped<CatalogHandlers>();
@@ -117,6 +119,10 @@ public static class DependencyInjection
         services.AddScoped<TelegramLinkService>();
         services.AddScoped<SessionsHandler>();
         services.AddScoped<DeleteAccountHandler>();
+        services.AddScoped<AvatarHandler>();
+
+        // Stored images (logos, avatars)
+        services.AddScoped<StoredImageQuery>();
 
         // Seeding
         services.AddScoped<SeedRunner>();

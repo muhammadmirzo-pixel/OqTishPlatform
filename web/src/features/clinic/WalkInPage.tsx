@@ -11,7 +11,7 @@ import { useI18n } from '../../i18n/context'
 import { formatMoney } from '../../lib/format'
 import { isValidUzPhone, normalizePhone } from '../../lib/phone'
 import { isValidDate, isValidTime, localDate, zonedToUtc } from '../../lib/time'
-import { Field, FormError, SubmitButton } from '../../ui/forms'
+import { Field, FormError, PhoneInput, SubmitButton } from '../../ui/forms'
 import { Select } from '../../ui/Select'
 import { DatePicker, TimeSelect } from '../../ui/DatePicker'
 import { PageHeader } from '../../ui/widgets'
@@ -140,7 +140,7 @@ export function WalkInPage() {
             {(p) => <input {...p} maxLength={100} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />}
           </Field>
           <Field label={t('book.phone')} error={err('phone')}>
-            {(p) => <input {...p} type="tel" inputMode="tel" autoComplete="off" placeholder="+998 90 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />}
+            {(p) => <PhoneInput {...p} autoComplete="off" value={phone} onChange={setPhone} />}
           </Field>
         </div>
         <p className="muted small">{t('walkin.consent')}</p>

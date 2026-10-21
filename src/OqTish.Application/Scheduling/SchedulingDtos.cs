@@ -4,7 +4,8 @@ using OqTish.Application.Staff;
 
 namespace OqTish.Application.Scheduling;
 
-public sealed record DoctorDto(Guid Id, string DisplayName, bool IsActive, IReadOnlyList<Guid> BranchIds, IReadOnlyList<Guid> ServiceIds, Guid? UserId);
+/// <summary><see cref="AvatarId"/> = the avatar of the linked user (<see cref="UserId"/>), null when unlinked or none.</summary>
+public sealed record DoctorDto(Guid Id, string DisplayName, bool IsActive, IReadOnlyList<Guid> BranchIds, IReadOnlyList<Guid> ServiceIds, Guid? UserId, Guid? AvatarId);
 
 public sealed record DoctorCommand(string? DisplayName, bool? IsActive, IReadOnlyList<Guid>? BranchIds, IReadOnlyList<Guid>? ServiceIds, Guid? UserId);
 
