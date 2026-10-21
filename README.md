@@ -20,16 +20,17 @@ Interfeys tillari: o'zbek (lotin), rus, ingliz.
 
 ## Tez boshlash (lokal)
 
+Docker + ichki baza (Windows, macOS, Linux). Avval `.env` ni yozing:
+[docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) §2.2.
+
 ```bash
-cd ~/Projects/OqTishProgram
-export PATH=$HOME/.dotnet:$HOME/.local/opt/node/bin:$PATH DOCKER_CONTEXT=default
-docker compose -f compose.yaml -f compose.hostdb.yaml up -d --build --wait     # kompyuterdagi OqTish_db bilan
-docker compose -f compose.yaml -f compose.hostdb.yaml run --rm api seed        # demo ma'lumotlar (bir marta)
-deploy/smoke-test.sh                                                            # 24 ta avtomatik tekshiruv
+docker compose -f compose.yaml -f compose.dev.yaml up -d --build --wait     # ichki PostgreSQL bilan
+docker compose -f compose.yaml -f compose.dev.yaml run --rm api seed        # demo ma'lumotlar (bir marta)
+bash deploy/smoke-test.sh                                                   # 24 ta avtomatik tekshiruv (Windows'da Git Bash)
 ```
 
-Sayt: http://localhost:8080. Demo loginlar, SMS kodni olish va qo'lda sinov ssenariylari
-[docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) da.
+Sayt: http://localhost:8080. Kompyuterdagi PostgreSQL bilan ishlash, Docker'siz ishga tushirish, demo loginlar,
+SMS kodni olish va qo'lda sinov ssenariylari [docs/ISHGA_TUSHIRISH.md](docs/ISHGA_TUSHIRISH.md) da.
 
 ## Texnologiyalar
 

@@ -1,0 +1,4 @@
+# Optional extra root CAs (PEM, *.crt) trusted by the image build stages, for networks that intercept TLS
+# (corporate proxy/DLP). Machine-specific: never committed. Empty directory = no change to the build.
+*
+!.gitignore

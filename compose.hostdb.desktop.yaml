@@ -1,0 +1,26 @@
+# Docker Desktop (Windows / macOS): use a PostgreSQL running on THIS machine instead of the bundled container:
+#   docker compose -f compose.yaml -f compose.hostdb.desktop.yaml up -d --build --wait
+#
+# Same purpose as compose.hostdb.yaml (Linux Docker Engine), but without host networking, which Docker Desktop
+# keeps off by default. Services stay on the backend network and reach the host database via
+# host.docker.internal; Docker Desktop forwards it so PostgreSQL sees the client as 127.0.0.1 (no pg_hba change).
+# The connection comes from OQTISH_HOSTDB_DOCKER_CONNECTION in .env (Host=host.docker.internal; never written here).
+# The web entrypoint stays on 127.0.0.1:${OQTISH_HTTP_PORT:-8080}. Local development only.
+services:
+  postgres:
+    profiles: ["bundled-db"]          # not started in this mode
+
+  migrate:
+    depends_on: !reset {}
+    environment:
+      OQTISH_MIGRATIONS_CONNECTION: ${OQTISH_HOSTDB_DOCKER_CONNECTION:?set in .env}
+
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Main: ${OQTISH_HOSTDB_DOCKER_CONNECTION:?set in .env}
+
+  worker:
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      ConnectionStrings__Main: ${OQTISH_HOSTDB_DOCKER_CONNECTION:?set in .env}

@@ -5,7 +5,10 @@ ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.28-alpine
 FROM ${NODE_IMAGE} AS build
 WORKDIR /web
 COPY web/package.json web/package-lock.json web/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Optional extra root CAs for networks that intercept TLS (deploy/docker/extra-ca/*.crt, never committed).
+COPY deploy/docker/extra-ca/ /extra-ca/
+RUN if ls /extra-ca/*.crt >/dev/null 2>&1; then cat /extra-ca/*.crt > /tmp/extra-ca.pem; export NODE_EXTRA_CA_CERTS=/tmp/extra-ca.pem; fi \
+ && npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 

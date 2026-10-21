@@ -100,7 +100,7 @@ Qolgani (backend kerak — bu kompyuterda Docker o‘chiq, `.env`/user-secrets y
 1. Backend’ni ishga tushirish (egasidan): Docker Desktop + `compose.dev.yaml`, yoki `.env` dagi `OQTISH_HOSTDB_CONNECTION`.
 2. `web/e2e/journeys/*.spec.ts` (`E2E_BACKEND=1`, mock’siz): FRONTEND_PHASE_A §4 J1–J8 — katalogdan klinika topish,
    so‘rov yuborish (idempotency, 409), Pending → holat, filial almashish, tasdiqlash + shifokor, to‘lov, huquqsiz 403,
-   tarmoq xatosi. Kirish: dev OTP (`/api/dev/sms?phone=…`, ISHGA_TUSHIRISH §7.1).
+   tarmoq xatosi. Kirish: dev OTP (`/api/dev/sms?phone=…`, ISHGA_TUSHIRISH §8.1).
 3. Telegram Mini App’ni Telegram ichida tekshirish.
 4. Ixtiyoriy: ru/en kataloglarini lazy yuklash (boshlang‘ich JS < 180 kB), klinika dashboard so‘rovlar zanjiri (LCP 2.8 s).
 

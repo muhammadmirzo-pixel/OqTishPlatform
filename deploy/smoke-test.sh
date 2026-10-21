@@ -4,12 +4,15 @@
 #   deploy/smoke-test.sh                  # against http://localhost:8080
 #   BASE=http://localhost:5173 deploy/smoke-test.sh
 #
-# Prerequisites: stack running in Development mode and `… run --rm api seed` done once.
+# Prerequisites: stack running in Development mode and `… run --rm api seed` done once; bash, curl, python 3
+# (python3, or python on Windows where python3 may be only the Microsoft Store stub; override with PY=…).
 # Prints one line per step: ✅ expected result, ❌ unexpected (exit code 1 if any step fails).
 set -u
 BASE="${BASE:-http://localhost:8080}"; B="$BASE/api"; H='X-OqTish-Client: web'; T=$(mktemp -d); FAIL=0
 trap 'rm -rf "$T"' EXIT
-j() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval(sys.argv[1]))" "$1" 2>/dev/null; }
+PY="${PY:-$(for c in python3 python; do "$c" -c "" >/dev/null 2>&1 && { echo "$c"; break; }; done)}"
+[ -n "$PY" ] || { echo "python 3 not found (set PY=…)" >&2; exit 1; }
+j() { "$PY" -c "import sys,json; d=json.load(sys.stdin); print(eval(sys.argv[1]))" "$1" 2>/dev/null; }
 check() { if [ "$2" = "$3" ]; then printf '✅ %-44s %s\n' "$1" "$2"; else printf '❌ %-44s got %s, expected %s\n' "$1" "$2" "$3"; FAIL=1; fi; }
 post() { curl -s -o "$T/out" -w '%{http_code}' -b "$T/$1" -c "$T/$1" -H "$H" -H 'Content-Type: application/json' ${3:+-H "Idempotency-Key: $3"} -d "$4" "$B$2"; }
 login() { post "$1" /auth/password/login "" "{\"email\":\"$2\",\"password\":\"$3\"}"; }
@@ -30,9 +33,9 @@ ST=$(j 'd["slots"][0]["startsAt"]' < "$T/av")
 check "free slot found" "$([ -n "$ST" ] && echo yes || echo no)" yes
 
 # Patient: OTP sign-in via the Development Fake SMS mailbox
-P="+99890$(shuf -i 1000000-9999999 -n1)"; PE=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$P")
+P="+99890$(shuf -i 1000000-9999999 -n1)"; PE=$("$PY" -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$P")
 post pat /auth/otp/request "" "{\"phone\":\"$P\"}" > /dev/null; CH=$(j 'd["challengeId"]' < "$T/out")
-OTP=$(curl -s "$B/dev/sms?phone=$PE" | python3 -c "import sys,json,re; d=json.load(sys.stdin); d=d if isinstance(d,list) else d.get('items',[]); print(re.search(r'\b(\d{6})\b', json.dumps(d[-1])).group(1))")
+OTP=$(curl -s "$B/dev/sms?phone=$PE" | "$PY" -c "import sys,json,re; d=json.load(sys.stdin); d=d if isinstance(d,list) else d.get('items',[]); print(re.search(r'\b(\d{6})\b', json.dumps(d[-1])).group(1))")
 check "patient OTP sign-in" "$(post pat /auth/otp/verify "" "{\"challengeId\":\"$CH\",\"code\":\"$OTP\"}")" 200
 
 # Booking → confirm

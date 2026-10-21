@@ -9,6 +9,11 @@ FROM ${DOTNET_SDK_IMAGE} AS build
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 WORKDIR /src
 
+# Optional extra root CAs for networks that intercept TLS (deploy/docker/extra-ca/*.crt, never committed).
+# Build stage only; with no .crt files this is a no-op.
+COPY deploy/docker/extra-ca/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 # Restore layer: only project files and lock files, so source edits do not invalidate the cache.
 COPY global.json Directory.Build.props Directory.Packages.props dotnet-tools.json .editorconfig ./
 COPY src/OqTish.Domain/OqTish.Domain.csproj src/OqTish.Domain/packages.lock.json src/OqTish.Domain/
